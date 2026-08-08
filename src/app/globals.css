@@ -1,0 +1,325 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* Stitch ships `darkMode: "class"` but defines no dark palette. Variant kept
+   registered so `dark:` compiles; tokens are light-only until a dark set exists. */
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   Design tokens — ported verbatim from the Google Stitch Tailwind v3 config.
+   This project runs Tailwind v4, which is CSS-configured; there is no
+   tailwind.config.js. Token names are unchanged so Stitch markup pastes in
+   and works: bg-surface-container-lowest, text-on-surface-variant, p-gutter,
+   rounded-card, shadow-ambient-1, font-body-md text-body-md, and so on.
+   ========================================================================== */
+@theme {
+  /* -- Material 3 palette ------------------------------------------------ */
+  --color-primary: #005592;
+  --color-on-primary: #ffffff;
+  --color-primary-container: #1c6eb4;
+  --color-on-primary-container: #e3eeff;
+  --color-primary-fixed: #d2e4ff;
+  --color-primary-fixed-dim: #9fcaff;
+  --color-on-primary-fixed: #001d36;
+  --color-on-primary-fixed-variant: #00497e;
+  --color-inverse-primary: #9fcaff;
+
+  --color-secondary: #46607e;
+  --color-on-secondary: #ffffff;
+  --color-secondary-container: #c1dcff;
+  --color-on-secondary-container: #47617f;
+  --color-secondary-fixed: #d0e4ff;
+  --color-secondary-fixed-dim: #aec9eb;
+  --color-on-secondary-fixed: #001d35;
+  --color-on-secondary-fixed-variant: #2e4965;
+
+  --color-tertiary: #395c00;
+  --color-on-tertiary: #ffffff;
+  --color-tertiary-container: #4a7700;
+  --color-on-tertiary-container: #c3ff75;
+  --color-tertiary-fixed: #b7f568;
+  --color-tertiary-fixed-dim: #9cd84f;
+  --color-on-tertiary-fixed: #102000;
+  --color-on-tertiary-fixed-variant: #304f00;
+
+  --color-error: #ba1a1a;
+  --color-on-error: #ffffff;
+  --color-error-container: #ffdad6;
+  --color-on-error-container: #93000a;
+
+  --color-background: #f6fafe;
+  --color-on-background: #171c1f;
+  --color-surface: #f6fafe;
+  --color-on-surface: #171c1f;
+  --color-surface-variant: #dfe3e7;
+  --color-on-surface-variant: #414751;
+  --color-surface-bright: #f6fafe;
+  --color-surface-dim: #d6dade;
+  --color-surface-tint: #0061a5;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #f0f4f8;
+  --color-surface-container: #eaeef2;
+  --color-surface-container-high: #e4e9ed;
+  --color-surface-container-highest: #dfe3e7;
+  --color-inverse-surface: #2c3134;
+  --color-inverse-on-surface: #edf1f5;
+
+  --color-outline: #717782;
+  --color-outline-variant: #c1c7d2;
+
+  /* -- Brand extensions -------------------------------------------------- */
+  /* Navy: the primary CTA fill. Appears hardcoded as bg-[#0B2A45] on the
+     staff and agent screens, and as the heading colour on the employee
+     screen. Tokenised here so it is set in one place. */
+  --color-navy: #0b2a45;
+  /* Secondary action blue (employee self-service screen). */
+  --color-blue: #1c6eb4;
+  --color-blue-soft: #e6f0f8;
+  /* Hairline border used on the employee login card fields. */
+  --color-line: #e9eff5;
+  /* Agent portal accent gradient stops. */
+  --color-orange: #f59e0b;
+  --color-orange-deep: #c9700b;
+  /* Employee self-service page background. */
+  --color-page-bg: #f4f8fc;
+  /* Dashboard data-viz accents. Stitch hardcodes these as bg-[#...]; they
+     carry semantic meaning (healthy / warning / inert) so they are tokenised
+     rather than left as arbitrary values. */
+  --color-green-main: #3b9a2f;
+  --color-amber-main: #f2a900;
+  /* Unfilled track on bar charts and stacked progress bars. */
+  --color-chart-track: #e4edf4;
+  /* Table row hairline on the dashboard and list screens. */
+  --color-row-line: #e9eff5;
+
+  /* -- Radius ------------------------------------------------------------ */
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+  --radius-card: 14px;
+  --radius-pin: 10px;
+
+  /* -- Spacing ----------------------------------------------------------- */
+  --spacing-rail-width: 96px;
+  --spacing-stack-sm: 8px;
+  --spacing-stack-md: 16px;
+  --spacing-gutter: 20px;
+  --spacing-card-padding: 24px;
+  --spacing-container-margin: 32px;
+
+  /* -- Type scale -------------------------------------------------------- */
+  --text-body-md: 12px;
+  --text-body-md--line-height: 18px;
+  --text-body-md--font-weight: 400;
+
+  --text-label-rail: 10px;
+  --text-label-rail--line-height: 14px;
+  --text-label-rail--font-weight: 500;
+
+  --text-table-header: 10px;
+  --text-table-header--line-height: 12px;
+  --text-table-header--letter-spacing: 0.05em;
+  --text-table-header--font-weight: 600;
+
+  --text-page-title: 20px;
+  --text-page-title--line-height: 28px;
+  --text-page-title--font-weight: 700;
+
+  --text-display-greeting: 22px;
+  --text-display-greeting--line-height: 32px;
+  --text-display-greeting--font-weight: 700;
+
+  --text-card-stat: 22px;
+  --text-card-stat--line-height: 28px;
+  --text-card-stat--font-weight: 700;
+
+  --text-login-title: 18px;
+  --text-login-title--line-height: 24px;
+  --text-login-title--font-weight: 700;
+
+  --text-login-footer: 11px;
+  --text-login-footer--line-height: 16px;
+  --text-login-footer--font-weight: 400;
+
+  /* -- Elevation --------------------------------------------------------- */
+  /* Stitch uses two names for one ramp: ambient-N on the employee screen,
+     level-N on the agent screen. Both are defined so either compiles. */
+  --shadow-ambient-1: 0 2px 8px rgb(11 42 69 / 0.06);
+  --shadow-ambient-2: 0 8px 24px rgb(11 42 69 / 0.1);
+  --shadow-ambient-3: 0 20px 60px rgb(11 42 69 / 0.1);
+  --shadow-level-0: none;
+  --shadow-level-1: 0 2px 8px rgb(11 42 69 / 0.06);
+  --shadow-level-2: 0 8px 24px rgb(11 42 69 / 0.1);
+  --shadow-level-3: 0 20px 60px rgb(11 42 69 / 0.1);
+  /* Master shell — the "software in a window" lift on the portal wrapper. */
+  --shadow-shell: 0 20px 60px rgb(11 42 69 / 0.1);
+  /* Navy alert spotlight card. Deeper than the ambient ramp on purpose. */
+  --shadow-alert: 0 8px 24px rgb(11 42 69 / 0.2);
+}
+
+/* Font families reference the next/font variable, so they must be inlined
+   rather than emitted as indirection. */
+@theme inline {
+  --font-body-md: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  --font-page-title: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  --font-label-rail: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  --font-display-greeting: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  --font-table-header: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  --font-card-stat: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  --font-login-title: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  --font-login-footer: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--font-be-vietnam-pro), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-body-md);
+  }
+
+  /* Material Symbols defaults, matching the Stitch <style> block. */
+  .material-symbols-outlined {
+    font-variation-settings:
+      "FILL" 0,
+      "wght" 400,
+      "GRAD" 0,
+      "opsz" 24;
+  }
+}
+
+@layer components {
+  /* Frosted panels on the staff and agent brand columns. */
+  .glass-card,
+  .glass-panel {
+    background: rgb(255 255 255 / 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgb(255 255 255 / 0.2);
+  }
+
+  /* Agent portal brand gradient. */
+  .bg-orange-gradient {
+    background: linear-gradient(135deg, #f59e0b 0%, #c9700b 100%);
+  }
+
+  /* Elevated white surface with lift-on-hover. */
+  .bento-card {
+    background-color: var(--color-surface-container-lowest);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-ambient-1);
+    transition: all 0.2s ease-in-out;
+  }
+
+  .bento-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-ambient-2);
+  }
+
+  /* Shadow-only variant of .bento-card, for elements that set their own
+     background and radius (stat cards on the primary fill, segment strips).
+     Stitch names this `card-shadow` on the dashboard and `bento-shadow` on the
+     branches screen — same rule, both kept so either name pastes in. */
+  .card-shadow,
+  .bento-shadow {
+    box-shadow: var(--shadow-ambient-1);
+    transition: all 0.2s ease-in-out;
+  }
+
+  .card-shadow:hover,
+  .bento-shadow:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-ambient-2);
+  }
+
+  /* The 96px navigation rail. */
+  .sidebar-gradient {
+    background: linear-gradient(180deg, #1c6eb4 0%, #15548c 100%);
+  }
+
+  /* Data tables. Stitch styles bare `table tr` globally; scoped to this class
+     so the rules cannot leak into a payslip or invoice table that wants its
+     own borders. */
+  .data-table tbody tr {
+    border-bottom: 1px solid var(--color-row-line);
+  }
+
+  .data-table tbody tr:last-child {
+    border-bottom: none;
+  }
+
+  .data-table tbody tr:hover {
+    background-color: var(--color-background);
+  }
+
+  /* Loading placeholder for list and table rows. */
+  .skeleton-loader {
+    animation: shimmer 2s infinite linear;
+    background: linear-gradient(
+      to right,
+      var(--color-surface-container-high) 4%,
+      var(--color-inverse-on-surface) 25%,
+      var(--color-surface-container-high) 36%
+    );
+    background-size: 1000px 100%;
+  }
+}
+
+@layer utilities {
+  .icon-fill {
+    font-variation-settings: "FILL" 1;
+  }
+
+  .custom-shadow-card {
+    box-shadow: var(--shadow-ambient-1);
+  }
+
+  .custom-shadow-hover {
+    box-shadow: var(--shadow-ambient-2);
+  }
+
+  .spin-slow {
+    animation: spin 3s linear infinite;
+  }
+
+  /* Bento grid and rail scroll without a visible scrollbar. */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* PIN boxes are type="number"; strip the native spinners. */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+}
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
