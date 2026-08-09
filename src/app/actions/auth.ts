@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 
 import { env } from "@/config/env";
-import { ROLE_HOME, isRole } from "@/config/roles";
+import { ROLE_HOME, isRole, type Role } from "@/config/roles";
 import {
   agentLoginSchema,
   changePasswordSchema,
@@ -21,19 +21,25 @@ import type { ActionState } from "@/types";
  * component imports it, so each one validates its own input independently.
  */
 
-/** Response shape from the Spring auth endpoints. */
+/**
+ * `dto/response/auth/AuthResponse`, unwrapped from its ApiResponse envelope.
+ * Identical across all three login surfaces.
+ */
 type LoginResponse = {
-  token: string;
+  accessToken: string;
+  refreshToken: string;
   userId: number;
   username: string;
   role: string;
+  displayName: string;
   employeeId: number | null;
   agentId: number | null;
   branchId: number | null;
   mustChangePassword: boolean;
 };
 
-const AUTH_BASE = `${env.API_BASE_URL.replace(/\/$/, "")}/auth`;
+const API_ROOT = env.API_BASE_URL.replace(/\/$/, "");
+const AUTH_BASE = `${API_ROOT}/auth`;
 
 /** Deliberately uniform — never reveal whether an identifier exists. */
 const INVALID_CREDENTIALS = "Incorrect credentials. Please try again.";
@@ -65,7 +71,17 @@ async function authenticate(
       return { error: "Unable to sign in right now. Please try again." };
     }
 
-    return (await response.json()) as LoginResponse;
+    const envelope = (await response.json()) as {
+      success?: boolean;
+      message?: string;
+      data?: LoginResponse | null;
+    };
+
+    if (!envelope.success || !envelope.data?.accessToken) {
+      return { error: INVALID_CREDENTIALS };
+    }
+
+    return envelope.data;
   } catch {
     return { error: "Unable to reach the server. Check your connection." };
   }
@@ -79,12 +95,14 @@ async function establishSession(
   await createSession({
     userId: result.userId,
     username: result.username,
-    role: result.role as never,
+    displayName: result.displayName ?? result.username,
+    role: result.role as Role,
     employeeId: result.employeeId,
     agentId: result.agentId,
     branchId: result.branchId,
     mustChangePassword: result.mustChangePassword,
-    accessToken: result.token,
+    accessToken: result.accessToken,
+    refreshToken: result.refreshToken,
   });
 
   if (result.mustChangePassword) {
@@ -95,7 +113,7 @@ async function establishSession(
   const destination =
     next && next.startsWith("/") && !next.startsWith("//")
       ? next
-      : ROLE_HOME[result.role as never];
+      : ROLE_HOME[result.role as Role];
 
   redirect(destination);
 }
@@ -234,19 +252,25 @@ export async function setPassword(
   }
 
   try {
-    const response = await fetch(`${AUTH_BASE}/change-password`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-        Authorization: `Bearer ${session.accessToken}`,
+    // The change-password endpoint lives on UserController, not the auth
+    // controller, and is keyed by user id — `#userId == authentication
+    // .principal.id or hasRole('SUPER_ADMIN')` guards it server-side.
+    const response = await fetch(
+      `${API_ROOT}/users/${session.userId}/change-password`,
+      {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${session.accessToken}`,
+        },
+        body: JSON.stringify({
+          currentPassword: parsed.data.currentPassword,
+          newPassword: parsed.data.newPassword,
+        }),
+        cache: "no-store",
       },
-      body: JSON.stringify({
-        currentPassword: parsed.data.currentPassword,
-        newPassword: parsed.data.newPassword,
-      }),
-      cache: "no-store",
-    });
+    );
 
     if (!response.ok) {
       return {

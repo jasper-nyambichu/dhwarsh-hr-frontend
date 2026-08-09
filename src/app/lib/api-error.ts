@@ -6,14 +6,20 @@ import "server-only";
  * Parsed in one place so no call site has to guess the response shape.
  */
 
-/** Shape emitted by the Spring GlobalExceptionHandler. */
+/** Shape emitted by the Spring GlobalExceptionHandler (`ApiResponse.error`). */
 export type ApiErrorBody = {
+  success?: boolean;
+  message?: string;
   timestamp?: string;
+  /**
+   * `@Valid` failures land here — the handler puts the field→message map in
+   * the envelope's `data` slot rather than a dedicated `errors` key.
+   */
+  data?: Record<string, string | string[]> | null;
+  /** Spring Boot's own error page shape, for anything short of a controller. */
   status?: number;
   error?: string;
-  message?: string;
   path?: string;
-  /** Field-level violations from @Valid failures. */
   errors?: Record<string, string | string[]>;
 };
 
@@ -62,12 +68,20 @@ export class ApiError extends Error {
 }
 
 function normalizeFieldErrors(
-  errors: ApiErrorBody["errors"],
+  errors: Record<string, string | string[]> | null | undefined,
 ): Record<string, string[]> | undefined {
   if (!errors) return undefined;
 
+  const entries = Object.entries(errors).filter(
+    ([, value]) =>
+      typeof value === "string" ||
+      (Array.isArray(value) && value.every((v) => typeof v === "string")),
+  );
+
+  if (entries.length === 0) return undefined;
+
   return Object.fromEntries(
-    Object.entries(errors).map(([field, value]) => [
+    entries.map(([field, value]) => [
       field,
       Array.isArray(value) ? value : [value],
     ]),
@@ -104,9 +118,25 @@ export async function toApiError(response: Response): Promise<ApiError> {
   return new ApiError(
     response.status,
     message,
-    normalizeFieldErrors(body?.errors),
+    normalizeFieldErrors(asFieldMap(body?.data) ?? body?.errors),
     body?.path,
   );
+}
+
+/**
+ * `data` is the envelope's generic payload slot, so on a validation failure it
+ * holds the field→message map but on any other error it is null — or, for a
+ * hand-rolled error response, could be anything at all. Only a plain object
+ * survives; a string would otherwise index into per-character "fields".
+ */
+function asFieldMap(
+  data: unknown,
+): Record<string, string | string[]> | undefined {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    return undefined;
+  }
+
+  return data as Record<string, string | string[]>;
 }
 
 /**

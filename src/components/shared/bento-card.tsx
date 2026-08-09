@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
  * — while the <h2> stays here, keeping the heading level consistent across
  * tiles. Omit it for tiles that own their whole interior, like the segment
  * strip or the alert spotlight.
+ *
+ * `flush` drops the body padding so a table or chart can bleed to the card
+ * edges. The header keeps its inset, and the body then owns its own spacing —
+ * see the device sync list, which re-applies `p-card-padding pt-0`.
  */
 export function BentoCard({
   title,
@@ -19,6 +23,7 @@ export function BentoCard({
   children,
   className,
   bodyClassName,
+  flush = false,
 }: {
   title?: ReactNode;
   subtitle?: string;
@@ -26,16 +31,23 @@ export function BentoCard({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  flush?: boolean;
 }) {
   return (
     <section
       className={cn(
-        "bento-card p-card-padding",
+        "bento-card",
+        flush || "p-card-padding",
         className,
       )}
     >
       {title ? (
-        <header className="mb-4 flex items-start justify-between gap-3">
+        <header
+          className={cn(
+            "mb-4 flex items-start justify-between gap-3",
+            flush && "px-card-padding pt-card-padding",
+          )}
+        >
           <div className="min-w-0">
             <h2 className="font-body-md text-body-md font-semibold text-on-surface">
               {title}

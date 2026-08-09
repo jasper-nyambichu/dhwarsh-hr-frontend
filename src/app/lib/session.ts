@@ -21,6 +21,7 @@ const encodedKey = new TextEncoder().encode(env.SESSION_SECRET);
 export type SessionPayload = {
   userId: number;
   username: string;
+  displayName: string;
   role: Role;
   employeeId: number | null;
   agentId: number | null;
@@ -28,6 +29,11 @@ export type SessionPayload = {
   mustChangePassword: boolean;
   /** Backend JWT. Server-side only — never send to a Client Component. */
   accessToken: string;
+  /**
+   * Longer-lived backend token, exchanged for a fresh access token when the
+   * access token expires mid-session. Same server-only rule as above.
+   */
+  refreshToken: string;
   expiresAt: string;
 };
 
@@ -52,6 +58,7 @@ export async function decrypt(
       typeof payload.userId !== "number" ||
       typeof payload.username !== "string" ||
       typeof payload.accessToken !== "string" ||
+      typeof payload.refreshToken !== "string" ||
       !isRole(payload.role)
     ) {
       return undefined;
@@ -84,6 +91,65 @@ export async function getSession(): Promise<SessionPayload | undefined> {
   const cookieStore = await cookies();
   return decrypt(cookieStore.get(SESSION_COOKIE)?.value);
 }
+
+/**
+ * Trades the refresh token for a fresh pair via `POST /auth/refresh`.
+ *
+ * The backend access token lives 15 minutes while this cookie lives 8 hours,
+ * so without this every session would start failing a quarter-hour in.
+ * Returns the new access token, or undefined if the refresh token is itself
+ * spent — the caller should then treat the session as ended.
+ *
+ * Deliberately uses raw `fetch` rather than `api` to avoid an import cycle:
+ * api-client depends on this module for the token it attaches.
+ */
+export async function refreshSession(
+  session: SessionPayload,
+): Promise<string | undefined> {
+  let payload: { data?: RefreshedTokens } | undefined;
+
+  try {
+    const response = await fetch(
+      `${env.API_BASE_URL.replace(/\/$/, "")}/auth/refresh`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify({ refreshToken: session.refreshToken }),
+        cache: "no-store",
+      },
+    );
+
+    if (!response.ok) return undefined;
+
+    payload = (await response.json()) as { data?: RefreshedTokens };
+  } catch {
+    return undefined;
+  }
+
+  const tokens = payload?.data;
+
+  if (
+    typeof tokens?.accessToken !== "string" ||
+    typeof tokens?.refreshToken !== "string"
+  ) {
+    return undefined;
+  }
+
+  try {
+    await createSession({ ...session, ...tokens });
+  } catch {
+    // Server Components render with a read-only cookie store, so persisting
+    // fails there. The caller still gets the fresh token for this request;
+    // the next Server Action or Route Handler re-persists it.
+  }
+
+  return tokens.accessToken;
+}
+
+type RefreshedTokens = { accessToken: string; refreshToken: string };
 
 export async function deleteSession(): Promise<void> {
   const cookieStore = await cookies();

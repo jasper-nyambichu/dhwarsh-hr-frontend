@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  * the DAL re-checks on every page.
  *
  * The item list scrolls independently of the header and footer, because
- * SUPER_ADMIN owns nine routes and the rail must not push its own footer
+ * SUPER_ADMIN owns eight routes and the rail must not push its own footer
  * off-screen on a short viewport.
  */
 export function AppRail({ role }: { role: Role }) {

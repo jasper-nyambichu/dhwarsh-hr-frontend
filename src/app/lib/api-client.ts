@@ -4,7 +4,19 @@ import { env } from "@/config/env";
 import type { Paginated } from "@/types";
 
 import { ApiError, toApiError } from "./api-error";
-import { getSession } from "./session";
+import { getSession, refreshSession } from "./session";
+
+/**
+ * Every backend controller returns `dto/response/ApiResponse` — the payload is
+ * always one level down under `data`. Unwrapped here so no call site has to
+ * know the envelope exists.
+ */
+type Envelope<T> = {
+  success: boolean;
+  message: string | null;
+  data: T;
+  timestamp?: string;
+};
 
 /**
  * Server-side fetch wrapper for the Spring Boot API.
@@ -77,24 +89,33 @@ async function request<T>(
     headers.set("Authorization", `Bearer ${session.accessToken}`);
   }
 
-  let response: Response;
+  const url = buildUrl(path, options.query);
+  const init: RequestInit = {
+    method,
+    headers,
+    body: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
+    signal: options.signal,
+    // Authenticated reads are per-user; caching them across users would leak.
+    cache: options.revalidate === undefined ? "no-store" : undefined,
+    next:
+      options.revalidate === undefined
+        ? undefined
+        : { revalidate: options.revalidate, tags: options.tags },
+  };
 
-  try {
-    response = await fetch(buildUrl(path, options.query), {
-      method,
-      headers,
-      body: isFormData ? body : body !== undefined ? JSON.stringify(body) : undefined,
-      signal: options.signal,
-      // Authenticated reads are per-user; caching them across users would leak.
-      cache: options.revalidate === undefined ? "no-store" : undefined,
-      next:
-        options.revalidate === undefined
-          ? undefined
-          : { revalidate: options.revalidate, tags: options.tags },
-    });
-  } catch (cause) {
-    if (cause instanceof Error && cause.name === "AbortError") throw cause;
-    throw new ApiError(503, "Unable to reach the server.");
+  let response = await send(url, init);
+
+  // The backend access token lasts 15 minutes against an 8-hour cookie, so a
+  // 401 mid-session usually means "expired", not "signed out". Refresh once
+  // and replay; a second 401 is genuine and falls through to the caller.
+  if (response.status === 401 && !options.anonymous) {
+    const session = await getSession();
+    const accessToken = session ? await refreshSession(session) : undefined;
+
+    if (accessToken) {
+      headers.set("Authorization", `Bearer ${accessToken}`);
+      response = await send(url, init);
+    }
   }
 
   if (!response.ok) {
@@ -111,7 +132,45 @@ async function request<T>(
     return (await response.text()) as T;
   }
 
-  return (await response.json()) as T;
+  const payload = (await response.json()) as Envelope<T> | T;
+
+  if (!isEnvelope<T>(payload)) {
+    // Not every response is wrapped — Spring Security rejections and any
+    // future raw endpoint come through bare. Pass them straight back.
+    return payload;
+  }
+
+  // A handful of controllers signal refusal with `ApiResponse.error(...)` on a
+  // 200 (LoanController, BiometricSyncController), so an ok status alone does
+  // not mean the call succeeded.
+  if (!payload.success) {
+    throw new ApiError(
+      response.status === 200 ? 400 : response.status,
+      payload.message?.trim() || "The request was rejected.",
+    );
+  }
+
+  return payload.data;
+}
+
+function isEnvelope<T>(payload: unknown): payload is Envelope<T> {
+  return (
+    typeof payload === "object" &&
+    payload !== null &&
+    "success" in payload &&
+    typeof (payload as { success: unknown }).success === "boolean" &&
+    "data" in payload
+  );
+}
+
+/** One network hop. Translates transport failures into a 503 ApiError. */
+async function send(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (cause) {
+    if (cause instanceof Error && cause.name === "AbortError") throw cause;
+    throw new ApiError(503, "Unable to reach the server.");
+  }
 }
 
 export const api = {

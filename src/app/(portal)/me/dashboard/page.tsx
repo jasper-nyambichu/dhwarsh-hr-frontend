@@ -59,7 +59,7 @@ const MY_DOCUMENTS = [
 ] as const;
 
 export default async function MeDashboardPage() {
-  await requirePermission("attendance:read");
+  await requirePermission("attendance:read:self");
 
   return (
     <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">

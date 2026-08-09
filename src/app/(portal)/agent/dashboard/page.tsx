@@ -65,7 +65,7 @@ const PLACEMENT_BY_BRANCH = [
 ] as const;
 
 export default async function AgentDashboardPage() {
-  await requirePermission("agent:read");
+  await requirePermission("agent:read:self");
 
   return (
     <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">

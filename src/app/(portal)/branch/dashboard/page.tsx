@@ -71,7 +71,7 @@ const DEPARTMENT_SPLIT = [
 ] as const;
 
 export default async function BranchDashboardPage() {
-  await requirePermission("attendance:read");
+  await requirePermission("attendance:read:branch");
 
   return (
     <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">

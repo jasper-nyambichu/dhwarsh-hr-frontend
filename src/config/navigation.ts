@@ -30,7 +30,6 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Companies", href: "/admin/companies", icon: "corporate_fare" },
     { title: "Branches", href: "/admin/branches", icon: "account_balance" },
     { title: "Departments", href: "/admin/departments", icon: "workspaces" },
-    { title: "Agents", href: "/admin/agents", icon: "handshake" },
     { title: "Users", href: "/admin/users", icon: "manage_accounts" },
     { title: "Devices", href: "/admin/devices", icon: "fingerprint" },
     { title: "Audit", href: "/admin/audit", icon: "policy" },

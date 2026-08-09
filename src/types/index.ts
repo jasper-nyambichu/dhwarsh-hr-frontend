@@ -23,14 +23,17 @@ export type AuditFields = {
   updatedBy: string | null;
 };
 
-/** Spring Data `Page<T>`. */
+/**
+ * Backend `dto/response/PageResponse` — a trimmed projection of Spring Data
+ * `Page<T>`, not the raw Jackson serialization. There is no `first` flag;
+ * derive it from `pageNumber === 0`.
+ */
 export type Paginated<T> = {
   content: T[];
-  number: number;
-  size: number;
+  pageNumber: number;
+  pageSize: number;
   totalElements: number;
   totalPages: number;
-  first: boolean;
   last: boolean;
 };
 

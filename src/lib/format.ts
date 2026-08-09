@@ -49,6 +49,12 @@ export function formatRelativeTime(value: string | null | undefined): string {
   return date ? formatDistanceToNowStrict(date, { addSuffix: true }) : "—";
 }
 
+/** "August 2026" — payslip/payroll period heading. */
+export function formatMonthYear(value: string | null | undefined): string {
+  const date = safeParse(value);
+  return date ? format(date, "MMMM yyyy") : "—";
+}
+
 /** Value for an <input type="date">. */
 export function toDateInput(value: string | null | undefined): string {
   const date = safeParse(value);
@@ -72,15 +78,22 @@ export function formatDateRange(
 /**
  * "KES 125,000.00". Defaults to KES to match `companies.currency`; pass the
  * company's configured currency where one is available.
+ *
+ * `showCurrency: false` drops the symbol but keeps the two decimal places —
+ * for money columns where the currency sits in the header and repeating it on
+ * every row is noise. The figure still reconciles to the cent.
  */
 export function formatMoney(
   amount: number | null | undefined,
-  currency = "KES",
+  { currency = "KES", showCurrency = true }: {
+    currency?: string;
+    showCurrency?: boolean;
+  } = {},
 ): string {
   if (amount === null || amount === undefined) return "—";
 
   return new Intl.NumberFormat("en-KE", {
-    style: "currency",
+    style: showCurrency ? "currency" : "decimal",
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
