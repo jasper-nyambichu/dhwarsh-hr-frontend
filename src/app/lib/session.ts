@@ -16,7 +16,20 @@ import { isRole, type Role } from "@/config/roles";
  */
 
 const SESSION_COOKIE = "dhwarsh_session";
-const encodedKey = new TextEncoder().encode(env.SESSION_SECRET);
+
+/**
+ * Lazily derives and caches the signing key on first use, rather than at
+ * module scope. Reading `env.SESSION_SECRET` eagerly at import time would
+ * throw the moment anything imports this module — including `next build`
+ * collecting page data — before a request context ever exists.
+ */
+let cachedKey: Uint8Array | undefined;
+function getEncodedKey(): Uint8Array {
+  if (!cachedKey) {
+    cachedKey = new TextEncoder().encode(env.SESSION_SECRET);
+  }
+  return cachedKey;
+}
 
 export type SessionPayload = {
   userId: number;
@@ -42,14 +55,14 @@ export async function encrypt(payload: SessionPayload): Promise<string> {
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
     .setExpirationTime("8h")
-    .sign(encodedKey);
+    .sign(getEncodedKey());
 }
 
 export async function decrypt(
   session: string | undefined = "",
 ): Promise<SessionPayload | undefined> {
   try {
-    const { payload } = await jwtVerify(session, encodedKey, {
+    const { payload } = await jwtVerify(session, getEncodedKey(), {
       algorithms: ["HS256"],
     });
 
