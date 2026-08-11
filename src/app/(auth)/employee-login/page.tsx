@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 
+import { BrandLockup } from "@/components/shared/brand-logo";
 import { EmployeeLoginForm } from "@/components/features/auth/employee-login-form";
 
 export const metadata: Metadata = {
@@ -19,15 +19,11 @@ export default function EmployeeLoginPage() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-page-bg p-gutter font-body-md text-on-surface">
       <div className="flex w-full max-w-sm flex-col items-center">
-        <div className="mb-8 flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-surface-container-lowest bg-surface-container-lowest shadow-ambient-1">
-          <Image
-            src="/logo.png"
-            alt="Dhwarsh HR"
-            width={96}
-            height={96}
-            priority
-            className="h-full w-full object-cover"
-          />
+        {/* A tile rather than the circle this started as: the emblem is wider
+            than it is tall and its checkmark runs to the artwork's right edge,
+            so a circular mask clips the brand. */}
+        <div className="mb-8 w-32 overflow-hidden rounded-3xl border-4 border-surface-container-lowest bg-white shadow-ambient-1">
+          <BrandLockup eager sizes="128px" />
         </div>
 
         <div className="w-full rounded-card bg-surface-container-lowest p-card-padding shadow-ambient-1">

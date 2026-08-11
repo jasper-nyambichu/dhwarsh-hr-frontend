@@ -10,6 +10,7 @@ import { ROLE_LABEL, type Role } from "@/config/roles";
 import { siteConfig } from "@/config/site";
 import { Icon } from "@/components/ui/icon";
 import { useNav } from "@/components/layout/nav-context";
+import { BrandMark } from "@/components/shared/brand-logo";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -84,9 +85,14 @@ export function AppRail({ role }: { role: Role }) {
               showLabels ? "" : "md:flex-col md:gap-1 md:text-center",
             )}
           >
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-surface-container-lowest/20 font-page-title text-page-title text-on-primary">
-              {siteConfig.shortName.charAt(0)}
-            </span>
+            {/* Emblem only: the rail collapses to 96px, where the lockup's
+                wordmark would be unreadable. The adjacent text names the
+                brand, so the mark itself is decorative. */}
+            <BrandMark
+              eager
+              sizes="44px"
+              className="size-11 rounded-xl shadow-sm ring-1 ring-white/25"
+            />
             <span
               className={cn(
                 "flex min-w-0 flex-col",

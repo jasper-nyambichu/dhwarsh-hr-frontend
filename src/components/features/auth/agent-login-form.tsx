@@ -10,12 +10,16 @@ import { useActionToast } from "@/hooks/use-action-toast";
 import type { ActionState } from "@/types";
 
 /**
- * Agent portal sign-in: agent code + password.
+ * Agent portal sign-in: username + password.
  *
- * Credential note: the Stitch screen asks for an "Agent Code" (KES-XXX-XXX),
- * but the `agents` table has no code column — only id, name and kra_pin.
- * Posted as `agentCode`; the backend needs either a new unique column or a
- * mapping onto an existing one before this can authenticate.
+ * Auth note: the backend's login query is `SELECT ... FROM users WHERE
+ * username = ?` (see UserRepository / CustomUserDetailsService) — there is
+ * no separate agent-code credential, only the shared `users.username`
+ * column used by every role. The Stitch screen originally asked for an
+ * "Agent Code" (KES-XXX-XXX), but posting that as `agentCode` always failed
+ * with InvalidCredentialsException since the backend never looks up by
+ * agent code. Field renamed to `username` to match what the backend
+ * actually authenticates against.
  */
 export function AgentLoginForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
@@ -46,29 +50,29 @@ export function AgentLoginForm() {
       <div className="relative space-y-1.5">
         <label
           className="block font-label-rail text-label-rail uppercase tracking-wider text-on-surface-variant"
-          htmlFor="agentCode"
+          htmlFor="username"
         >
-          Agent Code
+          Username
         </label>
         <div className="relative flex items-center">
-          <Icon name="badge" className="absolute left-3 text-[18px] text-outline" />
+          <Icon name="person" className="absolute left-3 text-[18px] text-outline" />
           <input
-            id="agentCode"
-            name="agentCode"
+            id="username"
+            name="username"
             type="text"
             required
             autoComplete="username"
-            placeholder="KES-XXX-XXX"
-            aria-invalid={fieldErrors?.agentCode ? true : undefined}
+            placeholder="Enter your username"
+            aria-invalid={fieldErrors?.username ? true : undefined}
             className={`w-full rounded-lg border bg-surface-container-lowest py-2.5 pl-10 pr-4 font-body-md text-body-md text-on-surface transition-all placeholder:text-outline-variant focus:outline-none focus:ring-1 ${
-              fieldErrors?.agentCode
+              fieldErrors?.username
                 ? "border-error focus:border-error focus:ring-error"
                 : "border-outline-variant focus:border-primary focus:ring-primary focus:shadow-[0_0_0_2px_rgba(0,85,146,0.1)]"
             }`}
           />
         </div>
-        {fieldErrors?.agentCode ? (
-          <p className="text-[10px] text-error">{fieldErrors.agentCode[0]}</p>
+        {fieldErrors?.username ? (
+          <p className="text-[10px] text-error">{fieldErrors.username[0]}</p>
         ) : null}
       </div>
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 
 import { Icon } from "@/components/ui/icon";
+import { BrandLockup } from "@/components/shared/brand-logo";
 import { SetPasswordForm } from "@/components/features/auth/set-password-form";
 import { verifySessionAllowingPasswordChange } from "@/app/lib/dal";
 
@@ -21,15 +21,8 @@ export default async function SetPasswordPage() {
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-4 font-body-md text-on-surface">
       <div className="flex w-full max-w-md flex-col items-center">
-        <div className="mb-6 flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border-4 border-surface-container-lowest bg-surface-container-lowest shadow-ambient-1">
-          <Image
-            src="/logo.png"
-            alt="Dhwarsh HR"
-            width={80}
-            height={80}
-            priority
-            className="h-full w-full object-cover"
-          />
+        <div className="mb-6 w-28 overflow-hidden rounded-3xl border-4 border-surface-container-lowest bg-white shadow-ambient-1">
+          <BrandLockup eager sizes="112px" />
         </div>
 
         <div className="w-full rounded-card bg-surface-container-lowest p-card-padding shadow-ambient-1">

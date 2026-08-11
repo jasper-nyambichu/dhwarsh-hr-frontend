@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Icon } from "@/components/ui/icon";
+import { BrandMark } from "@/components/shared/brand-logo";
 import { AgentLoginForm } from "@/components/features/auth/agent-login-form";
 
 export const metadata: Metadata = {
@@ -35,9 +36,11 @@ export default function AgentLoginPage() {
           </div>
 
           <div className="relative z-10 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/30 bg-white/20 backdrop-blur-sm">
-              <Icon name="groups" filled className="font-bold text-white" />
-            </div>
+            <BrandMark
+              eager
+              sizes="40px"
+              className="size-10 rounded-xl shadow-sm ring-1 ring-white/30"
+            />
             <div>
               <h1 className="font-page-title text-page-title leading-tight text-white">
                 Dhwarsh
@@ -88,9 +91,10 @@ export default function AgentLoginPage() {
         {/* -------------------------------------------- RIGHT: form panel */}
         <section className="relative flex flex-1 flex-col items-center justify-center bg-surface-container-lowest p-6 md:p-12">
           <div className="absolute left-8 top-8 flex items-center gap-3 md:hidden">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-              <Icon name="groups" filled className="font-bold text-primary" />
-            </div>
+            <BrandMark
+              sizes="40px"
+              className="size-10 rounded-xl ring-1 ring-outline-variant"
+            />
             <div>
               <h1 className="font-page-title text-page-title leading-tight text-primary">
                 Dhwarsh
@@ -115,23 +119,6 @@ export default function AgentLoginPage() {
             </div>
 
             <AgentLoginForm />
-          </div>
-
-          <div className="absolute bottom-8 flex w-full max-w-[380px] items-center justify-between px-4 md:px-0">
-            <Link
-              href="/login"
-              className="flex items-center gap-1 font-label-rail text-label-rail text-on-surface-variant transition-colors hover:text-primary"
-            >
-              Staff Login
-              <Icon name="arrow_forward" className="text-[12px]" />
-            </Link>
-            <Link
-              href="/employee-login"
-              className="flex items-center gap-1 font-label-rail text-label-rail text-on-surface-variant transition-colors hover:text-primary"
-            >
-              Employee Self-Service
-              <Icon name="arrow_forward" className="text-[12px]" />
-            </Link>
           </div>
         </section>
       </main>

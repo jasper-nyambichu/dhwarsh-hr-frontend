@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { Suspense } from "react";
 
 import { Icon } from "@/components/ui/icon";
+import { BrandLockup, BrandMark } from "@/components/shared/brand-logo";
 import { StaffLoginForm } from "@/components/features/auth/staff-login-form";
 
 export const metadata: Metadata = {
@@ -24,13 +24,10 @@ export default function StaffLoginPage() {
       {/* ---------------------------------------------- LEFT: brand (48%) */}
       <div className="relative hidden h-full w-[48%] flex-col overflow-hidden bg-gradient-to-b from-primary-container to-on-primary-fixed-variant p-10 lg:flex">
         <div className="z-10 mb-auto">
-          <Image
-            src="/logo.png"
-            alt="Dhwarsh"
-            width={64}
-            height={64}
-            priority
-            className="h-16 w-16 rounded-xl border border-white/20 object-cover shadow-lg"
+          <BrandMark
+            eager
+            sizes="64px"
+            className="size-16 rounded-2xl shadow-lg ring-1 ring-white/25"
           />
         </div>
 
@@ -106,17 +103,14 @@ export default function StaffLoginPage() {
 
       {/* --------------------------------------------- RIGHT: form (52%) */}
       <div className="relative flex h-full w-full flex-col items-center justify-center bg-surface-container-lowest lg:w-[52%]">
-        <div className="absolute left-8 top-8 lg:hidden">
-          <Image
-            src="/logo.png"
-            alt="Dhwarsh"
-            width={40}
-            height={40}
-            className="h-10 w-10 rounded-lg object-cover shadow-sm"
-          />
-        </div>
-
         <div className="w-full max-w-[380px] px-6">
+          {/* The full lockup lives on the form side, not just the brand panel:
+              that panel is hidden below lg, and even on desktop its mark sits
+              a half-screen away from the field the user is looking at. This is
+              the one place the wordmark is shown at a readable size on every
+              breakpoint. */}
+          <BrandLockup eager sizes="128px" className="mb-6 w-32 max-w-full" />
+
           <div className="mb-8">
             <h2 className="mb-2 font-display-greeting text-display-greeting text-on-surface">
               Welcome back
