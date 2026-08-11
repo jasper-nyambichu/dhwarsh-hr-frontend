@@ -24,21 +24,25 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-6 flex flex-col gap-3 sm:mb-8 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4">
       <div className="min-w-0">
-        <h1 className="flex flex-wrap items-center gap-3 font-display-greeting text-display-greeting text-primary">
+        <h1 className="flex flex-wrap items-center gap-2 font-display-greeting text-lg text-primary sm:gap-3 sm:text-display-greeting">
           {title}
           {pill}
         </h1>
         {description ? (
-          <p className="mt-2 font-body-md text-body-md text-on-surface-variant">
+          <p className="mt-1.5 font-body-md text-body-md text-on-surface-variant sm:mt-2">
             {description}
           </p>
         ) : null}
       </div>
 
+      {/* Wraps rather than shrinking: a row of action buttons squeezed onto a
+          360px screen becomes a row of unreadable slivers. */}
       {actions ? (
-        <div className="flex shrink-0 items-center gap-2">{actions}</div>
+        <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
+          {actions}
+        </div>
       ) : null}
     </div>
   );

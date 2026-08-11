@@ -35,7 +35,7 @@ export default async function NewAgentAdvancePage() {
         }
       />
 
-      <form id="new-advance-form" className="mx-auto grid max-w-6xl grid-cols-1 gap-gutter pb-24 md:grid-cols-12">
+      <form id="new-advance-form" className="mx-auto grid max-w-6xl grid-cols-1 gap-gutter md:grid-cols-12">
         {/* ───────────────────────────────── main column ─────────────────── */}
         <div className="md:col-span-8">
           <BentoCard title="Advance Details">
@@ -140,7 +140,9 @@ export default async function NewAgentAdvancePage() {
         </div>
       </form>
 
-      <div className="fixed bottom-0 left-0 z-20 flex w-full justify-end gap-4 border-t border-outline-variant bg-surface/90 p-container-margin py-4 backdrop-blur-md">
+      {/* Sticky within the content column rather than fixed to the viewport,
+          which would sit on top of the sidebar at every width. */}
+      <div className="sticky bottom-0 z-20 -mx-4 mt-gutter flex flex-wrap justify-end gap-3 border-t border-outline-variant bg-surface/90 p-4 backdrop-blur-md sm:-mx-6 lg:-mx-container-margin">
         <button type="button" className="rounded-lg px-6 py-2.5 font-medium text-primary transition-colors hover:bg-primary/5">
           Cancel
         </button>

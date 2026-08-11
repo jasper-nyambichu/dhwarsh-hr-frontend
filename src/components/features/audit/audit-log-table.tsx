@@ -1,8 +1,9 @@
 // src/components/features/audit/audit-log-table.tsx
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Icon } from "@/components/ui/icon";
+import { toast } from "@/lib/toast";
 
 /**
  * ─────────────────────────────────────────────────────────────────────────
@@ -48,6 +49,29 @@ function actionColor(action: AuditLogAction) {
   }
 }
 
+/**
+ * Copies the raw diff, and says whether it worked.
+ *
+ * `navigator.clipboard` is undefined on insecure origins and rejects when the
+ * document is not focused, so the unguarded call this replaces could throw or
+ * no-op while still looking like it had copied.
+ */
+async function copyDiff(detail: AuditLogDetail) {
+  if (detail.kind !== "diff") return;
+
+  const raw = detail.lines.map((line) => line.text).join("\n");
+
+  try {
+    if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+    await navigator.clipboard.writeText(raw);
+    toast.success("Diff copied to clipboard");
+  } catch {
+    toast.error("Couldn't copy to clipboard", {
+      description: "Your browser blocked clipboard access. Select the text and copy manually.",
+    });
+  }
+}
+
 export function AuditLogTable({ logs }: { logs: AuditLogEntry[] }) {
   const [expandedId, setExpandedId] = useState<number | null>(logs[0]?.id ?? null);
 
@@ -88,10 +112,14 @@ export function AuditLogTable({ logs }: { logs: AuditLogEntry[] }) {
             {logs.map((log) => {
               const isOpen = expandedId === log.id;
               return (
-                <>
+                /* The key belongs on the outermost node returned from map —
+                   on a bare <> it has nowhere to go, so the row and its detail
+                   panel are wrapped in a keyed Fragment instead. */
+                <Fragment key={log.id}>
                   <tr
-                    key={log.id}
                     onClick={() => setExpandedId(isOpen ? null : log.id)}
+                    data-live=""
+                    aria-expanded={isOpen}
                     className={`cursor-pointer border-b border-outline-variant transition-colors hover:bg-surface ${
                       log.result === "error" ? "bg-error-container/10" : ""
                     }`}
@@ -133,9 +161,8 @@ export function AuditLogTable({ logs }: { logs: AuditLogEntry[] }) {
                                 </h4>
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    navigator.clipboard.writeText(log.detail.kind === "diff" ? JSON.stringify(log.detail.lines) : "")
-                                  }
+                                  data-live=""
+                                  onClick={() => copyDiff(log.detail)}
                                   className="flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
                                 >
                                   <Icon name="content_copy" className="text-[14px]" />
@@ -186,7 +213,7 @@ export function AuditLogTable({ logs }: { logs: AuditLogEntry[] }) {
                       </td>
                     </tr>
                   )}
-                </>
+                </Fragment>
               );
             })}
           </tbody>

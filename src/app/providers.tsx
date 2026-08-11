@@ -6,7 +6,7 @@ import {
   QueryClientProvider,
   isServer,
 } from "@tanstack/react-query";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/toaster";
 
 function makeQueryClient() {
   return new QueryClient({
@@ -48,7 +48,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      <Toaster richColors closeButton position="top-right" />
+      <Toaster />
     </QueryClientProvider>
   );
 }

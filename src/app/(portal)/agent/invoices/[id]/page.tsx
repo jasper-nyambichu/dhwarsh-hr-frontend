@@ -53,7 +53,7 @@ export default async function AgentInvoiceDocumentPage({ params }: { params: Pro
           <Icon name="arrow_back" />
           Back to Invoices
         </button>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-3 sm:gap-4">
           <button type="button" className="flex items-center gap-2 rounded-lg border border-primary px-4 py-2 font-label-rail text-label-rail uppercase tracking-wider text-primary transition-colors hover:bg-primary-fixed">
             <Icon name="print" />
             Print
@@ -121,8 +121,8 @@ export default async function AgentInvoiceDocumentPage({ params }: { params: Pro
           </div>
         </div>
 
-        <div className="mb-12 flex-1">
-          <table className="w-full border-collapse text-left">
+        <div className="mb-12 flex-1 overflow-x-auto">
+          <table className="w-full min-w-[520px] border-collapse text-left">
             <thead>
               <tr className="border-b-2 border-primary">
                 <th className="px-2 py-3 font-table-header text-table-header uppercase text-primary">Employee</th>

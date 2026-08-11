@@ -57,7 +57,7 @@ export default async function EmployeePayslipsPage() {
       <PageHeader
         title="Payslip Directory"
         actions={
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-3 sm:gap-4">
             <select
               defaultValue="2023"
               className="rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary"
@@ -73,9 +73,9 @@ export default async function EmployeePayslipsPage() {
         }
       />
 
-      <div className="flex gap-gutter">
+      <div className="flex flex-col gap-gutter xl:flex-row">
         {/* ─────────────────────────────── main column ─────────────────── */}
-        <div className="flex flex-1 flex-col gap-gutter">
+        <div className="flex min-w-0 flex-1 flex-col gap-gutter">
           <BentoCard flush>
             <div className="overflow-x-auto p-card-padding">
               <table className="w-full border-collapse text-left">
@@ -118,7 +118,9 @@ export default async function EmployeePayslipsPage() {
         </div>
 
         {/* ────────────────────────────── side column ──────────────────── */}
-        <div className="flex w-[320px] shrink-0 flex-col gap-gutter pt-10">
+        {/* Full width until xl, where it becomes a fixed side column. The
+            pt-10 only makes sense once it sits beside the table. */}
+        <div className="flex w-full flex-col gap-gutter xl:w-[320px] xl:shrink-0 xl:pt-10">
           <BentoCard flush>
             <div className="flex items-center justify-between p-card-padding">
               <div>

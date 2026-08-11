@@ -7,6 +7,7 @@ import { useActionState } from "react";
 import { login } from "@/app/actions/auth";
 import { Icon } from "@/components/ui/icon";
 import { PasswordField } from "@/components/shared/password-field";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type { ActionState } from "@/types";
 
 /**
@@ -28,6 +29,10 @@ export function StaffLoginForm() {
 
   const error = state.status === "error" ? state : undefined;
   const fieldErrors = error?.fieldErrors;
+
+  // Success redirects, so only failures are announced. The inline banner stays
+  // — the toast is the version a user on a small screen actually sees.
+  useActionToast(state);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">

@@ -81,7 +81,7 @@ export default async function AgentProfilePage() {
         }
       />
 
-      <form id="agent-profile-form" className="grid grid-cols-12 gap-gutter pb-24">
+      <form id="agent-profile-form" className="grid grid-cols-12 gap-gutter">
         <div className="col-span-12 lg:col-span-8">
           <BentoCard
             title={
@@ -222,7 +222,11 @@ export default async function AgentProfilePage() {
         </div>
       </form>
 
-      <div className="fixed bottom-0 left-rail-width right-0 z-40 flex justify-end gap-4 border-t border-outline-variant bg-white/80 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] backdrop-blur-md">
+      {/* Sticky, not fixed: a fixed bar has to be told where the rail ends
+          (`left-rail-width`), which silently breaks the moment the sidebar is
+          expanded or the layout is viewed below md. Sticking to the bottom of
+          the content column tracks the rail width for free. */}
+      <div className="sticky bottom-0 z-40 -mx-4 mt-gutter flex flex-wrap justify-end gap-3 border-t border-outline-variant bg-white/80 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] backdrop-blur-md sm:-mx-6 lg:-mx-container-margin">
         <button type="button" className="rounded-lg px-6 py-2 font-medium text-primary transition-colors hover:bg-blue-soft">
           Cancel
         </button>

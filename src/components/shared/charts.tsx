@@ -40,9 +40,11 @@ export function StackedBar({
         ))}
       </div>
 
-      <ul className="mt-4 flex items-center justify-between gap-2 px-2">
+      {/* Wraps instead of compressing: with five segments on a 360px screen a
+          single justified row shrinks each label past legibility. */}
+      <ul className="mt-4 flex flex-wrap items-start justify-between gap-x-3 gap-y-2 px-1 sm:px-2">
         {segments.map((segment) => (
-          <li key={segment.label} className="flex flex-col items-center">
+          <li key={segment.label} className="flex min-w-0 flex-col items-center">
             <div className="flex items-center gap-1">
               <span
                 aria-hidden
@@ -144,23 +146,23 @@ export function DonutChart({
       >
         {segments.map((segment) => (
           <li key={segment.label} className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
+            <div className="flex min-w-0 items-center gap-1.5">
               <span
                 aria-hidden
                 className="size-2 shrink-0 rounded-full"
                 style={{ backgroundColor: segment.color }}
               />
-              <span className="text-[10px] font-medium text-on-surface">
+              <span className="min-w-0 truncate text-[10px] font-medium text-on-surface">
                 {segment.label}
               </span>
             </div>
             {legend === "value" ? (
-              <span className="text-[10px] font-bold tabular-nums text-on-surface">
+              <span className="shrink-0 text-[10px] font-bold tabular-nums text-on-surface">
                 {segment.value.toLocaleString()}
               </span>
             ) : (
               <span
-                className="text-[10px] font-bold tabular-nums"
+                className="shrink-0 text-[10px] font-bold tabular-nums"
                 style={{ color: segment.color }}
               >
                 {Math.round((segment.value / total) * 100)}%

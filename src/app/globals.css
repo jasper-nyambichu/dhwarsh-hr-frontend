@@ -100,12 +100,20 @@
   --radius-pin: 10px;
 
   /* -- Spacing ----------------------------------------------------------- */
+  /* Collapsed icon rail. The expanded width is w-[264px] at the one call site
+     that needs it — a second token for a single consumer is indirection, not
+     abstraction. */
   --spacing-rail-width: 96px;
   --spacing-stack-sm: 8px;
   --spacing-stack-md: 16px;
   --spacing-gutter: 20px;
   --spacing-card-padding: 24px;
   --spacing-container-margin: 32px;
+
+  /* Reading-width cap for the content column. The shell is full-bleed, but a
+     data table stretched across an ultrawide monitor is unreadable — this is
+     the point past which extra width stops helping. */
+  --container-content: 1920px;
 
   /* -- Type scale -------------------------------------------------------- */
   --text-body-md: 12px;

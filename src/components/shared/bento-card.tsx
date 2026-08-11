@@ -36,19 +36,23 @@ export function BentoCard({
   return (
     <section
       className={cn(
-        "bento-card",
-        flush || "p-card-padding",
+        // min-w-0 lets a card inside a grid track actually shrink; without it a
+        // wide table sets the track's minimum and the whole row overflows.
+        "bento-card min-w-0",
+        flush || "p-4 sm:p-card-padding",
         className,
       )}
     >
       {title ? (
         <header
           className={cn(
-            "mb-4 flex items-start justify-between gap-3",
-            flush && "px-card-padding pt-card-padding",
+            // Wraps so a long title plus an action chip stack on narrow cards
+            // instead of crushing each other.
+            "mb-4 flex flex-wrap items-start justify-between gap-x-3 gap-y-2",
+            flush && "px-4 pt-4 sm:px-card-padding sm:pt-card-padding",
           )}
         >
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="font-body-md text-body-md font-semibold text-on-surface">
               {title}
             </h2>
@@ -60,7 +64,7 @@ export function BentoCard({
         </header>
       ) : null}
 
-      <div className={bodyClassName}>{children}</div>
+      <div className={cn("min-w-0", bodyClassName)}>{children}</div>
     </section>
   );
 }

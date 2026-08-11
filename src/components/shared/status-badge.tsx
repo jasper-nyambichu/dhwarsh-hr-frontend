@@ -7,18 +7,21 @@ import { humanizeEnum } from "@/lib/format";
  *
  * Grouped by meaning rather than by module, so a PENDING loan and a PENDING
  * leave request read identically to the user.
+ *
+ * Token note: the neutral tone previously used shadcn's `bg-muted` /
+ * `text-muted-foreground`, which are not defined in this project's `@theme`
+ * block — neutral pills rendered as unstyled text on no background. The tones
+ * below use the app's own Material palette so every status is legible.
  */
 
 type Tone = "neutral" | "success" | "warning" | "danger" | "info";
 
 const TONE_CLASS: Record<Tone, string> = {
-  neutral: "bg-muted text-muted-foreground",
-  success:
-    "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400",
-  warning:
-    "bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400",
-  danger: "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400",
-  info: "bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-400",
+  neutral: "bg-surface-container text-on-surface-variant",
+  success: "bg-tertiary-container/15 text-tertiary",
+  warning: "bg-amber-main/15 text-amber-main",
+  danger: "bg-error-container/40 text-error",
+  info: "bg-blue-soft text-primary-container",
 };
 
 const STATUS_TONE: Record<string, Tone> = {
@@ -65,7 +68,7 @@ export function StatusBadge({
   className?: string;
 }) {
   if (!status) {
-    return <span className="text-sm text-muted-foreground">—</span>;
+    return <span className="text-sm text-on-surface-variant">—</span>;
   }
 
   const tone = STATUS_TONE[status] ?? "neutral";

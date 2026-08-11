@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { setPassword } from "@/app/actions/auth";
 import { Icon } from "@/components/ui/icon";
 import { PasswordField } from "@/components/shared/password-field";
+import { useActionToast } from "@/hooks/use-action-toast";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "@/types";
 
@@ -32,6 +33,9 @@ export function SetPasswordForm() {
   const error = state.status === "error" ? state : undefined;
   const fieldErrors = error?.fieldErrors;
   const met = RULES.filter((r) => r.test(password)).length;
+
+  // Success redirects to the role home; only failures surface here.
+  useActionToast(state);
 
   return (
     <form action={formAction} className="flex flex-col gap-5">

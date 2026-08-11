@@ -62,7 +62,7 @@ const LOAN_HISTORY: readonly LoanHistoryRow[] = [
 
 const STATUS_BADGE: Record<LoanStatus, string> = {
   ACTIVE: "bg-primary-container/10 text-primary-container",
-  COMPLETED: "bg-accent-green/10 text-accent-green",
+  COMPLETED: "bg-green-main/10 text-green-main",
 };
 
 export default async function EmployeeLoansPage() {
@@ -149,7 +149,7 @@ export default async function EmployeeLoansPage() {
               </div>
             </div>
             <p className="mb-1 font-card-stat text-on-surface">{formatMoneyCompact(ELIGIBLE_AMOUNT)}</p>
-            <p className="flex items-center gap-1 text-xs text-accent-green">
+            <p className="flex items-center gap-1 text-xs text-green-main">
               <Icon name="check_circle" className="text-[14px]" />
               Based on current salary band
             </p>

@@ -101,8 +101,8 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
               </div>
             </div>
 
-            <div className="flex-1">
-              <table className="w-full border-collapse text-left">
+            <div className="flex-1 overflow-x-auto">
+              <table className="w-full min-w-[520px] border-collapse text-left">
                 <thead>
                   <tr className="border-b-2 border-primary">
                     <th className="w-1/2 py-3 text-[10px] uppercase text-on-surface-variant">Description / Employee</th>

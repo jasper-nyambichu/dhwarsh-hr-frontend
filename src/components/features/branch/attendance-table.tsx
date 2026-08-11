@@ -3,6 +3,8 @@
 
 import { useState } from "react";
 
+import { toast } from "@/lib/toast";
+
 export type AttendanceStatus = "Present" | "Absent" | "Late" | "Pending";
 
 export interface AttendanceRow {
@@ -26,7 +28,11 @@ export function AttendanceTable({ rows: initialRows }: { rows: AttendanceRow[] }
   const [rows, setRows] = useState(initialRows);
 
   function setStatus(id: string, status: AttendanceStatus) {
+    const row = rows.find((r) => r.id === id);
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, status } : r)));
+    if (row && row.status !== status) {
+      toast.success(`${row.name} marked ${status}`);
+    }
   }
 
   return (
@@ -34,10 +40,20 @@ export function AttendanceTable({ rows: initialRows }: { rows: AttendanceRow[] }
       <div className="flex items-center justify-between border-b border-outline-variant/20 p-4">
         <h3 className="font-semibold text-on-surface">Today&apos;s Roster</h3>
         <div className="flex gap-2">
-          <button className="rounded-md bg-primary-container/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary-container/20">
+          <button
+            type="button"
+            data-live=""
+            onClick={() => toast.notImplemented("All-shifts filter")}
+            className="rounded-md bg-primary-container/10 px-3 py-1 text-xs font-medium text-primary transition-colors hover:bg-primary-container/20"
+          >
             All
           </button>
-          <button className="rounded-md px-3 py-1 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface-container">
+          <button
+            type="button"
+            data-live=""
+            onClick={() => toast.notImplemented("Shift filter")}
+            className="rounded-md px-3 py-1 text-xs font-medium text-on-surface-variant transition-colors hover:bg-surface-container"
+          >
             Morning Shift
           </button>
         </div>
@@ -82,7 +98,11 @@ export function AttendanceTable({ rows: initialRows }: { rows: AttendanceRow[] }
                       {(["Present", "Absent", "Late"] as const).map((s) => (
                         <button
                           key={s}
+                          type="button"
+                          data-live=""
                           onClick={() => setStatus(row.id, s)}
+                          aria-pressed={row.status === s}
+                          aria-label={`Mark ${row.name} ${s}`}
                           className={`rounded-md px-2 py-1 text-[10px] font-medium transition-colors ${
                             row.status === s ? "bg-white shadow-sm text-primary" : "text-on-surface-variant hover:bg-white/50"
                           }`}

@@ -80,7 +80,7 @@ export default async function PayslipDetailPage({ params }: { params: Promise<{ 
   const totalDeductions = payslip.deductions.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div className="min-h-screen bg-surface-container-lowest/50">
+    <div className="bg-surface-container-lowest/50">
       {/* ─────────────────────────────── document controls ─────────────── */}
       <div className="mx-auto mb-6 flex max-w-4xl items-center justify-between p-container-margin pb-0">
         <Link

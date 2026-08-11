@@ -65,13 +65,13 @@ export function MetricCard({
       className={cn(
         // .bento-card already carries the white fill, radius, ambient shadow
         // and hover lift — do not also add .card-shadow, they duplicate.
-        "bento-card flex flex-col justify-between p-card-padding",
+        "bento-card flex min-w-0 flex-col justify-between p-4 sm:p-card-padding",
         accent && styles.edge,
         className,
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="font-body-md text-body-md text-on-surface-variant">
+        <p className="min-w-0 font-body-md text-body-md text-on-surface-variant">
           {label}
         </p>
         <span
@@ -84,7 +84,9 @@ export function MetricCard({
         </span>
       </div>
 
-      <p className="mt-4 font-card-stat text-card-stat tabular-nums text-on-surface">
+      {/* `break-words` rather than `truncate`: a clipped currency figure is
+          worse than a wrapped one — "KES 1,2…" is actively misleading. */}
+      <p className="mt-4 break-words font-card-stat text-card-stat tabular-nums text-on-surface">
         {value}
       </p>
 

@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { employeeLogin } from "@/app/actions/auth";
 import { Icon } from "@/components/ui/icon";
 import { PinInput } from "@/components/shared/pin-input";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type { ActionState } from "@/types";
 
 /**
@@ -24,6 +25,11 @@ export function EmployeeLoginForm() {
 
   const error = state.status === "error" ? state : undefined;
   const fieldErrors = error?.fieldErrors;
+
+  // A successful sign-in redirects, so there is no success toast to show here.
+  // Failures are announced as well as rendered inline: on a phone the submit
+  // button sits below the fold of the error banner.
+  useActionToast(state);
 
   return (
     <form action={formAction} className="flex flex-col gap-stack-md">

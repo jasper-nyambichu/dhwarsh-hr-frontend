@@ -57,7 +57,7 @@ export default async function DisbursementsPage() {
 
       <div className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_2px_8px_rgba(11,42,69,.06)]">
         <div className="flex items-center justify-between border-b border-surface-container bg-surface-bright/50 p-6">
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-3 sm:gap-4">
             <select className="rounded-md border border-[#E9EFF5] px-3 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
               <option>All Statuses</option>
               <option>Processing</option>

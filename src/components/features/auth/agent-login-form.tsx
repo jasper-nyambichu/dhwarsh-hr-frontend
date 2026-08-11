@@ -6,6 +6,7 @@ import { useActionState } from "react";
 import { agentLogin } from "@/app/actions/auth";
 import { Icon } from "@/components/ui/icon";
 import { PasswordField } from "@/components/shared/password-field";
+import { useActionToast } from "@/hooks/use-action-toast";
 import type { ActionState } from "@/types";
 
 /**
@@ -24,6 +25,9 @@ export function AgentLoginForm() {
 
   const error = state.status === "error" ? state : undefined;
   const fieldErrors = error?.fieldErrors;
+
+  // Success redirects; only failures need announcing.
+  useActionToast(state);
 
   return (
     <form action={formAction} className="space-y-5">

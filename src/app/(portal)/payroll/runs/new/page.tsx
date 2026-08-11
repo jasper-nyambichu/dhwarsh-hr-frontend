@@ -178,7 +178,7 @@ export default async function NewPayrollRunPage() {
             <Icon name="verified" className="text-[16px] text-tertiary-fixed-dim" />
             Calculations verified against KRA 2026 guidelines
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-3 sm:gap-4">
             <Link
               href="/payroll/runs/new"
               className="flex h-10 items-center rounded-lg border border-primary-container px-6 font-body-md text-body-md font-bold text-primary-container transition-colors hover:bg-blue-soft"

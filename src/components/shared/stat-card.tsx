@@ -29,7 +29,7 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "card-shadow group relative overflow-hidden rounded-card bg-primary-container p-card-padding text-on-primary",
+        "card-shadow group relative min-w-0 overflow-hidden rounded-card bg-primary-container p-4 text-on-primary sm:p-card-padding",
         className,
       )}
     >
@@ -41,7 +41,7 @@ export function StatCard({
       </div>
 
       <div className="relative z-10 flex items-start justify-between gap-2">
-        <p className="font-body-md text-body-md opacity-90">{label}</p>
+        <p className="min-w-0 font-body-md text-body-md opacity-90">{label}</p>
         {badgeIcon ? (
           <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-surface-container-lowest/20">
             <Icon name={badgeIcon} className="text-sm" />
@@ -49,7 +49,7 @@ export function StatCard({
         ) : null}
       </div>
 
-      <p className="relative z-10 mt-stack-md font-card-stat text-card-stat tabular-nums">
+      <p className="relative z-10 mt-stack-md break-words font-card-stat text-card-stat tabular-nums">
         {value}
       </p>
 

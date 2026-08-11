@@ -40,10 +40,10 @@ export function SegmentStrip({
           key={segment.label}
           className="flex flex-1 flex-col items-center justify-center py-4"
         >
-          <span className="mb-1 text-[10px] text-outline">{segment.label}</span>
+          <span className="mb-1 max-w-full truncate px-1 text-[10px] text-outline">{segment.label}</span>
           <span
             className={cn(
-              "font-body-md text-body-md font-bold tabular-nums",
+              "max-w-full truncate px-1 font-body-md text-body-md font-bold tabular-nums",
               TONE_CLASS[segment.tone ?? "default"],
             )}
           >

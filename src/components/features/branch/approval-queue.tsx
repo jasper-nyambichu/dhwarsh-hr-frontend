@@ -6,6 +6,7 @@ import { useState } from "react";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { initials as toInitials } from "@/lib/format";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 export type ApprovalType = "Leave" | "Overtime" | "Advance" | "Loan" | "Expense";
@@ -36,8 +37,32 @@ const TYPE_STYLES: Record<ApprovalType, string> = {
 export function ApprovalQueue({ requests }: { requests: ApprovalRequest[] }) {
   const [pending, setPending] = useState(requests);
 
-  function resolve(id: string) {
-    setPending((prev) => prev.filter((request) => request.id !== id));
+  /**
+   * Optimistic removal with an undo affordance.
+   *
+   * The decision is not persisted yet (no approvals endpoint), so the toast
+   * says so rather than claiming the request was approved. Undo restores the
+   * row in place — an approval dismissed by a mis-tap should not need a page
+   * reload to get back.
+   */
+  function resolve(request: ApprovalRequest, decision: "approved" | "rejected") {
+    const index = pending.findIndex((item) => item.id === request.id);
+    setPending((prev) => prev.filter((item) => item.id !== request.id));
+
+    toast.warning(`${request.type} ${decision} — not saved`, {
+      description: `${request.employeeName}'s request left your queue, but approvals aren't connected to the backend yet.`,
+      action: {
+        label: "Undo",
+        // Splice back at the original index so the queue keeps its order.
+        onClick: () =>
+          setPending((prev) => {
+            if (prev.some((item) => item.id === request.id)) return prev;
+            const next = [...prev];
+            next.splice(Math.min(index, next.length), 0, request);
+            return next;
+          }),
+      },
+    });
   }
 
   if (pending.length === 0) {
@@ -103,19 +128,21 @@ export function ApprovalQueue({ requests }: { requests: ApprovalRequest[] }) {
             ) : null}
           </div>
 
-          <div className="flex shrink-0 gap-2">
+          <div className="flex w-full shrink-0 gap-2 sm:w-auto">
             <button
               type="button"
-              onClick={() => resolve(request.id)}
-              className="flex items-center gap-1 rounded-md border border-outline-variant/50 px-3 py-1.5 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-low"
+              data-live=""
+              onClick={() => resolve(request, "rejected")}
+              className="flex flex-1 items-center justify-center gap-1 rounded-md border border-outline-variant/50 px-3 py-2 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-low sm:flex-initial sm:py-1.5"
             >
               <Icon name="close" className="text-[18px]" />
               Reject
             </button>
             <button
               type="button"
-              onClick={() => resolve(request.id)}
-              className="flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary/90"
+              data-live=""
+              onClick={() => resolve(request, "approved")}
+              className="flex flex-1 items-center justify-center gap-1 rounded-md bg-primary px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 sm:flex-initial sm:py-1.5"
             >
               <Icon name="check" className="text-[18px]" />
               Approve

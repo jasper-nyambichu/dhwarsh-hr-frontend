@@ -19,7 +19,7 @@ export default async function NewLoanRequestPage() {
   await requirePermission("loan:request");
 
   return (
-    <div className="min-h-screen bg-surface">
+    <div className="bg-surface">
       <header className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-variant bg-surface/80 px-container-margin py-6 backdrop-blur-md">
         <div className="flex items-center gap-4">
           <Link
@@ -121,7 +121,7 @@ export default async function NewLoanRequestPage() {
                   </label>
                   <button
                     type="submit"
-                    className="flex items-center gap-2 rounded-lg bg-[#0B2A45] px-8 py-3 font-bold text-on-primary shadow-sm transition-colors hover:bg-primary-fixed-variant"
+                    className="flex items-center gap-2 rounded-lg bg-[#0B2A45] px-8 py-3 font-bold text-on-primary shadow-sm transition-colors hover:bg-on-primary-fixed-variant"
                   >
                     Submit Request
                     <Icon name="send" className="text-sm" />

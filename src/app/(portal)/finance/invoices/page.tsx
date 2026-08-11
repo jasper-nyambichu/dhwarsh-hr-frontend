@@ -63,7 +63,7 @@ export default async function InvoicesPage() {
 
       <div className="overflow-hidden rounded-2xl bg-surface-container-lowest shadow-[0_2px_8px_rgba(11,42,69,0.06)]">
         <div className="flex items-center justify-between border-b border-surface-variant bg-white p-6">
-          <div className="flex gap-4">
+          <div className="flex flex-wrap gap-3 sm:gap-4">
             <span className="flex items-center gap-2 text-sm font-medium text-on-surface">
               All Invoices <span className="rounded-full bg-surface-container px-2 py-0.5 text-xs text-on-surface-variant">124</span>
             </span>

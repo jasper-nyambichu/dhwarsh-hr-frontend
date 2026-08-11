@@ -52,7 +52,7 @@ const ROSTER: RosterRow[] = [
 function chipClass(kind: ShiftKind) {
   switch (kind) {
     case "Morning":
-      return "bg-primary-container/10 border-primary-container/20 text-primary-fixed-variant";
+      return "bg-primary-container/10 border-primary-container/20 text-on-primary-fixed-variant";
     case "Evening":
       return "bg-tertiary-container/10 border-tertiary-container/20 text-tertiary";
     case "Night":

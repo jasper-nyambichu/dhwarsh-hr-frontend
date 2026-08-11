@@ -77,7 +77,7 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
         }
       />
 
-      <form id="edit-employee-form" className="grid grid-cols-1 gap-gutter pb-24 lg:grid-cols-12">
+      <form id="edit-employee-form" className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
         {/* ───────────────────────────────── main column ─────────────────── */}
         <div className="flex flex-col gap-gutter lg:col-span-8">
           <BentoCard
@@ -305,8 +305,10 @@ export default async function EditEmployeePage({ params }: { params: Promise<{ i
         </div>
       </form>
 
-      {/* sticky footer */}
-      <div className="fixed bottom-0 right-0 z-40 flex w-[calc(100%-96px)] justify-end gap-4 border-t border-outline-variant bg-surface p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+      {/* Sticky footer. Was `fixed` with `w-[calc(100%-96px)]`, which hard-codes
+          the collapsed rail width — wrong as soon as the sidebar expands, and
+          wrong again below md where the rail is off-canvas. */}
+      <div className="sticky bottom-0 z-40 -mx-4 mt-gutter flex flex-wrap justify-end gap-3 border-t border-outline-variant bg-surface p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] sm:-mx-6 lg:-mx-container-margin">
         <Link
           href={`/hr/employees/${id}`}
           className="rounded-lg px-6 py-2 font-body-md text-body-md font-semibold text-secondary transition-colors hover:bg-surface-container"
