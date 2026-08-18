@@ -1,18 +1,14 @@
 //src/app/(portal)/agent/staff/page.tsx
 import { requirePermission } from "@/app/lib/dal";
+import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
 
 /**
  * Agent Portal — deployed staff roster.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * The agent portal shares no components with the admin/employee bento
- * layouts in the source design (different nav labels: Staff, Summaries,
- * Invoices, Advances, Profile) — treated as its own route group with its
- * own shell rather than reusing PageHeader/BentoCard, since those weren't
- * confirmed to fit this visual style. If PageHeader/BentoCard are meant to
- * be used everywhere, tell me and I'll refactor this to match.
- * ─────────────────────────────────────────────────────────────────────────
+ * Uses the shared PageHeader so the heading wraps on narrow screens like every
+ * other list screen; the roster panel is a hand-rolled card rather than
+ * BentoCard because it owns a sticky <thead> and a footer band.
  */
 
 type StaffStatus = "ACTIVE" | "ON_LEAVE" | "INACTIVE" | "PENDING_REVIEW";
@@ -58,111 +54,133 @@ export default async function DeployedStaffPage() {
   await requirePermission("agent:read:self");
 
   return (
-    <main className="flex-grow overflow-y-auto p-container-margin">
-      <div className="mb-6 flex items-end justify-between">
-        <div>
-          <h2 className="mb-1 text-2xl font-bold text-on-surface">My Deployed Staff</h2>
-          <p className="text-sm text-on-surface-variant">Manage and track your currently active deployed personnel.</p>
-        </div>
-        <button className="flex items-center gap-2 rounded-lg bg-[#0B2A45] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary active:scale-95">
-          <Icon name="add" className="text-[18px]" />
-          Deploy Staff
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="My Deployed Staff"
+        description="Manage and track your currently active deployed personnel."
+        actions={
+          <button
+            type="button"
+            className="flex items-center gap-2 rounded-lg bg-navy px-4 py-2 text-sm font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary active:scale-95"
+          >
+            <Icon name="add" className="text-[18px]" />
+            Deploy Staff
+          </button>
+        }
+      />
 
-      <div className="grid grid-cols-12 gap-gutter">
-        <div className="col-span-12 flex h-[calc(100vh-280px)] min-h-[400px] flex-col rounded-bento border border-line bg-white shadow-bento transition-shadow duration-300 hover:shadow-bento-hover">
-          <div className="sticky top-0 z-10 flex items-center justify-between rounded-t-bento border-b border-line bg-white p-card-padding">
-            <h3 className="text-lg font-bold text-on-surface">Active Roster</h3>
-            <div className="flex gap-2">
-              <button className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary-fixed">
-                <Icon name="filter_list" className="text-[16px]" />
-                Filter
-              </button>
-              <button className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary-fixed">
-                <Icon name="download" className="text-[16px]" />
-                Export
-              </button>
-            </div>
+      {/* Content-driven height: the shell at (portal)/layout.tsx already owns the
+          only scroll container, so a `calc(100vh - …)` here would be guessing at
+          chrome it cannot see. The table scrolls sideways, the page vertically. */}
+      <div className="flex min-h-[400px] flex-col rounded-card border border-line bg-surface-container-lowest shadow-ambient-1 transition-shadow duration-300 hover:shadow-ambient-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-t-card border-b border-line p-4 sm:p-card-padding">
+          <h2 className="text-lg font-bold text-on-surface">Active Roster</h2>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary-fixed"
+            >
+              <Icon name="filter_list" className="text-[16px]" />
+              Filter
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary-fixed"
+            >
+              <Icon name="download" className="text-[16px]" />
+              Export
+            </button>
           </div>
+        </div>
 
-          <div className="table-container flex-grow overflow-auto">
-            <table className="w-full min-w-[800px] border-collapse text-left">
-              <thead className="sticky top-0 z-10 bg-surface-container-low font-table-header uppercase text-on-surface-variant">
-                <tr>
-                  <th className="px-6 py-3 font-semibold">Employee</th>
-                  <th className="px-6 py-3 font-semibold">Branch</th>
-                  <th className="px-6 py-3 font-semibold">Role</th>
-                  <th className="px-6 py-3 font-semibold">Deployed From</th>
-                  <th className="px-6 py-3 text-right font-semibold">Rate (KES)</th>
-                  <th className="px-6 py-3 text-center font-semibold">Status</th>
-                  <th className="px-6 py-3 text-right font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line font-body-md text-sm text-on-surface">
-                {STAFF.map((person) => {
-                  const status = STATUS_META[person.status];
-                  return (
-                    <tr
-                      key={person.id}
-                      className={`group cursor-pointer transition-colors hover:bg-surface ${person.muted ? "opacity-70" : ""}`}
-                    >
-                      <td className="px-6 py-3">
-                        <div className="flex items-center gap-3">
-                          {person.avatarUrl ? (
-                            <img src={person.avatarUrl} alt={person.name} className="size-8 rounded-full object-cover" />
-                          ) : (
-                            <div className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${person.initialsColorClassName}`}>
-                              {person.initials}
-                            </div>
-                          )}
-                          <div>
-                            <div className="font-semibold text-on-surface transition-colors group-hover:text-primary">{person.name}</div>
-                            <div className="text-xs text-outline">ID: {person.employeeCode}</div>
+        <div className="w-full flex-1 overflow-x-auto">
+          <table className="w-full min-w-[800px] border-collapse text-left">
+            <thead className="sticky top-0 z-10 bg-surface-container-low font-table-header uppercase text-on-surface-variant">
+              <tr>
+                <th className="px-6 py-3 font-semibold">Employee</th>
+                <th className="px-6 py-3 font-semibold">Branch</th>
+                <th className="px-6 py-3 font-semibold">Role</th>
+                <th className="px-6 py-3 font-semibold">Deployed From</th>
+                <th className="px-6 py-3 text-right font-semibold">Rate (KES)</th>
+                <th className="px-6 py-3 text-center font-semibold">Status</th>
+                <th className="px-6 py-3 text-right font-semibold">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line font-body-md text-sm text-on-surface">
+              {STAFF.map((person) => {
+                const status = STATUS_META[person.status];
+                return (
+                  <tr
+                    key={person.id}
+                    className={`group cursor-pointer transition-colors hover:bg-surface ${person.muted ? "opacity-70" : ""}`}
+                  >
+                    <td className="px-6 py-3">
+                      <div className="flex items-center gap-3">
+                        {person.avatarUrl ? (
+                          <img src={person.avatarUrl} alt={person.name} className="size-8 rounded-full object-cover" />
+                        ) : (
+                          <div className={`flex size-8 items-center justify-center rounded-full text-xs font-bold ${person.initialsColorClassName}`}>
+                            {person.initials}
                           </div>
+                        )}
+                        <div>
+                          <div className="font-semibold text-on-surface transition-colors group-hover:text-primary">{person.name}</div>
+                          <div className="text-xs text-outline">ID: {person.employeeCode}</div>
                         </div>
-                      </td>
-                      <td className="px-6 py-3 text-on-surface-variant">{person.branch}</td>
-                      <td className="px-6 py-3">
-                        <span className="rounded-md bg-secondary-fixed px-2 py-1 text-[11px] font-semibold text-on-secondary-fixed">
-                          {person.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3 text-on-surface-variant">{person.deployedFrom}</td>
-                      <td className="px-6 py-3 text-right font-medium">{formatKes(person.rateKes)}</td>
-                      <td className="px-6 py-3 text-center">
-                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>
-                          <span className={`size-1.5 rounded-full ${status.dotClassName}`} />
-                          {status.label}
-                        </span>
-                      </td>
-                      <td className="px-6 py-3 text-right">
-                        <button className="rounded p-1 text-outline transition-colors hover:bg-primary-fixed/50 hover:text-primary">
-                          <Icon name="more_vert" className="text-[18px]" />
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-3 text-on-surface-variant">{person.branch}</td>
+                    <td className="px-6 py-3">
+                      <span className="rounded-md bg-secondary-fixed px-2 py-1 text-[11px] font-semibold text-on-secondary-fixed">
+                        {person.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-on-surface-variant">{person.deployedFrom}</td>
+                    <td className="px-6 py-3 text-right font-medium">{formatKes(person.rateKes)}</td>
+                    <td className="px-6 py-3 text-center">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${status.className}`}>
+                        <span className={`size-1.5 rounded-full ${status.dotClassName}`} />
+                        {status.label}
+                      </span>
+                    </td>
+                    <td className="px-6 py-3 text-right">
+                      <button className="rounded p-1 text-outline transition-colors hover:bg-primary-fixed/50 hover:text-primary">
+                        <Icon name="more_vert" className="text-[18px]" />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
 
-          <div className="flex items-center justify-between rounded-b-bento border-t border-line bg-surface-bright p-4 text-sm text-on-surface-variant">
-            <div>Showing {STAFF.length} to 8 of 45 entries</div>
-            <div className="flex gap-1">
-              <button className="rounded border border-line px-3 py-1 transition-colors hover:bg-surface disabled:opacity-50" disabled>
-                Prev
-              </button>
-              <button className="rounded bg-primary px-3 py-1 text-white">1</button>
-              <button className="rounded border border-line px-3 py-1 transition-colors hover:bg-surface">2</button>
-              <button className="rounded border border-line px-3 py-1 transition-colors hover:bg-surface">3</button>
-              <span className="px-2 py-1">...</span>
-              <button className="rounded border border-line px-3 py-1 transition-colors hover:bg-surface">Next</button>
-            </div>
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-b-card border-t border-line bg-surface-bright p-4 text-sm text-on-surface-variant">
+          <div>Showing {STAFF.length} to 8 of 45 entries</div>
+          <div className="flex flex-wrap gap-1">
+            <button
+              type="button"
+              className="rounded border border-line px-3 py-1 transition-colors hover:bg-surface disabled:opacity-50"
+              disabled
+            >
+              Prev
+            </button>
+            <button type="button" className="rounded bg-primary px-3 py-1 text-on-primary">
+              1
+            </button>
+            <button type="button" className="rounded border border-line px-3 py-1 transition-colors hover:bg-surface">
+              2
+            </button>
+            <button type="button" className="rounded border border-line px-3 py-1 transition-colors hover:bg-surface">
+              3
+            </button>
+            <span className="px-2 py-1">...</span>
+            <button type="button" className="rounded border border-line px-3 py-1 transition-colors hover:bg-surface">
+              Next
+            </button>
           </div>
         </div>
       </div>
-    </main>
+    </>
   );
 }

@@ -50,7 +50,7 @@ export default async function EmployeeProfilePage({ params }: { params: Promise<
 
   return (
     <>
-      <div className="mb-8 flex items-center justify-between">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <div className="relative">
             <img

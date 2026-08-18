@@ -42,7 +42,7 @@ export default async function LoanPortfolioPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-end justify-between">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-on-surface">Loan Portfolio</h1>
           <p className="mt-1 text-xs text-on-surface-variant">Overview of active employee loans and recovery metrics.</p>

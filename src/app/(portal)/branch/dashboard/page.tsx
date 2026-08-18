@@ -110,26 +110,29 @@ export default async function BranchDashboardPage() {
                 View Details
               </Link>
             }
-            className="flex h-64 flex-col"
+            className="flex min-h-64 flex-col"
             bodyClassName="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2"
           >
             <BarChart data={ATTENDANCE_WEEK} max={140} axisLabels={["140", "70", "0"]} tone="primary" />
           </BentoCard>
 
-          <BentoCard title="Shift Coverage" className="flex h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
-            <div className="mb-6 flex h-3 w-full overflow-hidden rounded-full shadow-inner">
+          <BentoCard title="Shift Coverage" className="flex min-h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
+            <div className="mb-6 flex h-3 w-full shrink-0 overflow-hidden rounded-full shadow-inner">
               {SHIFT_COVERAGE.map((s) => (
                 <div key={s.label} className={s.color} style={{ width: `${s.pct}%` }} title={`${s.label}: ${s.count}`} />
               ))}
             </div>
-            <div className="grid grid-cols-3 gap-2">
+            {/* Two-up until there is room for three: in the 8-col column at
+                1024px with the rail expanded each cell is ~35px wide, which is
+                narrower than the word "Afternoon". */}
+            <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
               {SHIFT_COVERAGE.map((s) => (
-                <div key={s.label} className="rounded-lg bg-surface-container-low p-2">
-                  <span className="flex items-center gap-1.5">
-                    <span className={`size-2 rounded-full ${s.color}`} />
-                    <span className="text-[10px] font-medium text-on-surface-variant">{s.label}</span>
+                <div key={s.label} className="min-w-0 rounded-lg bg-surface-container-low p-2">
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className={`size-2 shrink-0 rounded-full ${s.color}`} />
+                    <span className="truncate text-[10px] font-medium text-on-surface-variant">{s.label}</span>
                   </span>
-                  <span className="mt-1 block pl-3.5 text-body-md font-bold text-on-surface">{s.count}</span>
+                  <span className="mt-1 block pl-3.5 text-body-md font-bold tabular-nums text-on-surface">{s.count}</span>
                 </div>
               ))}
             </div>

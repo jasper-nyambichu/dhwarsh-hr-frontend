@@ -100,9 +100,17 @@ export default async function FinanceDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
-          <BentoCard title="Cash Out Trend" subtitle="2025 vs 2026" className="flex h-64 flex-col">
-            <div className="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2">
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-full w-full">
+          <BentoCard
+            title="Cash Out Trend"
+            subtitle="2025 vs 2026"
+            className="flex min-h-64 flex-col"
+            bodyClassName="flex flex-1 flex-col"
+          >
+            <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2">
+              {/* `flex-1` rather than `h-full`: a percentage height needs a
+                  definite parent, and this column's height comes from the card,
+                  so `h-full` here resolves against nothing. */}
+              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="min-h-0 w-full flex-1">
                 <polyline
                   points={toPoints(CASH_OUT_TREND.series2025)}
                   fill="none"
@@ -123,18 +131,18 @@ export default async function FinanceDashboardPage() {
                   <span key={m}>{m}</span>
                 ))}
               </div>
-              <div className="mt-2 flex gap-4 font-body-md text-[10px] text-on-surface-variant">
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-body-md text-[10px] text-on-surface-variant">
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-outline-variant" /> 2025
+                  <span className="size-2 shrink-0 rounded-full bg-outline-variant" /> 2025
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <span className="size-2 rounded-full bg-primary" /> 2026
+                  <span className="size-2 shrink-0 rounded-full bg-primary" /> 2026
                 </span>
               </div>
             </div>
           </BentoCard>
 
-          <BentoCard title="Disbursement Status" className="flex h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
+          <BentoCard title="Disbursement Status" className="flex min-h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
             <DonutChart segments={DISBURSEMENT_STATUS} size={140} legend="value" centerLabel="Status" />
           </BentoCard>
         </div>

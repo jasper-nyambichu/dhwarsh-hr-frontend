@@ -44,7 +44,7 @@ export default async function InvoicesPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-end justify-between">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-1 text-xl font-bold text-on-background">Agent Invoices</h1>
           <p className="text-xs text-on-surface-variant">Manage and process external partner billing.</p>

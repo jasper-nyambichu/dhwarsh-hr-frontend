@@ -65,11 +65,16 @@ export function BarChart({
 
       {data.map((datum) => {
         const height = Math.max((datum.value / ceiling) * 100, 1);
+        // The tooltip normally floats 32px above the bar, but a tall bar has no
+        // headroom left inside the plot — it would escape the card and land on
+        // the title. Past ~72% (the plot is ~117px in a 256px tile) flip it
+        // inside the bar instead; the dark chip stays legible on the fill.
+        const tallBar = height > 72;
 
         return (
           <div
             key={datum.label}
-            className="group relative flex-1"
+            className="group relative min-w-0 flex-1"
             style={{ height: `${height}%` }}
           >
             <div
@@ -85,13 +90,20 @@ export function BarChart({
 
             <span
               role="tooltip"
-              className="pointer-events-none absolute -top-8 left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-on-surface px-2 py-1 text-[10px] text-on-primary opacity-0 transition-opacity group-hover:opacity-100"
+              className={cn(
+                "pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 whitespace-nowrap rounded bg-on-surface px-2 py-1 text-[10px] text-on-primary opacity-0 transition-opacity group-hover:opacity-100",
+                tallBar ? "top-1" : "-top-8",
+              )}
             >
               {datum.tooltip ?? datum.value.toLocaleString()}
-              <span
-                aria-hidden
-                className="absolute -bottom-1 left-1/2 size-2 -translate-x-1/2 rotate-45 bg-on-surface"
-              />
+              {/* The pointer only makes sense when the chip floats above the
+                  bar; sitting inside it, there is nothing to point at. */}
+              {tallBar ? null : (
+                <span
+                  aria-hidden
+                  className="absolute -bottom-1 left-1/2 size-2 -translate-x-1/2 rotate-45 bg-on-surface"
+                />
+              )}
             </span>
 
             <span

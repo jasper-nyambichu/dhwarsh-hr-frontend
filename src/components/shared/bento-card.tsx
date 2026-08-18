@@ -64,7 +64,11 @@ export function BentoCard({
         </header>
       ) : null}
 
-      <div className={cn("min-w-0", bodyClassName)}>{children}</div>
+      {/* `min-h-0` is the vertical counterpart to `min-w-0`: a flex item's
+          automatic minimum size is its content, so without it a `flex-1` chart
+          body cannot shrink inside a height-capped card — it keeps its content
+          height and the overflow spills onto the card below. */}
+      <div className={cn("min-h-0 min-w-0", bodyClassName)}>{children}</div>
     </section>
   );
 }

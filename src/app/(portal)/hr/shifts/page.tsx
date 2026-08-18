@@ -97,7 +97,7 @@ export default async function ShiftsPage() {
 
   return (
     <>
-      <div className="mb-gutter flex items-end justify-between">
+      <div className="mb-gutter flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-on-surface">Shift Management</h1>
           <p className="mt-1 text-on-surface-variant">Manage schedules, track coverage, and assign staff.</p>

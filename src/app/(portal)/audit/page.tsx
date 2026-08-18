@@ -45,7 +45,7 @@ export default async function PayrollTrailPage() {
 
   return (
     <>
-      <div className="mb-gutter flex items-end justify-between">
+      <div className="mb-gutter flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-1 text-2xl font-bold text-on-surface">Payroll Audit Trail</h1>
           <p className="text-xs text-on-surface-variant">Monitoring fiscal changes and payroll execution anomalies.</p>
@@ -124,11 +124,15 @@ export default async function PayrollTrailPage() {
                     }`}
                   >
                     <td className="px-6 py-4 font-medium text-on-surface">{row.run}</td>
-                    <td className="flex items-center gap-2 px-6 py-4">
-                      <div className="flex size-6 items-center justify-center rounded-full bg-secondary-container text-[10px] font-bold text-secondary">
-                        {row.initials}
+                    <td className="px-6 py-4">
+                      {/* Flex on a wrapper, not the <td> — a flex cell drops out
+                          of the table layout and desyncs from its header. */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-secondary-container text-[10px] font-bold text-secondary">
+                          {row.initials}
+                        </div>
+                        <span className="min-w-0 truncate">{row.actor}</span>
                       </div>
-                      <span>{row.actor}</span>
                     </td>
                     <td className="px-6 py-4">
                       <span className={`rounded-md px-2 py-1 text-[10px] font-semibold uppercase ${actionBadgeClass(row.actionType)}`}>

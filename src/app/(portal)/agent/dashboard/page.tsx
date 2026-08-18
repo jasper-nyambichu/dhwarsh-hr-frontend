@@ -86,13 +86,13 @@ export default async function AgentDashboardPage() {
           <BentoCard
             title="Deployment Trend"
             subtitle="Last 6 months"
-            className="flex h-64 flex-col"
+            className="flex min-h-64 flex-col"
             bodyClassName="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2"
           >
             <BarChart data={DEPLOYMENT_TREND} max={100} axisLabels={["100", "50", "0"]} tone="primary" />
           </BentoCard>
 
-          <BentoCard title="Invoice Status" className="flex h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
+          <BentoCard title="Invoice Status" className="flex min-h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
             <DonutChart segments={INVOICE_STATUS} size={140} legend="value" centerLabel="Total" />
           </BentoCard>
         </div>

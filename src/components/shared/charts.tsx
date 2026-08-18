@@ -82,6 +82,10 @@ export function DonutChart({
   className,
 }: {
   segments: readonly StackSegment[];
+  /**
+   * Intended diameter in px. Treated as a ceiling, not a fixed size — the ring
+   * shrinks to fit a card narrower than this and stays circular as it does.
+   */
   size?: number;
   legend?: "percent" | "value";
   /** Caption under the centre total, e.g. "Total". Omit to leave it empty. */
@@ -108,23 +112,27 @@ export function DonutChart({
     <div
       className={cn(
         centerLabel
-          ? "flex flex-col items-center gap-6"
-          : "flex items-center gap-4",
+          ? "flex flex-col items-center gap-4"
+          : // Wraps so the legend drops below the ring rather than squashing:
+            // in a 4-col side card at 1024px with the rail expanded there is
+            // only ~170px to share, and a truncated "Housing Levy" is useless.
+            "flex flex-wrap items-center gap-4",
         className,
       )}
     >
+      {/* `size` is the intended diameter, not a hard one — `max-width` lets it
+          shrink inside a narrow card and `aspect-ratio` keeps it circular as it
+          does. Setting an explicit height here would override the ratio. */}
       <div
         className="relative flex shrink-0 items-center justify-center rounded-full"
         style={{
           width: size,
-          height: size,
+          maxWidth: "100%",
+          aspectRatio: "1",
           background: `conic-gradient(${stops})`,
         }}
       >
-        <div
-          className="absolute flex flex-col items-center justify-center rounded-full bg-surface-container-lowest shadow-inner"
-          style={{ width: size * 0.66, height: size * 0.66 }}
-        >
+        <div className="absolute flex h-[66%] w-[66%] flex-col items-center justify-center rounded-full bg-surface-container-lowest shadow-inner">
           {centerLabel ? (
             <>
               <span className="font-card-stat text-card-stat leading-none tabular-nums text-on-surface">
@@ -141,7 +149,7 @@ export function DonutChart({
       <ul
         className={cn(
           "flex flex-col justify-center gap-2",
-          centerLabel ? "w-full gap-3" : "flex-1",
+          centerLabel ? "w-full gap-3" : "min-w-28 flex-1",
         )}
       >
         {segments.map((segment) => (

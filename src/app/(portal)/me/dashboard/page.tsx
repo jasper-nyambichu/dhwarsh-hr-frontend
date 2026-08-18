@@ -77,30 +77,35 @@ export default async function MeDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
-          <BentoCard title="My Attendance" subtitle="Last 14 days" className="flex h-56 flex-col">
-            <div className="flex flex-1 items-end justify-between gap-2 rounded-lg bg-surface-container-low/50 p-2">
+          <BentoCard
+            title="My Attendance"
+            subtitle="Last 14 days"
+            className="flex min-h-56 flex-col"
+            bodyClassName="flex flex-1 flex-col"
+          >
+            <div className="flex min-h-0 flex-1 items-end justify-between gap-2 rounded-lg bg-surface-container-low/50 p-2">
               {ATTENDANCE_14D.map((d) => (
                 <div
                   key={d.day}
-                  className={`h-full w-full rounded-t-sm ${ATTENDANCE_COLOR[d.status]}`}
+                  className={`min-w-0 flex-1 rounded-t-sm ${ATTENDANCE_COLOR[d.status]}`}
                   style={{ height: d.status === "absent" ? "20%" : d.status === "late" ? "50%" : "85%" }}
                 />
               ))}
             </div>
-            <div className="mt-3 flex justify-center gap-4 font-body-md text-[10px] text-on-surface-variant">
+            <div className="mt-3 flex flex-wrap justify-center gap-x-4 gap-y-1 font-body-md text-[10px] text-on-surface-variant">
               <span className="flex items-center gap-1">
-                <span className="size-2 rounded-full bg-primary/20" /> Present
+                <span className="size-2 shrink-0 rounded-full bg-primary/20" /> Present
               </span>
               <span className="flex items-center gap-1">
-                <span className="size-2 rounded-full bg-error/40" /> Late
+                <span className="size-2 shrink-0 rounded-full bg-error/40" /> Late
               </span>
               <span className="flex items-center gap-1">
-                <span className="size-2 rounded-full bg-surface-variant" /> Absent
+                <span className="size-2 shrink-0 rounded-full bg-surface-variant" /> Absent
               </span>
             </div>
           </BentoCard>
 
-          <BentoCard title="Leave Used vs Entitlement" className="flex h-56 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
+          <BentoCard title="Leave Used vs Entitlement" className="flex min-h-56 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
             <ProgressRows rows={LEAVE_ENTITLEMENT} className="flex-1" />
           </BentoCard>
         </div>

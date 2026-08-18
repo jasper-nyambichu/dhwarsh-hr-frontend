@@ -73,17 +73,22 @@ export function AttendanceTable({ rows: initialRows }: { rows: AttendanceRow[] }
               const style = STATUS_STYLES[row.status];
               return (
                 <tr key={row.id} className="border-b border-outline-variant/10 transition-colors hover:bg-surface-container-lowest">
-                  <td className="flex items-center gap-3 px-4 py-3">
-                    {row.avatarUrl ? (
-                      <img src={row.avatarUrl} alt={row.name} className="size-8 rounded-full" />
-                    ) : (
-                      <div className="flex size-8 items-center justify-center rounded-full bg-secondary-container text-xs font-bold text-secondary">
-                        {row.initials}
+                  <td className="px-4 py-3">
+                    {/* The flex row lives on a wrapper, not the <td>: a flex
+                        cell leaves the table layout algorithm and stops
+                        aligning with its column header. */}
+                    <div className="flex items-center gap-3">
+                      {row.avatarUrl ? (
+                        <img src={row.avatarUrl} alt={row.name} className="size-8 shrink-0 rounded-full" />
+                      ) : (
+                        <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary-container text-xs font-bold text-secondary">
+                          {row.initials}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">{row.name}</p>
+                        <p className="text-[10px] text-on-surface-variant">{row.id}</p>
                       </div>
-                    )}
-                    <div>
-                      <p className="font-semibold">{row.name}</p>
-                      <p className="text-[10px] text-on-surface-variant">{row.id}</p>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-on-surface-variant">{row.role}</td>

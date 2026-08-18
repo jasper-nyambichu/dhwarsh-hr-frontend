@@ -107,26 +107,31 @@ export default async function PayrollDashboardPage() {
           <BentoCard
             title="Payroll Cost Trend"
             subtitle="Last 7 months"
-            className="flex h-64 flex-col"
+            className="flex min-h-64 flex-col"
             bodyClassName="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2"
           >
             <BarChart data={COST_TREND} max={20} axisLabels={["20M", "10M", "0"]} tone="primary" />
           </BentoCard>
 
-          <BentoCard title="Run Status" subtitle="Current period" className="flex h-64 flex-col">
-            <div className="flex h-3 w-full overflow-hidden rounded-full shadow-inner">
+          <BentoCard
+            title="Run Status"
+            subtitle="Current period"
+            className="flex min-h-64 flex-col"
+            bodyClassName="flex flex-1 flex-col"
+          >
+            <div className="flex h-3 w-full shrink-0 overflow-hidden rounded-full shadow-inner">
               {RUN_STATUS.map((segment) => (
                 <div key={segment.label} className={segment.color} style={{ width: `${segment.pct}%` }} />
               ))}
             </div>
             <ul className="mt-4 flex flex-1 flex-col justify-center gap-3">
               {RUN_STATUS.map((segment) => (
-                <li key={segment.label} className="flex items-center justify-between font-body-md text-body-md">
-                  <span className="flex items-center gap-2">
-                    <span className={`size-2.5 rounded-full ${segment.color}`} />
-                    <span className="text-on-surface">{segment.label}</span>
+                <li key={segment.label} className="flex items-center justify-between gap-2 font-body-md text-body-md">
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className={`size-2.5 shrink-0 rounded-full ${segment.color}`} />
+                    <span className="truncate text-on-surface">{segment.label}</span>
                   </span>
-                  <span className="font-semibold text-on-surface">
+                  <span className="shrink-0 font-semibold tabular-nums text-on-surface">
                     {segment.pct}% ({segment.count} runs)
                   </span>
                 </li>

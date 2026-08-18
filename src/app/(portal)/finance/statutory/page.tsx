@@ -26,7 +26,7 @@ export default async function StatutoryPage() {
 
   return (
     <>
-      <div className="mb-8 flex items-end justify-between">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-1 text-xl font-bold text-primary">Statutory Remittances</h1>
           <p className="text-xs text-on-surface-variant">Manage and track your monthly compliance obligations.</p>

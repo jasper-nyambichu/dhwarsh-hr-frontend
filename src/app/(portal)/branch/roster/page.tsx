@@ -67,7 +67,7 @@ export default async function WeeklyRosterPage() {
 
   return (
     <>
-      <div className="mb-6 flex items-end justify-between">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-1 text-xl font-bold text-on-surface">Weekly Roster: Downtown Branch</h1>
           <p className="text-xs text-on-surface-variant">Oct 23 - Oct 29, 2023</p>

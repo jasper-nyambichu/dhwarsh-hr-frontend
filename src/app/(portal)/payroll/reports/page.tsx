@@ -88,7 +88,7 @@ export default async function PayrollReportsPage() {
         <BentoCard
           title="Cost Trend (6 Months)"
           action={<Icon name="more_vert" className="text-[20px] text-outline" />}
-          className="flex h-[300px] flex-col"
+          className="flex min-h-[300px] flex-col"
           bodyClassName="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2"
         >
           <BarChart data={COST_TREND} max={15} axisLabels={["15M", "10M", "5M", "0"]} tone="primary" />
@@ -97,7 +97,7 @@ export default async function PayrollReportsPage() {
         <BentoCard
           title="Deductions Breakdown"
           action={<Icon name="more_vert" className="text-[20px] text-outline" />}
-          className="flex h-[300px] flex-col"
+          className="flex min-h-[300px] flex-col"
           bodyClassName="flex flex-1 flex-col justify-center"
         >
           <DonutChart segments={DEDUCTIONS_BREAKDOWN} size={160} legend="value" centerLabel="Total" />

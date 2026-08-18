@@ -3,7 +3,7 @@ import { BentoCard } from "@/components/shared/bento-card";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
-import { formatDate, formatMoney, formatMoneyCompact, formatNumber, initials } from "@/lib/format";
+import { formatDate, formatMoney, formatMoneyCompact, initials } from "@/lib/format";
 
 /**
  * Agent advance requests.
@@ -72,6 +72,7 @@ export default async function AgentAdvancesPage() {
       </div>
 
       <BentoCard
+        className="mt-gutter"
         title="Recent Requests History"
         action={
           <div className="flex gap-2">
@@ -101,19 +102,23 @@ export default async function AgentAdvancesPage() {
             <tbody className="font-body-md text-on-surface">
               {ADVANCES.map((advance) => (
                 <tr key={advance.id} className="border-b border-surface-variant/50 transition-colors hover:bg-surface-container-low">
-                  <td className="flex items-center gap-3 py-4">
-                    <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed-dim text-xs font-bold text-primary">
-                      {initials(advance.employeeName)}
-                    </span>
-                    <span>
-                      <span className="block font-medium">{advance.employeeName}</span>
-                      <span className="block text-xs text-on-surface-variant">{advance.department}</span>
-                    </span>
+                  <td className="py-4">
+                    {/* Flex on a wrapper, not the <td> — a flex cell drops out
+                        of the table layout and desyncs from its header. */}
+                    <div className="flex items-center gap-3">
+                      <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed-dim text-xs font-bold text-primary">
+                        {initials(advance.employeeName)}
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-medium">{advance.employeeName}</span>
+                        <span className="block truncate text-xs text-on-surface-variant">{advance.department}</span>
+                      </span>
+                    </div>
                   </td>
-                  <td className="py-4 font-medium">{formatMoney(advance.amount, { showCurrency: false })}</td>
-                  <td className="py-4 text-on-surface-variant">{formatDate(advance.requestedDate)}</td>
+                  <td className="py-4 font-medium tabular-nums">{formatMoney(advance.amount, { showCurrency: false })}</td>
+                  <td className="whitespace-nowrap py-4 text-on-surface-variant">{formatDate(advance.requestedDate)}</td>
                   <td className="py-4">{advance.purpose}</td>
-                  <td className="py-4">{advance.recoveryMonths} Month{advance.recoveryMonths > 1 ? "s" : ""}</td>
+                  <td className="whitespace-nowrap py-4">{advance.recoveryMonths} Month{advance.recoveryMonths > 1 ? "s" : ""}</td>
                   <td className="py-4 text-right">
                     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_CHIP[advance.status]}`}>
                       {advance.status.charAt(0) + advance.status.slice(1).toLowerCase()}
@@ -124,7 +129,7 @@ export default async function AgentAdvancesPage() {
             </tbody>
           </table>
         </div>
-        <div className="mt-6 flex items-center justify-between border-t border-surface-variant pt-4 text-sm text-on-surface-variant">
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-surface-variant pt-4 text-sm text-on-surface-variant">
           <span>Showing 1 to {ADVANCES.length} of 24 requests</span>
           <div className="flex gap-1">
             <button type="button" disabled className="rounded px-2 py-1 hover:bg-surface-container-high disabled:opacity-50">

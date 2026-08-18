@@ -136,7 +136,7 @@ export default async function AdminDashboardPage() {
                 +{formatPercent(HEADCOUNT_TREND, 1)}
               </span>
             }
-            className="flex h-64 flex-col"
+            className="flex min-h-64 flex-col"
             bodyClassName="flex flex-1 flex-col"
           >
             <BarChart
@@ -158,7 +158,7 @@ export default async function AdminDashboardPage() {
                 <Icon name="arrow_forward" className="ml-1 text-sm" />
               </Link>
             }
-            className="flex h-64 flex-col"
+            className="flex min-h-64 flex-col"
             bodyClassName="flex flex-1 flex-col justify-between"
           >
             <div className="flex flex-col items-center">

@@ -21,7 +21,7 @@ export default async function ApprovalsPage() {
 
   return (
     <div className="mx-auto max-w-5xl">
-      <div className="mb-6 flex items-end justify-between">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-1 text-xl font-bold text-on-surface">Approval Queue</h1>
           <p className="text-sm text-on-surface-variant">Review and manage pending requests from your branch team.</p>

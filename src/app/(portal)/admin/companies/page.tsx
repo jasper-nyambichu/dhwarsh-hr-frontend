@@ -87,19 +87,23 @@ export default async function CompaniesPage() {
               <tbody className="divide-y divide-[#E9EFF5] font-body-md text-on-surface">
                 {COMPANIES.map((company) => (
                   <tr key={company.id} className={`group cursor-pointer transition-colors hover:bg-surface/50 ${company.status === "INACTIVE" ? "opacity-70" : ""}`}>
-                    <td className="flex items-center gap-3 px-6 py-4">
-                      <span
-                        aria-hidden
-                        className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded border border-[#E9EFF5] bg-surface-variant text-on-surface-variant"
-                      >
-                        {initials(company.name)}
-                      </span>
-                      <span>
-                        <span className="block text-sm font-semibold transition-colors group-hover:text-primary">
-                          {company.name}
+                    <td className="px-6 py-4">
+                      {/* Flex on a wrapper, not the <td> — a flex cell drops out
+                          of the table layout and desyncs from its header. */}
+                      <div className="flex items-center gap-3">
+                        <span
+                          aria-hidden
+                          className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded border border-[#E9EFF5] bg-surface-variant text-on-surface-variant"
+                        >
+                          {initials(company.name)}
                         </span>
-                        <span className="mt-0.5 block text-[10px] text-outline">{company.registrationNo}</span>
-                      </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-semibold transition-colors group-hover:text-primary">
+                            {company.name}
+                          </span>
+                          <span className="mt-0.5 block text-[10px] text-outline">{company.registrationNo}</span>
+                        </span>
+                      </div>
                     </td>
                     <td className="px-6 py-4">{formatNumber(company.branches)}</td>
                     <td className="px-6 py-4">{formatNumber(company.employees)}</td>

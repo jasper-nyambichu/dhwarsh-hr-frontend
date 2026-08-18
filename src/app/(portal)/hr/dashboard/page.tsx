@@ -135,7 +135,7 @@ export default async function HrDashboardPage() {
                 View All
               </Link>
             }
-            className="flex h-64 flex-col"
+            className="flex min-h-64 flex-col"
             bodyClassName="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2"
           >
             <BarChart
@@ -157,7 +157,7 @@ export default async function HrDashboardPage() {
                 Details
               </Link>
             }
-            className="flex h-64 flex-col"
+            className="flex min-h-64 flex-col"
             bodyClassName="flex flex-1 flex-col"
           >
             <ProgressRows rows={THROUGHPUT} className="flex-1" />

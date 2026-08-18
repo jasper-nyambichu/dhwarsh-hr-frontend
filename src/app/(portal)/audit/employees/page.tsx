@@ -32,7 +32,7 @@ export default async function EmployeeHistoryPage() {
 
   return (
     <>
-      <div className="mb-6 flex items-end justify-between">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-1 text-2xl font-bold text-on-surface">Employee Record Change History</h1>
           <p className="text-xs text-on-surface-variant">Comprehensive tracking of PII and structural employment updates.</p>

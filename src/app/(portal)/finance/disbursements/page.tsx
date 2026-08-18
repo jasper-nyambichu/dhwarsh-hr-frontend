@@ -44,7 +44,7 @@ export default async function DisbursementsPage() {
 
   return (
     <div className="flex flex-1 flex-col gap-gutter">
-      <div className="mb-4 flex items-end justify-between">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="mb-1 text-xl font-bold text-on-background">Disbursements</h1>
           <p className="text-xs text-on-surface-variant">Manage and track bulk salary payments across all branches.</p>

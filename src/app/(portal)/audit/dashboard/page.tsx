@@ -77,22 +77,32 @@ export default async function AuditDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
-          <BentoCard title="Activity Volume" subtitle="Last 7 days" className="flex h-64 flex-col">
-            <div className="flex flex-1 items-end justify-between gap-2 rounded-lg bg-surface-container-low/50 p-2">
+          <BentoCard
+            title="Activity Volume"
+            subtitle="Last 7 days"
+            className="flex min-h-64 flex-col"
+            bodyClassName="flex flex-1 flex-col"
+          >
+            <div className="flex min-h-0 flex-1 items-stretch justify-between gap-2 rounded-lg bg-surface-container-low/50 p-2">
               {ACTIVITY_VOLUME.map((d) => (
-                <div key={d.label} className="flex h-full w-full flex-col items-center justify-end gap-2">
-                  <div
-                    className="w-full rounded-t-sm bg-primary-container/40"
-                    style={{ height: `${(d.value / ACTIVITY_MAX) * 100}%` }}
-                    title={formatNumber(d.value)}
-                  />
+                <div key={d.label} className="flex min-w-0 flex-1 flex-col items-center gap-2">
+                  {/* The bar's percentage is of this track, which excludes the
+                      label and the gap — measured against the whole column the
+                      tallest bar overhangs the panel. */}
+                  <div className="flex min-h-0 w-full flex-1 items-end">
+                    <div
+                      className="w-full rounded-t-sm bg-primary-container/40"
+                      style={{ height: `${(d.value / ACTIVITY_MAX) * 100}%` }}
+                      title={formatNumber(d.value)}
+                    />
+                  </div>
                   <span className="text-[10px] text-outline">{d.label}</span>
                 </div>
               ))}
             </div>
           </BentoCard>
 
-          <BentoCard title="Events by Module" className="flex h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
+          <BentoCard title="Events by Module" className="flex min-h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
             <ProgressRows rows={EVENTS_BY_MODULE} className="flex-1" />
           </BentoCard>
         </div>

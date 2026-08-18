@@ -153,11 +153,16 @@ export default async function EmployeeLeavePage() {
                 <tbody>
                   {REQUESTS.map((request) => (
                     <tr key={request.id} className="border-b border-surface-variant transition-colors last:border-0 hover:bg-surface-bright">
-                      <td className="flex items-center gap-2 px-6 py-4 font-body-md text-body-md font-medium text-on-surface">
-                        <div className={`flex size-8 items-center justify-center rounded-full ${request.iconBgClassName} ${request.iconColorClassName}`}>
-                          <Icon name={request.icon} className="text-[16px]" />
+                      <td className="px-6 py-4 font-body-md text-body-md font-medium text-on-surface">
+                        {/* Flex on a wrapper, not the <td> — a flex cell drops
+                            out of the table layout and desyncs from its
+                            header. */}
+                        <div className="flex items-center gap-2">
+                          <div className={`flex size-8 shrink-0 items-center justify-center rounded-full ${request.iconBgClassName} ${request.iconColorClassName}`}>
+                            <Icon name={request.icon} className="text-[16px]" />
+                          </div>
+                          <span className="min-w-0 truncate">{request.type}</span>
                         </div>
-                        {request.type}
                       </td>
                       <td className="px-6 py-4 font-body-md text-body-md text-on-surface-variant">{request.from}</td>
                       <td className="px-6 py-4 font-body-md text-body-md text-on-surface-variant">{request.to}</td>

@@ -38,7 +38,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
 
   return (
     <>
-      <div className="mb-4 flex items-end justify-between">
+      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
         <div>
           <Link href="/finance/invoices" className="mb-2 flex items-center gap-1 text-sm text-primary-container hover:underline">
             <Icon name="arrow_back" className="text-[14px]" />
