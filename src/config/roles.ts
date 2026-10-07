@@ -151,6 +151,19 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     // `AttendanceDashboardController.VIEW_ROLES` includes SUPER_ADMIN. Without
     // it the DAL gate bounces SUPER_ADMIN off a page built for them.
     "attendance:read",
+    // The same reasoning covers these two reads, and both were omissions
+    // rather than policy. `/admin/agents` is in the platform owner's rail and
+    // the backend's `GET /agents` is
+    // `hasAnyRole('SUPER_ADMIN', 'ADMIN', 'PAYROLL_OFFICER')` — omitting the
+    // permission here bounced SUPER_ADMIN off a page the API serves them. The
+    // /admin dashboard's headcount tile reads
+    // `GET /employees/by-branch/{id}`, whose `@PreAuthorize` likewise lists
+    // SUPER_ADMIN.
+    //
+    // Reads only: the `:write` counterparts stay out, so the "no day-to-day HR"
+    // intent above still holds — oversight without operational control.
+    "agent:read",
+    "employee:read",
     "biometric:device:manage",
     "report:read", "audit:read", "user:manage", "settings:manage",
     "notification:read:self",

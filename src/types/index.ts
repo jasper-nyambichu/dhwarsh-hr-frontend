@@ -91,8 +91,20 @@ export const DOCUMENT_TYPES = [
 ] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
-/** `agents.charge_type` — drives the agentformula VAT calculation. */
-export const CHARGE_TYPES = ["FIXED", "PERCENTAGE", "PER_EMPLOYEE"] as const;
+/**
+ * `agents.charge_type` — mirrors `entity/agent/ChargeType.java` exactly.
+ *
+ * The previous list (`FIXED` / `PERCENTAGE`) named values the backend enum does
+ * not have, so a form built from it would have POSTed a charge type the server
+ * rejects. `AgentRequest.chargeType` is typed as the Java enum, so this is the
+ * set that actually round-trips.
+ */
+export const CHARGE_TYPES = [
+  "PER_EMPLOYEE",
+  "PERCENTAGE_OF_GROSS",
+  "FIXED_MONTHLY",
+  "CUSTOM",
+] as const;
 export type ChargeType = (typeof CHARGE_TYPES)[number];
 
 export const ADVANCE_STATUSES = [
@@ -622,4 +634,192 @@ export type AttendanceLiveSnapshot = {
   summary: AttendanceDashboardSummary;
   activity: AttendanceActivityItem[];
   fetchedAt: string;
+};
+
+/* ------------------------------------------------- wire response types -- */
+
+/**
+ * The shapes the backend actually returns, named after the Java records in
+ * `dto/response/**`.
+ *
+ * These are deliberately separate from the entity-shaped types above. The
+ * entities carry `AuditFields` and every column; the response records are
+ * projections that drop most of them and add a few computed ones. Treating the
+ * two as the same type is how a page ends up rendering `createdAt` as
+ * `undefined` and calling a column "missing" when it was never sent.
+ *
+ * Where a record omits a field the entity has, that is intentional — those
+ * widgets have no data source and must render an honest empty state rather
+ * than a plausible-looking zero.
+ */
+
+/** `dto/response/company/CompanyResponse`. Note: no audit fields, no counts. */
+export type CompanyResponse = {
+  id: number;
+  name: string;
+  logoUrl: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  kraPin: string | null;
+  shifNumber: string | null;
+  nssfNumber: string | null;
+  nitaNumber: string | null;
+  currency: string | null;
+  timezone: string | null;
+};
+
+/**
+ * `dto/response/company/CompanySettingsResponse`.
+ *
+ * `companyId` is absent: the deployment is single-tenant and the backend
+ * resolves the company itself, so the client never needs to send one.
+ */
+export type CompanySettingsResponse = {
+  id: number;
+  vatRate: number;
+  defaultWorkingHoursPerDay: number | null;
+  overtimeMultiplier: number | null;
+  weekendDays: string | null;
+  payrollPeriod: PayrollPeriod | null;
+};
+
+/**
+ * `dto/response/branch/BranchResponse`.
+ *
+ * No region, headcount, attendance rate or payroll total — `branches` has no
+ * region column at all and the rest are aggregates the backend does not
+ * compute. The branch list must not show those columns.
+ */
+export type BranchResponse = {
+  id: number;
+  name: string;
+  code: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  managerId: number | null;
+  managerName: string | null;
+  status: Status;
+};
+
+/** `dto/response/department/DepartmentResponse`. */
+export type DepartmentResponse = {
+  id: number;
+  name: string;
+  branchId: number;
+  branchName: string | null;
+  headOfDepartmentId: number | null;
+  headOfDepartmentName: string | null;
+};
+
+/**
+ * `dto/response/agent/AgentResponse`.
+ *
+ * `employeeCount` is the one aggregate the backend does supply, so the agent
+ * list can show placements as a real number.
+ */
+export type AgentResponse = {
+  id: number;
+  name: string;
+  contactPerson: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  kraPin: string | null;
+  contractStartDate: string | null;
+  contractEndDate: string | null;
+  chargeType: ChargeType;
+  chargeAmount: number | null;
+  chargePercentage: number | null;
+  vatRegistered: boolean;
+  status: Status;
+  employeeCount: number | null;
+};
+
+/** `dto/response/employee/EmployeeSummaryResponse` — what the by-* lists return. */
+export type EmployeeSummaryResponse = {
+  id: number;
+  fullName: string;
+  employeeNumber: string;
+  branchName: string | null;
+  position: string | null;
+  employmentStatus: EmploymentStatus;
+};
+
+/** `dto/response/employee/EmployeeResponse` — the full record. */
+export type EmployeeResponse = {
+  id: number;
+  fullName: string;
+  employeeNumber: string;
+  passportPhotoUrl: string | null;
+  nationalId: string | null;
+  dateOfBirth: string | null;
+  gender: string | null;
+  maritalStatus: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  kraPin: string | null;
+  shifNumber: string | null;
+  nssfNumber: string | null;
+  nitaNumber: string | null;
+  branchId: number;
+  branchName: string | null;
+  departmentId: number | null;
+  departmentName: string | null;
+  agentId: number | null;
+  agentName: string | null;
+  position: string | null;
+  employmentType: EmploymentType;
+  basicSalary: number | null;
+  dateHired: string | null;
+  employmentStatus: EmploymentStatus;
+  bankName: string | null;
+  bankAccountNumber: string | null;
+  emergencyContactName: string | null;
+  emergencyContactPhone: string | null;
+};
+
+/**
+ * `dto/response/attendance/BiometricDeviceResponse`.
+ *
+ * Only reachable per branch (`GET /attendance/devices/by-branch/{id}`). For the
+ * whole fleet use `AttendanceDeviceItem` from the dashboard controller, which
+ * also carries the server-computed `online` flag.
+ */
+export type BiometricDeviceResponse = {
+  id: number;
+  branchId: number;
+  branchName: string | null;
+  deviceSerial: string;
+  lastSyncAt: string | null;
+  status: Status;
+};
+
+/**
+ * `dto/response/auth/UserSummaryResponse` — `GET /users`.
+ *
+ * Deliberately thin, and the thinness matters: there is **no** last-login and
+ * **no** MFA field, because `users` has no `last_login_at` and no `mfa` column.
+ * A user directory that shows either would be inventing it.
+ *
+ * `branchId` rather than a branch name — the row carries the foreign key only,
+ * so a table showing the branch must resolve it against `GET /branches`.
+ *
+ * The backend declares `role` as a plain `String` (the column is a single
+ * VARCHAR), while the frontend narrows to the `Role` union. The union is the
+ * tighter of the two and matches `Role.java`, so it is used here; an
+ * unrecognised value would be a backend contract change, not a client case.
+ */
+export type UserSummaryResponse = {
+  id: number;
+  username: string;
+  role: Role;
+  displayName: string | null;
+  branchId: number | null;
+  active: boolean;
 };

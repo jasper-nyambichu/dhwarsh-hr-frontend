@@ -35,7 +35,7 @@ export const verifySession = cache(async (): Promise<SessionPayload> => {
 
   // Forced rotation on `users.must_change_password`.
   if (session.mustChangePassword) {
-    redirect("/change-password");
+    redirect("/set-password");
   }
 
   return session;

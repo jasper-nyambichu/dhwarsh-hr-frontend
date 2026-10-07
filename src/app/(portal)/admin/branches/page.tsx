@@ -1,75 +1,108 @@
-//src/app/%28portal%29/admin/branches/page.tsx
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DonutChart } from "@/components/shared/charts";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
 import { FilterTabs, type FilterTab } from "@/components/shared/filter-tabs";
 import { CountPill, PageHeader } from "@/components/shared/page-header";
 import { SegmentStrip } from "@/components/shared/segment-strip";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
-import { formatMoneyCompact, formatNumber, formatPercent } from "@/lib/format";
+import { getBranches } from "@/lib/api/branch";
+import { getEmployeesByBranch } from "@/lib/api/employee";
+import { formatNumber } from "@/lib/format";
+import type { BranchResponse } from "@/types";
 
 /**
- * Branch directory. SUPER_ADMIN and ADMIN both hold `branch:write`.
+ * Branch directory.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — see the note on the admin dashboard. Rows are shaped
- * against `types.Branch` plus the aggregate columns the list view needs
- * (headcount, attendance, payroll), which the backend will have to supply as
- * a projection rather than the bare entity.
- * ─────────────────────────────────────────────────────────────────────────
+ * `GET /branches` returns `List<BranchResponse>` — the bare entity, with no
+ * aggregates. Three columns the Stitch brief asks for therefore have no source
+ * and are gone rather than invented: **region** (there is no such column on
+ * `branches`), **attendance %** and **payroll total** (neither is projected
+ * onto this endpoint; both would need a dashboard-style aggregate the backend
+ * does not serve today).
+ *
+ * Headcount is the exception, and it is real: the backend has no
+ * count-per-branch projection either, but it does expose
+ * `GET /employees/by-branch/{id}`, so the page fans out one call per branch and
+ * counts the result. That is O(branches) requests — acceptable at seven, and
+ * flagged here because it would not be at seventy. The fix at that size is a
+ * `employeeCount` field on `BranchResponse`, not a bigger fan-out.
  */
 
-type BranchRow = {
-  id: number;
-  name: string;
-  code: string;
-  region: string;
-  manager: string | null;
-  employees: number;
-  attendance: number;
-  payroll: number;
-  status: "ACTIVE" | "INACTIVE";
-};
-
-const BRANCHES: readonly BranchRow[] = [
-  { id: 1, name: "Nairobi CBD", code: "NBO-01", region: "Nairobi", manager: "Peter Njuguna", employees: 320, attendance: 94, payroll: 4_200_000, status: "ACTIVE" },
-  { id: 2, name: "Mombasa Port", code: "MSA-01", region: "Coast", manager: "Ali Hassan", employees: 215, attendance: 88, payroll: 3_100_000, status: "ACTIVE" },
-  { id: 3, name: "Kisumu Industrial", code: "KSM-01", region: "Nyanza", manager: "Jane Otieno", employees: 180, attendance: 76, payroll: 2_400_000, status: "ACTIVE" },
-  { id: 4, name: "Nakuru Branch", code: "NKR-01", region: "Rift Valley", manager: "David Kimani", employees: 142, attendance: 91, payroll: 1_800_000, status: "ACTIVE" },
-  { id: 5, name: "Thika Road", code: "NBO-02", region: "Nairobi", manager: "Grace Wambui", employees: 128, attendance: 89, payroll: 1_600_000, status: "ACTIVE" },
-  { id: 6, name: "Eldoret Depot", code: "ELD-01", region: "Rift Valley", manager: null, employees: 96, attendance: 82, payroll: 1_150_000, status: "ACTIVE" },
+const STATUS_TABS: readonly FilterTab[] = [
+  { label: "All Branches" },
+  { label: "Active", value: "ACTIVE" },
+  { label: "Inactive", value: "INACTIVE" },
 ];
 
-const REGION_TABS: readonly FilterTab[] = [
-  { label: "All Regions" },
-  { label: "Nairobi", value: "Nairobi" },
-  { label: "Coast", value: "Coast" },
-  { label: "Rift Valley", value: "Rift Valley" },
-  { label: "Nyanza", value: "Nyanza" },
+/** Shared palette for the headcount donut; cycles if there are more branches. */
+const DONUT_COLORS = [
+  "var(--color-blue)",
+  "var(--color-green-main)",
+  "var(--color-amber-main)",
+  "var(--color-chart-track)",
 ];
-
-/** Below this, an attendance rate reads as a problem rather than a number. */
-const ATTENDANCE_WARNING_THRESHOLD = 85;
 
 export default async function BranchesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ region?: string }>;
+  searchParams: Promise<{ status?: string }>;
 }) {
   await requirePermission("branch:read");
 
   // searchParams is a Promise in Next.js 16 — it must be awaited.
-  const { region } = await searchParams;
+  const { status } = await searchParams;
 
-  const rows = region
-    ? BRANCHES.filter((branch) => branch.region === region)
-    : BRANCHES;
+  let branches: BranchResponse[];
 
-  const active = BRANCHES.filter((b) => b.status === "ACTIVE").length;
-  const totalEmployees = rows.reduce((sum, b) => sum + b.employees, 0);
-  const unmanaged = rows.filter((b) => b.manager === null).length;
+  try {
+    branches = await getBranches();
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) redirect("/login");
+
+    return (
+      <DataUnavailable
+        title="Branches"
+        description="Manage organization locations and regional performance."
+        subject="The branch directory"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
+
+  // Headcounts are a second, independent read. `allSettled` so one failing
+  // branch does not blank a page whose primary data loaded fine — a missing
+  // count renders as "—", which is honest, where losing the directory is not.
+  const counts = await Promise.allSettled(
+    branches.map((branch) => getEmployeesByBranch(branch.id)),
+  );
+
+  const headcount = new Map<number, number | null>(
+    branches.map((branch, index) => {
+      const result = counts[index];
+      return [
+        branch.id,
+        result && result.status === "fulfilled" ? result.value.length : null,
+      ];
+    }),
+  );
+
+  const rows = status
+    ? branches.filter((branch) => branch.status === status)
+    : branches;
+
+  const active = branches.filter((branch) => branch.status === "ACTIVE").length;
+  const unmanaged = branches.filter((branch) => branch.managerName === null);
+  const counted = [...headcount.values()].filter(
+    (value): value is number => value !== null,
+  );
+  const totalEmployees = counted.reduce((sum, value) => sum + value, 0);
 
   return (
     <>
@@ -78,13 +111,13 @@ export default async function BranchesPage({
         description="Manage organization locations and regional performance."
         pill={<CountPill label={`${active} Active`} />}
         actions={
-          <Link
-            href="/admin/branches/new"
+          <button
+            type="button"
             className="bento-shadow flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-body-md text-body-md font-bold text-on-primary transition-colors hover:bg-on-primary-fixed-variant"
           >
             <Icon name="add" className="text-[18px]" />
             Add Branch
-          </Link>
+          </button>
         }
       />
 
@@ -93,29 +126,27 @@ export default async function BranchesPage({
         <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
           <div className="bento-shadow flex flex-wrap items-center justify-between gap-3 rounded-card bg-surface-container-lowest p-3">
             <FilterTabs
-              tabs={REGION_TABS}
-              active={region}
-              param="region"
+              tabs={STATUS_TABS}
+              active={status}
+              param="status"
               basePath="/admin/branches"
             />
-
-            <button
-              type="button"
-              className="flex items-center gap-2 rounded-md border border-outline-variant/40 px-3 py-1.5 font-body-md text-body-md text-on-surface-variant transition-colors hover:bg-surface-container-low"
-            >
-              <Icon name="swap_vert" className="text-sm" />
-              Sort
-            </button>
           </div>
 
           <BentoCard
-            title={region ? `${region} branches` : "All branches"}
+            title={status ? `${status === "ACTIVE" ? "Active" : "Inactive"} branches` : "All branches"}
             subtitle={`${formatNumber(rows.length)} shown · ${formatNumber(totalEmployees)} employees`}
           >
             {rows.length === 0 ? (
-              <p className="py-10 text-center font-body-md text-body-md text-outline">
-                No branches in this region yet.
-              </p>
+              <EmptyState
+                symbol="location_off"
+                title="No branches to show"
+                description={
+                  status
+                    ? "No branch currently holds this status."
+                    : "Branches appear here once they have been created."
+                }
+              />
             ) : (
               <div className="w-full overflow-x-auto">
                 <table className="data-table w-full border-collapse text-left">
@@ -125,27 +156,23 @@ export default async function BranchesPage({
                         Branch
                       </th>
                       <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                        Region
-                      </th>
-                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">
                         Manager
                       </th>
                       <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                        Contact
+                      </th>
+                      <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
                         Employees
                       </th>
-                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                        Attendance&nbsp;%
-                      </th>
                       <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">
-                        Payroll KES
+                        Status
                       </th>
                     </tr>
                   </thead>
 
                   <tbody className="font-body-md text-body-md">
                     {rows.map((branch) => {
-                      const healthy =
-                        branch.attendance >= ATTENDANCE_WARNING_THRESHOLD;
+                      const count = headcount.get(branch.id);
 
                       return (
                         <tr key={branch.id} className="group transition-colors">
@@ -168,44 +195,32 @@ export default async function BranchesPage({
                             </Link>
                           </td>
                           <td className="py-3 text-on-surface-variant">
-                            {branch.region}
-                          </td>
-                          <td className="py-3 text-on-surface-variant">
-                            {branch.manager ?? (
+                            {branch.managerName ?? (
                               <span className="text-amber-main">Unassigned</span>
                             )}
                           </td>
-                          <td className="py-3 tabular-nums text-on-surface-variant">
-                            {formatNumber(branch.employees)}
-                          </td>
-                          <td className="py-3">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={
-                                  healthy
-                                    ? "font-medium text-tertiary-container"
-                                    : "font-medium text-amber-main"
-                                }
-                              >
-                                {formatPercent(branch.attendance)}
+                          <td className="py-3 text-on-surface-variant">
+                            {branch.phone ? (
+                              <span className="block font-mono text-[11px]">
+                                {branch.phone}
                               </span>
-                              <span className="hidden h-1 w-12 overflow-hidden rounded-full bg-surface-container sm:block">
-                                <span
-                                  className="block h-full"
-                                  style={{
-                                    width: `${branch.attendance}%`,
-                                    backgroundColor: healthy
-                                      ? "var(--color-green-main)"
-                                      : "var(--color-amber-main)",
-                                  }}
-                                />
+                            ) : null}
+                            {branch.email ? (
+                              <span className="block text-[10px] text-outline">
+                                {branch.email}
                               </span>
-                            </div>
+                            ) : null}
+                            {!branch.phone && !branch.email ? (
+                              <span className="text-outline">—</span>
+                            ) : null}
                           </td>
-                          <td className="py-3 pr-2 text-right font-medium tabular-nums text-on-surface">
-                            {formatMoneyCompact(branch.payroll, {
-                              showCurrency: false,
-                            })}
+                          <td className="py-3 text-right tabular-nums text-on-surface-variant">
+                            {count === null || count === undefined
+                              ? "—"
+                              : formatNumber(count)}
+                          </td>
+                          <td className="py-3 pr-2 text-right">
+                            <StatusBadge status={branch.status} />
                           </td>
                         </tr>
                       );
@@ -221,55 +236,62 @@ export default async function BranchesPage({
         <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
           <SegmentStrip
             segments={[
-              { label: "Branches", value: formatNumber(rows.length) },
+              { label: "Branches", value: formatNumber(branches.length) },
               { label: "Employees", value: formatNumber(totalEmployees) },
               {
                 label: "Unassigned",
-                value: formatNumber(unmanaged),
-                tone: unmanaged > 0 ? "warning" : "default",
+                value: formatNumber(unmanaged.length),
+                tone: unmanaged.length > 0 ? "warning" : "default",
               },
             ]}
           />
 
-          <BentoCard title="Headcount by region">
-            <DonutChart
-              segments={[
-                { label: "Nairobi", value: 448, color: "var(--color-blue)" },
-                { label: "Coast", value: 215, color: "var(--color-green-main)" },
-                { label: "Rift Valley", value: 238, color: "var(--color-amber-main)" },
-                { label: "Nyanza", value: 180, color: "var(--color-chart-track)" },
-              ]}
-            />
-          </BentoCard>
+          {counted.length > 0 ? (
+            <BentoCard title="Headcount by branch">
+              <DonutChart
+                segments={branches
+                  .filter((branch) => (headcount.get(branch.id) ?? 0) > 0)
+                  .map((branch, index) => ({
+                    label: branch.name,
+                    value: headcount.get(branch.id) ?? 0,
+                    color: DONUT_COLORS[index % DONUT_COLORS.length],
+                  }))}
+              />
+            </BentoCard>
+          ) : null}
 
           <BentoCard
             title="Needs attention"
-            subtitle="Branches below the attendance threshold"
+            subtitle="Branches with no manager assigned"
           >
-            <ul className="flex flex-col gap-3">
-              {BRANCHES.filter(
-                (b) => b.attendance < ATTENDANCE_WARNING_THRESHOLD,
-              ).map((branch) => (
-                <li key={branch.id}>
-                  <Link
-                    href={`/admin/branches/${branch.id}`}
-                    className="group -mx-2 flex items-center justify-between gap-3 rounded-lg p-2 transition-colors hover:bg-surface-container"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-[11px] font-semibold text-on-surface group-hover:text-primary-container">
-                        {branch.name}
+            {unmanaged.length === 0 ? (
+              <p className="py-4 text-center font-body-md text-body-md text-outline">
+                Every branch has a manager.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {unmanaged.map((branch) => (
+                  <li key={branch.id}>
+                    <Link
+                      href={`/admin/branches/${branch.id}`}
+                      className="group -mx-2 flex items-center justify-between gap-3 rounded-lg p-2 transition-colors hover:bg-surface-container"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate text-[11px] font-semibold text-on-surface group-hover:text-primary-container">
+                          {branch.name}
+                        </span>
+                        <span className="block text-[10px] text-on-surface-variant">
+                          {branch.code}
+                        </span>
                       </span>
-                      <span className="block text-[10px] text-on-surface-variant">
-                        {branch.manager ?? "No manager assigned"}
+                      <span className="shrink-0 rounded bg-amber-main/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-main">
+                        No manager
                       </span>
-                    </span>
-                    <span className="shrink-0 rounded bg-amber-main/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-main">
-                      {formatPercent(branch.attendance)}
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
           </BentoCard>
         </div>
       </div>

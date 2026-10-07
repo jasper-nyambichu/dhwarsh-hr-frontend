@@ -1,73 +1,103 @@
-//src/app/(portal)/admin/devices/page.tsx
-import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
-import { formatNumber } from "@/lib/format";
+import {
+  getAttendanceDevices,
+  getAttendanceSyncFailures,
+} from "@/lib/api/attendance";
+import { formatNumber, formatRelativeTime } from "@/lib/format";
+import type { AttendanceDeviceItem, AttendanceSyncFailure } from "@/types";
 
 /**
- * Biometric device fleet directory.
+ * Biometric terminal fleet.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — shaped against `types.BiometricDevice`. Sync
- * failures are a separate feed the backend will need to expose (e.g. a
- * `device_sync_events` table filtered to failures/warnings).
- * ─────────────────────────────────────────────────────────────────────────
+ * Fully wired: `GET /attendance/dashboard/devices` for the fleet and
+ * `GET /attendance/dashboard/sync-failures` for the refusal feed. `online` is
+ * computed server-side against a 5-minute freshness window, so liveness is a
+ * measurement rather than a stored flag.
+ *
+ * Three columns the placeholder showed have no column behind them and are gone:
+ * device **name** (`biometric_devices` has only a serial), **IP address** and
+ * **firmware version** (neither is stored). Device identity here is the serial,
+ * which is what the terminal itself sends.
+ *
+ * The status vocabulary also shrank from three to two: the backend has no
+ * `SYNCING` state — a terminal is `ACTIVE` or `INACTIVE`, and separately it is
+ * inside or outside the freshness window. A "syncing" bucket would have been a
+ * third thing that never occurs.
+ *
+ * Search is a plain GET form rather than a client-side filter: it works without
+ * JavaScript, the query lands in the URL so a filtered fleet is shareable, and
+ * it needs no client boundary.
  */
 
-type DeviceStatus = "ONLINE" | "OFFLINE" | "SYNCING";
+/** A terminal is one of three things, all derived from two real fields. */
+type FleetState = "online" | "stale" | "inactive";
 
-type DeviceRow = {
-  id: number;
-  name: string;
-  serial: string;
-  branch: string;
-  ip: string;
-  firmware: string;
-  lastSync: string;
-  lastSyncUrgent: boolean;
-  status: DeviceStatus;
-  icon: string;
+function fleetState(device: AttendanceDeviceItem): FleetState {
+  if (device.status !== "ACTIVE") return "inactive";
+  return device.online ? "online" : "stale";
+}
+
+const STATE_META: Record<FleetState, { label: string; dot: string; bar: string }> = {
+  online: { label: "Online", dot: "bg-emerald-500", bar: "bg-emerald-500" },
+  stale: { label: "Not reporting", dot: "bg-red-500", bar: "bg-red-500" },
+  inactive: { label: "Deactivated", dot: "bg-slate-400", bar: "bg-slate-400" },
 };
 
-type SyncFailure = {
-  id: number;
-  deviceName: string;
-  time: string;
-  message: string;
-  severity: "error" | "warning";
-};
+const STATE_ORDER: FleetState[] = ["online", "stale", "inactive"];
 
-const DEVICES: readonly DeviceRow[] = [
-  { id: 1, name: "HQ Main Entrance", serial: "ZK-889021A", branch: "Nairobi HQ", ip: "192.168.1.105", firmware: "v2.4.1", lastSync: "2 mins ago", lastSyncUrgent: false, status: "ONLINE", icon: "fingerprint" },
-  { id: 2, name: "Mombasa Factory Gate", serial: "ZK-77412B", branch: "Mombasa Branch", ip: "10.0.5.22", firmware: "v2.3.9", lastSync: "4 hours ago", lastSyncUrgent: true, status: "OFFLINE", icon: "co_present" },
-  { id: 3, name: "Kisumu Office Front", serial: "HI-99234X", branch: "Kisumu Branch", ip: "192.168.2.50", firmware: "v1.8.0", lastSync: "Syncing...", lastSyncUrgent: false, status: "SYNCING", icon: "fingerprint" },
-  { id: 4, name: "HQ IT Dept", serial: "FR-11099Z", branch: "Nairobi HQ", ip: "192.168.1.106", firmware: "v3.1.0", lastSync: "5 mins ago", lastSyncUrgent: false, status: "ONLINE", icon: "face" },
-  { id: 5, name: "Nakuru Warehouse", serial: "ZK-44512C", branch: "Nakuru Branch", ip: "10.0.3.15", firmware: "v2.4.1", lastSync: "12 mins ago", lastSyncUrgent: false, status: "ONLINE", icon: "fingerprint" },
-  { id: 6, name: "Eldoret Store", serial: "ZK-22341D", branch: "Eldoret Branch", ip: "10.0.4.88", firmware: "v2.3.5", lastSync: "Yesterday", lastSyncUrgent: true, status: "OFFLINE", icon: "fingerprint" },
-];
-
-const SYNC_FAILURES: readonly SyncFailure[] = [
-  { id: 1, deviceName: "Mombasa Factory Gate", time: "10:45 AM", message: "Connection Timeout (Code: 10060)", severity: "error" },
-  { id: 2, deviceName: "Eldoret Store", time: "08:12 AM", message: "Device Unreachable (Ping Fail)", severity: "error" },
-  { id: 3, deviceName: "Kisumu Office Front", time: "Yesterday", message: "Partial Sync (Logs missing)", severity: "warning" },
-];
-
-const STATUS_META: Record<DeviceStatus, { label: string; dot: string; badge: string }> = {
-  ONLINE: { label: "Online", dot: "bg-emerald-500", badge: "border border-green-200 bg-green-50 text-green-700" },
-  OFFLINE: { label: "Offline", dot: "bg-red-500", badge: "border border-red-200 bg-red-50 text-red-700" },
-  SYNCING: { label: "Syncing", dot: "bg-amber-500", badge: "border border-amber-200 bg-amber-50 text-amber-700" },
-};
-
-export default async function BiometricDevicesPage() {
+export default async function BiometricDevicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
   await requirePermission("biometric:device:manage");
 
-  const onlineCount = DEVICES.filter((d) => d.status === "ONLINE").length;
-  const syncingCount = DEVICES.filter((d) => d.status === "SYNCING").length;
-  const offlineCount = DEVICES.filter((d) => d.status === "OFFLINE").length;
-  const fleetTotal = onlineCount + syncingCount + offlineCount;
+  const { q } = await searchParams;
+  const needle = q?.trim().toLowerCase() ?? "";
+
+  let devices: AttendanceDeviceItem[];
+  let failures: AttendanceSyncFailure[];
+
+  try {
+    [devices, failures] = await Promise.all([
+      getAttendanceDevices(),
+      getAttendanceSyncFailures(),
+    ]);
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) redirect("/login");
+
+    return (
+      <DataUnavailable
+        title="Biometric Devices"
+        description="Monitor and manage attendance terminal connectivity."
+        subject="The device fleet"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
+
+  const rows = needle
+    ? devices.filter((device) =>
+        [device.deviceSerial, device.branchName]
+          .filter(Boolean)
+          .some((field) => field!.toLowerCase().includes(needle)),
+      )
+    : devices;
+
+  const counts: Record<FleetState, number> = {
+    online: devices.filter((d) => fleetState(d) === "online").length,
+    stale: devices.filter((d) => fleetState(d) === "stale").length,
+    inactive: devices.filter((d) => fleetState(d) === "inactive").length,
+  };
+  const fleetTotal = devices.length || 1;
 
   return (
     <>
@@ -75,13 +105,13 @@ export default async function BiometricDevicesPage() {
         title="Biometric Devices"
         description="Monitor and manage attendance terminal connectivity."
         actions={
-          <Link
-            href="/admin/devices/new"
+          <button
+            type="button"
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-body-md text-sm font-semibold text-white transition-colors hover:bg-on-primary-fixed-variant"
           >
             <Icon name="add" className="text-[18px]" />
             Register Device
-          </Link>
+          </button>
         }
       />
 
@@ -91,89 +121,126 @@ export default async function BiometricDevicesPage() {
           <BentoCard
             title={
               <span className="flex items-center gap-2">
-                <Icon name="dns" className="text-[18px] text-on-surface-variant" />
+                <Icon
+                  name="dns"
+                  className="text-[18px] text-on-surface-variant"
+                />
                 Registered Terminals
               </span>
             }
             action={
-              <div className="flex gap-2">
+              <form action="/admin/devices" method="get">
                 <div className="relative">
-                  <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline" />
+                  <Icon
+                    name="search"
+                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline"
+                  />
                   <input
-                    type="text"
-                    placeholder="Search devices..."
+                    type="search"
+                    name="q"
+                    defaultValue={q ?? ""}
+                    placeholder="Search serial or branch..."
                     className="w-64 rounded-md border border-outline-variant/60 bg-surface py-1.5 pl-9 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
                   />
                 </div>
-                <button className="flex items-center justify-center rounded-md border border-outline-variant/60 p-1.5 text-on-surface-variant transition-colors hover:bg-surface">
-                  <Icon name="filter_list" className="text-[18px]" />
-                </button>
-              </div>
+              </form>
             }
           >
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-outline-variant/60 text-on-surface-variant">
-                    <th className="px-4 py-3 font-table-header text-table-header uppercase">Device</th>
-                    <th className="px-4 py-3 font-table-header text-table-header uppercase">Branch</th>
-                    <th className="px-4 py-3 font-table-header text-table-header uppercase">Network</th>
-                    <th className="px-4 py-3 font-table-header text-table-header uppercase">Last Sync</th>
-                    <th className="px-4 py-3 font-table-header text-table-header uppercase">Status</th>
-                    <th className="px-4 py-3 text-right font-table-header text-table-header uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {DEVICES.map((device) => {
-                    const meta = STATUS_META[device.status];
-                    return (
-                      <tr key={device.id} className="group border-b border-outline-variant/60 transition-colors last:border-0 hover:bg-surface">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="flex size-8 items-center justify-center rounded bg-primary/10 text-primary">
-                              <Icon name={device.icon} className="text-[18px]" />
+            {rows.length === 0 ? (
+              <EmptyState
+                symbol="devices_other"
+                title={
+                  devices.length === 0
+                    ? "No terminals registered"
+                    : "No terminals match that search"
+                }
+                description={
+                  devices.length === 0
+                    ? "Biometric terminals appear here once enrolled to a branch."
+                    : "Try a different serial or branch name, or clear the search."
+                }
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-outline-variant/60 text-on-surface-variant">
+                      <th className="px-4 py-3 font-table-header text-table-header uppercase">
+                        Terminal
+                      </th>
+                      <th className="px-4 py-3 font-table-header text-table-header uppercase">
+                        Branch
+                      </th>
+                      <th className="px-4 py-3 font-table-header text-table-header uppercase">
+                        Last Sync
+                      </th>
+                      <th className="px-4 py-3 font-table-header text-table-header uppercase">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((device) => {
+                      const state = fleetState(device);
+                      const meta = STATE_META[state];
+
+                      return (
+                        <tr
+                          key={device.id}
+                          className="border-b border-outline-variant/60 transition-colors last:border-0 hover:bg-surface"
+                        >
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="flex size-8 items-center justify-center rounded bg-primary/10 text-primary">
+                                <Icon name="fingerprint" className="text-[18px]" />
+                              </div>
+                              <div>
+                                <div className="font-mono text-sm font-semibold text-on-surface">
+                                  {device.deviceSerial}
+                                </div>
+                                <div className="text-[10px] text-outline">
+                                  Terminal #{device.id}
+                                </div>
+                              </div>
                             </div>
-                            <div>
-                              <div className="text-sm font-semibold text-on-surface">{device.name}</div>
-                              <div className="text-[10px] text-outline">SN: {device.serial}</div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm">{device.branch}</td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm">{device.ip}</div>
-                          <div className="text-[10px] text-outline">Firmware: {device.firmware}</div>
-                        </td>
-                        <td className={`px-4 py-3 text-sm ${device.lastSyncUrgent ? "text-error" : "text-on-surface-variant"}`}>
-                          {device.lastSync}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${meta.badge}`}>
-                            <span className={`inline-block size-2 rounded-full ${meta.dot}`} />
-                            {meta.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button className="p-1 text-outline opacity-0 transition-colors group-hover:opacity-100 hover:text-primary">
-                            <Icon name="more_vert" className="text-[18px]" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {device.branchName ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-on-surface-variant">
+                            {device.lastSyncAt ? (
+                              formatRelativeTime(device.lastSyncAt)
+                            ) : (
+                              <span className="text-error">Never synced</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container px-2 py-0.5 text-[10px] font-medium text-on-surface-variant">
+                              <span
+                                className={`inline-block size-2 rounded-full ${meta.dot}`}
+                              />
+                              {meta.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
             <div className="mt-4 flex items-center justify-between border-t border-outline-variant/60 pt-4 text-xs text-on-surface-variant">
-              <span>Showing {DEVICES.length} of 24 devices</span>
-              <div className="flex gap-1">
-                <button className="rounded border border-transparent px-2 py-1 hover:border-outline-variant/60 hover:bg-surface">Prev</button>
-                <button className="rounded bg-primary px-2 py-1 text-white">1</button>
-                <button className="rounded border border-transparent px-2 py-1 hover:border-outline-variant/60 hover:bg-surface">2</button>
-                <button className="rounded border border-transparent px-2 py-1 hover:border-outline-variant/60 hover:bg-surface">3</button>
-                <button className="rounded border border-transparent px-2 py-1 hover:border-outline-variant/60 hover:bg-surface">Next</button>
-              </div>
+              <span>
+                {formatNumber(rows.length)}{" "}
+                {rows.length === 1 ? "terminal" : "terminals"}
+                {needle ? ` matching “${q}”` : ""}
+              </span>
+              {needle ? (
+                <a href="/admin/devices" className="hover:text-primary">
+                  Clear search
+                </a>
+              ) : null}
             </div>
           </BentoCard>
         </div>
@@ -181,25 +248,35 @@ export default async function BiometricDevicesPage() {
         {/* ────────────────────────────── side column ──────────────────── */}
         <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
           <BentoCard title="Fleet Status Overview">
-            <div className="mb-2 flex gap-0.5 overflow-hidden rounded-full">
-              <div className="h-2 bg-emerald-500" style={{ width: `${(onlineCount / fleetTotal) * 100}%` }} />
-              <div className="h-2 bg-amber-500" style={{ width: `${(syncingCount / fleetTotal) * 100}%` }} />
-              <div className="h-2 bg-red-500" style={{ width: `${(offlineCount / fleetTotal) * 100}%` }} />
-            </div>
-            <div className="mt-2 flex justify-between text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-emerald-500" />
-                <span className="text-on-surface-variant">Online ({formatNumber(onlineCount)})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-amber-500" />
-                <span className="text-on-surface-variant">Syncing ({formatNumber(syncingCount)})</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-red-500" />
-                <span className="text-on-surface-variant">Offline ({formatNumber(offlineCount)})</span>
-              </div>
-            </div>
+            {devices.length === 0 ? (
+              <p className="py-4 text-center font-body-md text-body-md text-outline">
+                No terminals enrolled.
+              </p>
+            ) : (
+              <>
+                <div className="mb-2 flex gap-0.5 overflow-hidden rounded-full">
+                  {STATE_ORDER.map((state) => (
+                    <div
+                      key={state}
+                      className={`h-2 ${STATE_META[state].bar}`}
+                      style={{ width: `${(counts[state] / fleetTotal) * 100}%` }}
+                    />
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs">
+                  {STATE_ORDER.map((state) => (
+                    <div key={state} className="flex items-center gap-1.5">
+                      <span
+                        className={`size-2 rounded-full ${STATE_META[state].dot}`}
+                      />
+                      <span className="text-on-surface-variant">
+                        {STATE_META[state].label} ({formatNumber(counts[state])})
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </BentoCard>
 
           <BentoCard
@@ -209,34 +286,41 @@ export default async function BiometricDevicesPage() {
                 Recent Sync Failures
               </span>
             }
+            subtitle={
+              failures.length > 0
+                ? "Scans the backend refused — no attendance row was written."
+                : undefined
+            }
             flush
           >
             <div className="flex flex-col gap-3 p-card-padding pt-0">
-              {SYNC_FAILURES.map((failure) => (
-                <div
-                  key={failure.id}
-                  className={`flex flex-col gap-1 rounded-lg border p-3 ${
-                    failure.severity === "error" ? "border-red-100 bg-red-50/50" : "border-amber-100 bg-amber-50/50"
-                  }`}
-                >
-                  <div className="flex items-start justify-between">
-                    <span className="text-sm font-semibold text-on-surface">{failure.deviceName}</span>
-                    <span className="rounded bg-white px-1.5 py-0.5 text-[10px] text-on-surface-variant shadow-sm">
-                      {failure.time}
-                    </span>
+              {failures.length === 0 ? (
+                <p className="py-4 text-center font-body-md text-body-md text-outline">
+                  No rejected scans.
+                </p>
+              ) : (
+                failures.slice(0, 6).map((failure) => (
+                  <div
+                    key={failure.id}
+                    className="flex flex-col gap-1 rounded-lg border border-red-100 bg-red-50/50 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="min-w-0 truncate font-mono text-[11px] font-semibold text-on-surface">
+                        {failure.deviceSerial ?? "Unknown terminal"}
+                      </span>
+                      <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-[10px] text-on-surface-variant shadow-sm">
+                        {formatRelativeTime(failure.createdAt)}
+                      </span>
+                    </div>
+                    <span className="text-xs text-error">{failure.reason}</span>
+                    {failure.employeeName ? (
+                      <span className="text-[10px] text-on-surface-variant">
+                        {failure.employeeName}
+                      </span>
+                    ) : null}
                   </div>
-                  <span className={`text-xs ${failure.severity === "error" ? "text-error" : "text-amber-700"}`}>
-                    {failure.message}
-                  </span>
-                  <button className="mt-1 flex w-fit items-center gap-1 text-[10px] font-medium text-primary hover:underline">
-                    <Icon name="refresh" className="text-[12px]" />
-                    Retry Sync
-                  </button>
-                </div>
-              ))}
-              <button className="mt-1 w-full rounded-lg bg-[#E6F0F8] py-2 text-sm font-semibold text-[#1C6EB4] transition-colors hover:bg-[#d0e4ff]">
-                Run Global Diagnostic
-              </button>
+                ))
+              )}
             </div>
           </BentoCard>
         </div>
