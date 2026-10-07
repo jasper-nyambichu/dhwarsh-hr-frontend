@@ -1,203 +1,295 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
+
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { BentoCard } from "@/components/shared/bento-card";
-import { MetricCard } from "@/components/shared/metric-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Icon } from "@/components/ui/icon";
-import { formatDate, formatMoney, formatMoneyCompact, initials } from "@/lib/format";
-import type { Agent } from "@/types";
+import { getAgent, getAgentStaff } from "@/lib/api/agent";
+import { formatDate, formatMoney, formatNumber, humanizeEnum, initials } from "@/lib/format";
+import type { AgentResponse, EmployeeSummaryResponse } from "@/types";
 
 /**
- * Agent detail — HR view (read-only, no contract edit affordances).
+ * One labour agent, read-only.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — shaped against `types.Agent`, plus deployed-staff
- * and invoice-history rows the detail view needs as a projection. Swap for
- * `await api.get<Agent>(`/agents/${id}`)` when ready. Unlike
- * /admin/agents/[id], HR sees contract terms as read-only labels — no form.
- * ─────────────────────────────────────────────────────────────────────────
+ * HR can read an agent but not write one — `POST`/`PUT /agents` are
+ * SUPER_ADMIN/ADMIN and `PUT /agents/{id}/deactivate` is SUPER_ADMIN alone.
+ * Contract terms are therefore labels, never inputs.
+ *
+ * The old placeholder's "Outstanding Advances" card and "Recent Invoices" list
+ * are gone. Both were invented: advances and invoices are their own modules with
+ * their own endpoints, and neither is exposed per-agent to HR, so there is
+ * nothing to total. The side column shows the contact and banking details the
+ * agent record actually carries instead.
  */
-
-const AGENT: Agent & { outstandingAdvances: number; utilisationPct: number } = {
-  id: 1,
-  name: "Strategic Labour Ltd",
-  contactPerson: null,
-  phone: null,
-  email: null,
-  address: null,
-  bankName: null,
-  bankAccountNumber: null,
-  kraPin: null,
-  contractStartDate: "2024-01-01",
-  contractEndDate: "2024-12-31",
-  chargeType: "PER_EMPLOYEE",
-  chargeAmount: 1_500,
-  chargePercentage: null,
-  vatRegistered: true,
-  status: "ACTIVE",
-  createdAt: null,
-  updatedAt: null,
-  createdBy: null,
-  updatedBy: null,
-  outstandingAdvances: 45_000,
-  utilisationPct: 35,
-};
-
-const DEPLOYED_STAFF = [
-  { id: 1, name: "John Mwangi", code: "EMP-001", branch: "Nairobi CBD", role: "Security Officer", rate: 1_500, status: "DEPLOYED" as const },
-  { id: 2, name: "Sarah Wanjiku", code: "EMP-045", branch: "Mombasa Port", role: "Logistics Clerk", rate: 2_000, status: "DEPLOYED" as const },
-  { id: 3, name: "Peter Kiprono", code: "EMP-112", branch: "Nakuru Branch", role: "Janitor", rate: 1_200, status: "DEPLOYED" as const },
-  { id: 4, name: "Alice Ochieng", code: "EMP-204", branch: "Kisumu HQ", role: "Data Entry", rate: 1_800, status: "LEAVE" as const },
-  { id: 5, name: "Daniel Kamau", code: "EMP-315", branch: "Nairobi West", role: "Driver", rate: 2_200, status: "DEPLOYED" as const },
-];
-
-const INVOICES = [
-  { id: 1, period: "Oct 2026", amount: 850_000 },
-  { id: 2, period: "Sep 2026", amount: 825_500 },
-  { id: 3, period: "Aug 2026", amount: 860_000 },
-  { id: 4, period: "Jul 2026", amount: 840_000 },
-  { id: 5, period: "Jun 2026", amount: 810_000 },
-] as const;
-
-const STATUS_CHIP = {
-  DEPLOYED: "bg-tertiary-container/10 text-tertiary-container",
-  LEAVE: "bg-error-container/30 text-error",
-} as const;
-
-export default async function HrAgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function HrAgentDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   await requirePermission("agent:read");
+
   const { id } = await params;
-  const agent = AGENT; // TODO: fetch by `id` once the endpoint exists
+  const agentId = Number(id);
+
+  if (!Number.isInteger(agentId) || agentId <= 0) {
+    notFound();
+  }
+
+  let agent: AgentResponse;
+  let staff: EmployeeSummaryResponse[];
+
+  try {
+    // Sequential rather than parallel: a 404 on the agent means the staff call
+    // is pointless, and the staff read is the one that can 403 for a role that
+    // may still read the agent itself.
+    agent = await getAgent(agentId);
+    staff = await getAgentStaff(agentId);
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) {
+      throw error;
+    }
+
+    if (error instanceof ApiError && error.isNotFound) {
+      notFound();
+    }
+
+    return (
+      <DataUnavailable
+        title="Labour Agent"
+        description="One external staff supplier."
+        subject="This agent"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
 
   return (
     <>
       <PageHeader
         title={
-          <span className="flex items-center gap-4">
-            <button type="button" className="flex size-10 items-center justify-center rounded-full bg-surface-container-lowest text-on-surface-variant shadow-sm transition-colors hover:bg-surface-container-low hover:-translate-y-px">
-              <Icon name="arrow_back_ios_new" />
-            </button>
-            <span className="flex items-center gap-3">
-              {agent.name}
-              <span className="rounded-full border border-tertiary-fixed bg-tertiary-fixed/30 px-3 py-1 font-table-header text-table-header uppercase text-tertiary">
-                {agent.status === "ACTIVE" ? "Active" : "Inactive"}
-              </span>
-            </span>
+          <span className="flex items-center gap-3">
+            {agent.name}
+            <StatusBadge status={agent.status} />
           </span>
+        }
+        description={agent.contactPerson ?? "No contact person on file."}
+        actions={
+          <Link
+            href="/hr/agents"
+            className={buttonVariants({ variant: "secondary" })}
+          >
+            <Icon name="arrow_back" className="text-[18px]" />
+            All agents
+          </Link>
         }
       />
 
       <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
-        {/* ───────────────────────────────── main column ─────────────────── */}
         <div className="flex flex-col gap-gutter lg:col-span-8">
           <BentoCard
-            title="Deployed Staff"
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="groups" className="text-[20px] text-primary" />
+                Deployed Staff
+              </span>
+            }
             action={
-              <button type="button" className="flex items-center gap-1 font-body-md text-body-md font-medium text-primary transition-colors hover:text-primary-container">
-                View All
-                <Icon name="arrow_forward" className="text-[16px]" />
-              </button>
+              <span className="font-body-md text-[11px] text-outline">
+                {formatNumber(staff.length)}{" "}
+                {staff.length === 1 ? "employee" : "employees"}
+              </span>
             }
           >
-            <div className="w-full overflow-x-auto">
-              <table className="data-table w-full border-collapse text-left">
-                <thead>
-                  <tr>
-                    <th className="pb-3 pr-4 font-table-header text-table-header uppercase text-on-surface-variant">Employee</th>
-                    <th className="px-4 pb-3 font-table-header text-table-header uppercase text-on-surface-variant">Branch</th>
-                    <th className="px-4 pb-3 font-table-header text-table-header uppercase text-on-surface-variant">Role</th>
-                    <th className="px-4 pb-3 text-right font-table-header text-table-header uppercase text-on-surface-variant">Rate</th>
-                    <th className="pb-3 pl-4 text-center font-table-header text-table-header uppercase text-on-surface-variant">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="font-body-md text-body-md">
-                  {DEPLOYED_STAFF.map((staff) => (
-                    <tr key={staff.id} className="group border-b border-outline-variant/20 transition-colors last:border-0 hover:bg-surface-container-low/50">
-                      <td className="py-4 pr-4">
-                        <span className="flex items-center gap-3">
-                          <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-container/20 text-[10px] font-bold text-primary">
-                            {initials(staff.name)}
-                          </span>
-                          <span>
-                            <span className="block font-medium text-on-surface transition-colors group-hover:text-primary">{staff.name}</span>
-                            <span className="block text-[10px] text-outline">{staff.code}</span>
-                          </span>
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-on-surface-variant">{staff.branch}</td>
-                      <td className="px-4 py-4 text-on-surface-variant">{staff.role}</td>
-                      <td className="px-4 py-4 text-right font-medium tabular-nums text-on-surface">{formatMoney(staff.rate)}/day</td>
-                      <td className="py-4 pl-4 text-center">
-                        <span className={`inline-block rounded px-2 py-1 text-[10px] font-medium ${STATUS_CHIP[staff.status]}`}>
-                          {staff.status === "DEPLOYED" ? "Deployed" : "On Leave"}
-                        </span>
-                      </td>
+            {staff.length === 0 ? (
+              <EmptyState
+                symbol="person_off"
+                title="No staff deployed"
+                description="No employee record currently points at this agent."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-body-md text-body-md">
+                  <thead>
+                    <tr className="border-b border-outline-variant/50 font-table-header text-table-header uppercase text-outline">
+                      <th className="pb-3 pr-4">Employee</th>
+                      <th className="pb-3 pr-4">Branch</th>
+                      <th className="pb-3 pr-4">Position</th>
+                      <th className="pb-3">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {staff.map((employee) => (
+                      <tr
+                        key={employee.id}
+                        className="border-b border-outline-variant/25 last:border-0 hover:bg-surface-container-low/40"
+                      >
+                        <td className="py-3 pr-4">
+                          <Link
+                            href={`/hr/employees/${employee.id}`}
+                            className="group flex items-center gap-3"
+                          >
+                            <span
+                              aria-hidden
+                              className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-container/20 text-[10px] font-bold text-primary"
+                            >
+                              {initials(employee.fullName)}
+                            </span>
+                            <span>
+                              <span className="block font-medium text-on-surface group-hover:text-primary">
+                                {employee.fullName}
+                              </span>
+                              <span className="block text-[10px] text-outline">
+                                {employee.employeeNumber}
+                              </span>
+                            </span>
+                          </Link>
+                        </td>
+                        <td className="py-3 pr-4 text-on-surface-variant">
+                          {employee.branchName ?? "—"}
+                        </td>
+                        <td className="py-3 pr-4 text-on-surface-variant">
+                          {employee.position ?? "—"}
+                        </td>
+                        <td className="py-3">
+                          <StatusBadge status={employee.employmentStatus} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </BentoCard>
 
           <BentoCard
             title={
               <span className="flex items-center gap-2">
-                <Icon name="description" className="text-primary" />
+                <Icon name="description" className="text-[20px] text-primary" />
                 Contract Terms
               </span>
             }
+            action={
+              <span className="font-body-md text-[11px] text-outline">
+                Read-only
+              </span>
+            }
           >
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <ReadOnlyField label="Charge Type" value="Per-Employee" />
-              <ReadOnlyField label="Amount" value={`${formatMoney(agent.chargeAmount ?? 0)}/day`} />
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
               <ReadOnlyField
-                label="VAT-Registered"
+                label="Charge Type"
+                value={humanizeEnum(agent.chargeType)}
+              />
+              <ReadOnlyField
+                label="Charge Amount"
+                value={
+                  agent.chargeAmount === null
+                    ? "Not set"
+                    : `${formatMoney(agent.chargeAmount)}${
+                        agent.chargeType === "PER_EMPLOYEE" ? " / employee" : ""
+                      }`
+                }
+              />
+              <ReadOnlyField
+                label="Charge Percentage"
+                value={
+                  agent.chargePercentage === null
+                    ? "Not set"
+                    : `${agent.chargePercentage}%`
+                }
+              />
+              <ReadOnlyField
+                label="Contract Start"
+                value={
+                  agent.contractStartDate
+                    ? formatDate(agent.contractStartDate)
+                    : "Not set"
+                }
+              />
+              <ReadOnlyField
+                label="Contract End"
+                value={
+                  agent.contractEndDate ? formatDate(agent.contractEndDate) : "Open"
+                }
+              />
+              <ReadOnlyField
+                label="VAT Registered"
                 value={
                   <span className="flex items-center gap-2">
-                    <Icon name="check_circle" className="text-[16px] text-tertiary" />
+                    <Icon
+                      name={agent.vatRegistered ? "check_circle" : "cancel"}
+                      className={`text-[16px] ${
+                        agent.vatRegistered ? "text-tertiary" : "text-outline"
+                      }`}
+                    />
                     {agent.vatRegistered ? "Yes" : "No"}
                   </span>
                 }
               />
-              <ReadOnlyField label="Start Date" value={formatDate(agent.contractStartDate)} />
-              <ReadOnlyField label="End Date" value={formatDate(agent.contractEndDate)} />
             </div>
+
+            <p className="mt-5 text-[11px] text-outline">
+              HR can view these terms but not change them — editing an agent is
+              an administrator action.
+            </p>
           </BentoCard>
         </div>
 
-        {/* ──────────────────────────────── side column ──────────────────── */}
         <div className="flex flex-col gap-gutter lg:col-span-4">
-          <div className="relative overflow-hidden rounded-card border border-surface-container bg-surface-container-lowest p-card-padding shadow-ambient-1 transition-all hover:-translate-y-0.5 hover:shadow-ambient-2">
-            <span className="pointer-events-none absolute right-4 top-4 text-error opacity-10">
-              <Icon name="account_balance_wallet" className="text-[64px]" />
-            </span>
-            <h3 className="relative z-10 mb-2 font-medium text-on-surface-variant">Outstanding Advances</h3>
-            <div className="relative z-10 mb-4 font-card-stat text-[28px] text-on-surface">{formatMoneyCompact(agent.outstandingAdvances)}</div>
-            <div className="relative z-10 mt-2 h-1.5 overflow-hidden rounded-full bg-surface-container-high">
-              <div className="h-1.5 rounded-full bg-error" style={{ width: `${agent.utilisationPct}%` }} />
-            </div>
-            <p className="relative z-10 mt-2 text-[10px] text-outline">{agent.utilisationPct}% of monthly allocation used</p>
-          </div>
+          <BentoCard
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="contacts" className="text-[20px] text-primary" />
+                Contact
+              </span>
+            }
+          >
+            <dl className="flex flex-col gap-3">
+              <DetailRow label="Contact Person" value={agent.contactPerson} />
+              <DetailRow label="Phone" value={agent.phone} />
+              <DetailRow label="Email" value={agent.email} />
+              <DetailRow label="Address" value={agent.address} />
+            </dl>
+          </BentoCard>
 
-          <BentoCard title="Recent Invoices" action={<Icon name="more_vert" className="text-on-surface-variant" />}>
-            <div className="flex flex-col">
-              <div className="grid grid-cols-12 gap-2 border-b border-outline-variant/30 pb-2 font-table-header text-[10px] uppercase tracking-wider text-outline">
-                <div className="col-span-4">Period</div>
-                <div className="col-span-5 text-right">Amount</div>
-                <div className="col-span-3 text-center">Status</div>
-              </div>
-              {INVOICES.map((inv) => (
-                <div key={inv.id} className="grid grid-cols-12 items-center gap-2 border-b border-outline-variant/20 py-3 transition-colors last:border-0 hover:bg-surface-container-low/30">
-                  <div className="col-span-4 font-medium text-on-surface">{inv.period}</div>
-                  <div className="col-span-5 text-right font-medium text-on-surface">{formatMoney(inv.amount)}</div>
-                  <div className="col-span-3 text-center">
-                    <span className="inline-block size-2 rounded-full bg-tertiary" />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button type="button" className="mt-4 w-full rounded-lg border border-primary py-2 text-[12px] font-medium text-primary transition-colors hover:bg-primary-container/10">
-              View Full History
-            </button>
+          <BentoCard
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="account_balance" className="text-[20px] text-primary" />
+                Banking & Statutory
+              </span>
+            }
+          >
+            <dl className="flex flex-col gap-3">
+              <DetailRow label="Bank" value={agent.bankName} />
+              <DetailRow label="Account Number" value={agent.bankAccountNumber} />
+              <DetailRow label="KRA PIN" value={agent.kraPin} />
+            </dl>
+          </BentoCard>
+
+          <BentoCard
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="receipt_long" className="text-[20px] text-primary" />
+                Invoices & Advances
+              </span>
+            }
+          >
+            <p className="font-body-md text-body-md text-on-surface-variant">
+              Not shown here. Agent invoices are produced by a payroll run and
+              agent advances are their own module, each with its own status and
+              history — neither is exposed as a per-agent total to HR.
+            </p>
+            <p className="mt-3 text-[11px] text-outline">
+              Showing a figure here would mean inventing one. The agent&rsquo;s
+              own portal and the payroll screens are where those numbers live.
+            </p>
           </BentoCard>
         </div>
       </div>
@@ -205,13 +297,34 @@ export default async function HrAgentDetailPage({ params }: { params: Promise<{ 
   );
 }
 
-function ReadOnlyField({ label, value }: { label: string; value: React.ReactNode }) {
+function ReadOnlyField({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
   return (
     <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-bold uppercase tracking-wider text-outline">{label}</span>
-      <span className="rounded-lg border border-surface-container-highest bg-surface-container-low px-3 py-2 font-medium text-on-surface">
+      <span className="font-table-header text-table-header uppercase text-outline">
+        {label}
+      </span>
+      <span className="rounded-lg border border-outline-variant/60 bg-surface-container-low px-3 py-2 font-body-md text-body-md font-medium text-on-surface">
         {value}
       </span>
+    </div>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <dt className="font-body-md text-[11px] uppercase tracking-wide text-outline">
+        {label}
+      </dt>
+      <dd className="text-right font-body-md text-body-md text-on-surface">
+        {value ?? "—"}
+      </dd>
     </div>
   );
 }

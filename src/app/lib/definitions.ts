@@ -110,54 +110,82 @@ const optionalString = z
   .or(z.literal(""))
   .transform((v) => (v === "" ? undefined : v));
 
+// An HTML <select> submits "" when nothing is chosen, and an optional numeric
+// id must arrive as absent rather than as 0 — `z.coerce.number()` turns "" into
+// 0, which then trips `.positive()` and reports a validation error for a field
+// the user deliberately left blank.
+const optionalId = z.preprocess(
+  (v) => (v === "" || v === null || v === undefined ? undefined : v),
+  z.coerce.number().int().positive().optional()
+);
+
+// Same reasoning for optional enum selects, and for optional dates: the
+// backend binds these to Java enums and LocalDate, so an empty string is a 400
+// rather than a blank field.
+const optionalEnum = (values: [string, ...string[]]) =>
+  z.preprocess(
+    (v) => (v === "" || v === null ? undefined : v),
+    z.enum(values).optional()
+  );
+
+const optionalDate = z
+  .string()
+  .optional()
+  .or(z.literal(""))
+  .transform((v) => (v === "" ? undefined : v));
+
+/* -------------------------------------------------------------- employee -- */
+
+// Field-for-field against EmployeeRequest in the backend
+// (dto/request/employee/EmployeeRequest.java). Only four fields are @NotNull
+// there — fullName, branchId, employmentType, basicSalary — so everything else
+// is genuinely optional.
+//
+// Two fields the backend owns and this schema must NOT contain:
+//   employeeNumber  generated server-side as EMP-<branchCode>-<seq>, with a
+//                   collision retry. Sending one is at best ignored.
+//   employmentStatus not in the request DTO at all; the service defaults it.
 export const employeeSchema = z.object({
   fullName: z
     .string()
     .min(2, { message: "Full name is required." })
     .max(150, { message: "Full name is too long." })
     .trim(),
-  employeeNumber: z
-    .string()
-    .min(1, { message: "Employee number is required." })
-    .max(30)
-    .trim(),
   nationalId: z.string().max(30).trim().optional(),
-  dateOfBirth: z.string().optional(),
-  gender: z.enum(["MALE", "FEMALE", "OTHER"]).optional(),
-  maritalStatus: z.enum(["SINGLE", "MARRIED", "DIVORCED", "WIDOWED"]).optional(),
+  dateOfBirth: optionalDate,
+  gender: optionalEnum(["MALE", "FEMALE", "OTHER"]),
+  maritalStatus: optionalEnum([
+    "SINGLE",
+    "MARRIED",
+    "DIVORCED",
+    "WIDOWED",
+  ]),
   phone: optionalString,
   email: z
     .string()
     .email({ message: "Enter a valid email address." })
     .optional()
-    .or(z.literal("")),
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v)),
   address: optionalString,
   kraPin: z.string().max(20).trim().optional(),
   shifNumber: z.string().max(20).trim().optional(),
   nssfNumber: z.string().max(20).trim().optional(),
   nitaNumber: z.string().max(20).trim().optional(),
   branchId: z.coerce.number().int().positive({ message: "Select a branch." }),
-  departmentId: z.coerce.number().int().positive().optional(),
-  agentId: z.coerce.number().int().positive().optional(),
+  departmentId: optionalId,
+  agentId: optionalId,
   position: optionalString,
-  employmentType: z.enum([
-    "PERMANENT",
-    "CONTRACT",
-    "CASUAL",
-    "INTERN",
-    "OUTSOURCED",
-  ]),
+  // EmploymentType enum: PERMANENT, CONTRACT, CASUAL, OUTSOURCED.
+  // There is no INTERN — offering it was a guaranteed 400.
+  employmentType: z.enum(
+    ["PERMANENT", "CONTRACT", "CASUAL", "OUTSOURCED"],
+    { message: "Select an employment type." }
+  ),
   basicSalary: z.coerce
     .number()
     .nonnegative({ message: "Salary cannot be negative." }),
-  dateHired: z.string().optional(),
-  employmentStatus: z.enum([
-    "ACTIVE",
-    "PROBATION",
-    "ON_LEAVE",
-    "SUSPENDED",
-    "TERMINATED",
-  ]),
+  dateHired: optionalDate,
   bankName: optionalString,
   bankAccountNumber: optionalString,
   emergencyContactName: optionalString,
@@ -229,7 +257,10 @@ export const agentSchema = z.object({
   chargeAmount: z.coerce.number().nonnegative().optional(),
   chargePercentage: z.coerce.number().min(0).max(100).optional(),
   vatRegistered: z.coerce.boolean(),
-  status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]),
+  // The column is a free String on the entity, but nothing ever writes a third
+  // value — deactivateAgent sets "INACTIVE". Offering SUSPENDED here would let
+  // a form store a state no other screen knows how to read.
+  status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
 export const agentAdvanceSchema = z.object({
@@ -267,7 +298,9 @@ export const branchSchema = z.object({
     .optional()
     .or(z.literal("")),
   managerId: z.coerce.number().int().positive().optional(),
-  status: z.enum(["ACTIVE", "INACTIVE", "SUSPENDED"]),
+  // Same as the agent schema above: deactivateBranch writes "INACTIVE" and
+  // there is no third state to offer.
+  status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
 export const departmentSchema = z.object({
@@ -278,11 +311,33 @@ export const departmentSchema = z.object({
 
 /* ----------------------------------------------------------------- shift -- */
 
+// Mirrors ShiftRequest + entity/shift/ShiftType. The four values below are the
+// Java enum exactly; "DAY" and "SPLIT" are shift *names* in the demo seed, not
+// types, and would have been rejected on submit.
 export const shiftSchema = z.object({
   name: z.string().min(2, { message: "Shift name is required." }).max(100).trim(),
-  type: z.enum(["DAY", "NIGHT", "SPLIT", "FLEXIBLE"]),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
+  type: z.enum(["MORNING", "EVENING", "NIGHT", "ROTATING", "FLEXIBLE"], {
+    message: "Select a shift type.",
+  }),
+  // LocalTime — "HH:mm" from <input type="time">, or absent.
+  startTime: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v)),
+  endTime: z
+    .string()
+    .optional()
+    .or(z.literal(""))
+    .transform((v) => (v === "" ? undefined : v)),
+});
+
+/** A shift assignment targets exactly one of employee, department or branch. */
+export const shiftAssignmentSchema = z.object({
+  shiftId: z.coerce.number().int().positive({ message: "Select a shift." }),
+  employeeId: optionalId,
+  departmentId: optionalId,
+  branchId: optionalId,
 });
 
 /* ------------------------------------------------------------ attendance -- */
@@ -337,7 +392,5 @@ export const employeeFilterSchema = paginationSchema.extend({
   branchId: z.coerce.number().int().positive().optional(),
   departmentId: z.coerce.number().int().positive().optional(),
   agentId: z.coerce.number().int().positive().optional(),
-  employmentStatus: z
-    .enum(["ACTIVE", "PROBATION", "ON_LEAVE", "SUSPENDED", "TERMINATED"])
-    .optional(),
+  employmentStatus: z.enum(["ACTIVE", "INACTIVE", "TERMINATED"]).optional(),
 });

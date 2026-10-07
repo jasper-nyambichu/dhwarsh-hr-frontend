@@ -49,23 +49,36 @@ export type ActionState<T = void> =
 
 /* ---------------------------------------------------------- enumerations -- */
 
-export const STATUSES = ["ACTIVE", "INACTIVE", "SUSPENDED"] as const;
+/**
+ * `branch.status` and `agent.status` — a plain `String` column on both entities,
+ * defaulting to "ACTIVE".
+ *
+ * There is no SUSPENDED. Deactivation writes "INACTIVE" and nothing writes
+ * anything else (`BranchServiceImpl.deactivateBranch:73`,
+ * `AgentServiceImpl.deactivateAgent:68`), so a third member would only ever
+ * describe a state the backend cannot produce.
+ */
+export const STATUSES = ["ACTIVE", "INACTIVE"] as const;
 export type Status = (typeof STATUSES)[number];
 
+// Mirrors EmploymentType in the backend entity package:
+// PERMANENT, CONTRACT, CASUAL, OUTSOURCED. There is no INTERN.
 export const EMPLOYMENT_TYPES = [
   "PERMANENT",
   "CONTRACT",
   "CASUAL",
-  "INTERN",
   "OUTSOURCED",
 ] as const;
 export type EmploymentType = (typeof EMPLOYMENT_TYPES)[number];
 
+// Employee.employmentStatus is a plain String in the backend, defaulted to
+// "ACTIVE" and documented there as ACTIVE, INACTIVE, TERMINATED — that comment
+// is the only definition of the domain, and terminateEmployee() sets
+// "TERMINATED". PROBATION / ON_LEAVE / SUSPENDED do not exist anywhere in the
+// backend; ON_LEAVE is an *attendance* status, not an employment one.
 export const EMPLOYMENT_STATUSES = [
   "ACTIVE",
-  "PROBATION",
-  "ON_LEAVE",
-  "SUSPENDED",
+  "INACTIVE",
   "TERMINATED",
 ] as const;
 export type EmploymentStatus = (typeof EMPLOYMENT_STATUSES)[number];
@@ -133,19 +146,34 @@ export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 export const DEVICE_STATUSES = ["ONLINE", "OFFLINE", "DISABLED"] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
 
-export const SHIFT_TYPES = ["DAY", "NIGHT", "SPLIT", "FLEXIBLE"] as const;
+/**
+ * `entity/shift/ShiftType`.
+ *
+ * These are shift *types*, not shift names — the seeded demo shifts are called
+ * "Day", "Night" and "Split", and their types are MORNING, NIGHT and EVENING.
+ * A form that offers the names as the type sends values the Java enum rejects.
+ */
+export const SHIFT_TYPES = [
+  "MORNING",
+  "EVENING",
+  "NIGHT",
+  "ROTATING",
+  "FLEXIBLE",
+] as const;
 export type ShiftType = (typeof SHIFT_TYPES)[number];
 
 /**
  * Two-stage approval: `approved_by_manager_id` then `approved_by_hr_id`.
  * PENDING_HR means the branch manager has signed off and HR is next.
+ *
+ * `entity/leave/LeaveStatus` — the values are exactly these four. There is no
+ * plain PENDING and no CANCELLED.
  */
 export const LEAVE_STATUSES = [
-  "PENDING",
+  "PENDING_MANAGER",
   "PENDING_HR",
   "APPROVED",
   "REJECTED",
-  "CANCELLED",
 ] as const;
 export type LeaveStatus = (typeof LEAVE_STATUSES)[number];
 
@@ -603,6 +631,35 @@ export type AttendanceRecordItem = {
   source: AttendanceSource;
 };
 
+/**
+ * `dto/response/attendance/AttendanceResponse` — what the plain attendance
+ * endpoints return.
+ *
+ * Distinct from `AttendanceRecordItem` above, which is the *dashboard
+ * controller's* projection. That one adds `employeeNumber`, `position`,
+ * `branchName` and `hoursWorked`; this one has none of them. Rendering a record
+ * from `/attendance/employee/{id}` through the dashboard type would show four
+ * columns that are always null.
+ *
+ * `status` here is the raw `attendance.status` column, not the dashboard's
+ * derived `AttendanceRecordStatus`. The Java DTO declares it as a plain
+ * `String`, and the entity's own comment lists OVERTIME among the values while
+ * `ATTENDANCE_STATUSES` does not — so a row can legitimately carry a value
+ * outside the union below. Consumers must handle an unrecognised status rather
+ * than assume the union is exhaustive.
+ */
+export type AttendanceResponse = {
+  id: number;
+  employeeId: number;
+  employeeName: string | null;
+  branchId: number;
+  attendanceDate: string;
+  clockIn: string | null;
+  clockOut: string | null;
+  source: AttendanceSource;
+  status: AttendanceStatus;
+};
+
 export type AttendanceDeviceItem = {
   id: number;
   branchId: number;
@@ -782,6 +839,82 @@ export type EmployeeResponse = {
   bankAccountNumber: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
+};
+
+/** `dto/response/employee/EmployeeDocumentResponse`. */
+export type EmployeeDocumentResponse = {
+  id: number;
+  employeeId: number;
+  documentType: string;
+  fileUrl: string;
+  fileName: string | null;
+  uploadedAt: string | null;
+};
+
+/* ------------------------------------------------------------------ shift -- */
+
+/** `dto/response/shift/ShiftResponse`. Times are `HH:mm:ss`, or null. */
+export type ShiftResponse = {
+  id: number;
+  name: string;
+  type: ShiftType;
+  startTime: string | null;
+  endTime: string | null;
+};
+
+/**
+ * `dto/response/shift/ShiftAssignmentResponse`.
+ *
+ * A shift is assigned to exactly one of an employee, a department or a branch —
+ * `employeeId`, `departmentId` and `branchId` are three nullable columns, and
+ * only one is normally set. `shiftName` is the only joined field.
+ */
+export type ShiftAssignmentResponse = {
+  id: number;
+  shiftId: number;
+  shiftName: string;
+  employeeId: number | null;
+  departmentId: number | null;
+  branchId: number | null;
+};
+
+/* ------------------------------------------------------------------ leave -- */
+
+/** `dto/response/leave/LeaveTypeResponse`. */
+export type LeaveTypeResponse = {
+  id: number;
+  name: string;
+  defaultEntitlementDays: number | null;
+  paid: boolean;
+};
+
+/**
+ * `dto/response/leave/LeaveRequestResponse`.
+ *
+ * `status` is a plain String in the backend and is typed as the `LeaveStatus`
+ * union here. There is no `days` field — a screen wanting the duration has to
+ * compute it from `startDate` and `endDate`.
+ */
+export type LeaveRequestResponse = {
+  id: number;
+  employeeId: number;
+  employeeName: string | null;
+  leaveTypeId: number;
+  leaveTypeName: string | null;
+  startDate: string;
+  endDate: string;
+  reason: string | null;
+  status: LeaveStatus;
+  rejectionReason: string | null;
+};
+
+/** `dto/response/leave/LeaveBalanceResponse`. */
+export type LeaveBalanceResponse = {
+  leaveTypeId: number;
+  leaveTypeName: string;
+  entitledDays: number;
+  usedDays: number;
+  remainingDays: number;
 };
 
 /**

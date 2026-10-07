@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import type { AttendanceBranchSummary } from "@/types";
 
 /**
- * Branch and date filters for the admin attendance board.
+ * Branch and date filters for the attendance board.
  *
  * Navigates rather than holding local state, so the filtered view stays a URL:
  * shareable, survives a refresh, and the back button steps through filter
@@ -21,6 +21,11 @@ import type { AttendanceBranchSummary } from "@/types";
  * read back out of `useSearchParams`. The page already has them — it awaits
  * `searchParams` to run its queries — and rebuilding the query string from props
  * keeps this component free of a Suspense boundary requirement.
+ *
+ * `basePath` is a prop because two boards render this: the admin one at
+ * `/admin/attendance` and the HR one at `/hr/attendance`. Both read the same
+ * endpoints and offer the same filters, so the only thing that differs is where
+ * a change navigates to.
  */
 
 export function AttendanceFilters({
@@ -28,6 +33,7 @@ export function AttendanceFilters({
   branchId,
   date,
   filter,
+  basePath = "/admin/attendance",
   className,
 }: {
   branches: readonly AttendanceBranchSummary[];
@@ -37,6 +43,8 @@ export function AttendanceFilters({
   date: string;
   /** Preserved across a filter change — the open-only tab is not a filter reset. */
   filter?: string;
+  /** Where a filter change navigates to. Defaults to the admin board. */
+  basePath?: string;
   className?: string;
 }) {
   const router = useRouter();
@@ -58,7 +66,7 @@ export function AttendanceFilters({
 
     const query = params.toString();
     startTransition(() => {
-      router.push(query ? `/admin/attendance?${query}` : "/admin/attendance");
+      router.push(query ? `${basePath}?${query}` : basePath);
     });
   }
 
@@ -115,7 +123,7 @@ export function AttendanceFilters({
 
       {hasFilter ? (
         <Link
-          href="/admin/attendance"
+          href={basePath}
           className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 font-body-md text-body-md text-on-surface-variant transition-colors hover:bg-surface-container-low"
         >
           <Icon name="close" className="text-[18px]" />

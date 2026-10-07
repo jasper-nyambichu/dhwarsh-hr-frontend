@@ -1,6 +1,7 @@
 import "server-only";
 
 import { api } from "@/app/lib/api-client";
+import type { EmployeeInput } from "@/app/lib/definitions";
 import type { EmployeeResponse, EmployeeSummaryResponse } from "@/types";
 
 /**
@@ -67,4 +68,32 @@ export function getMyEmployeeProfile(
 /** Terminates an employee. SUPER_ADMIN, ADMIN and HR_MANAGER. */
 export function terminateEmployee(id: number): Promise<void> {
   return api.put<void>(`/employees/${id}/terminate`);
+}
+
+/**
+ * Creates an employee. SUPER_ADMIN, ADMIN and HR_MANAGER.
+ *
+ * The payload is `EmployeeRequest`, which is also what `updateEmployee` takes —
+ * there is one DTO, not a create/update pair.
+ *
+ * Two things the server owns and the caller must not send: `employeeNumber`,
+ * generated as `EMP-<branchCode>-<seq>` inside the service, and
+ * `employmentStatus`, which is not a field on the request at all.
+ *
+ * Failure modes the form has to distinguish:
+ *   409  a duplicate `nationalId` (the column is UNIQUE) or employee number
+ *   404  an unknown `branchId`, `departmentId` or `agentId`
+ *   400  a `departmentId` that does not belong to `branchId` — the service
+ *        raises InvalidOperationException for that
+ */
+export function createEmployee(payload: EmployeeInput): Promise<EmployeeResponse> {
+  return api.post<EmployeeResponse>("/employees", payload);
+}
+
+/** Updates an employee. Same DTO and roles as create. */
+export function updateEmployee(
+  id: number,
+  payload: EmployeeInput,
+): Promise<EmployeeResponse> {
+  return api.put<EmployeeResponse>(`/employees/${id}`, payload);
 }

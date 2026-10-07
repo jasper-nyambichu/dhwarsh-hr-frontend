@@ -23,8 +23,8 @@ type TeamRow = Pick<EmployeeSummary, "id" | "fullName" | "employeeNumber" | "dep
 const TEAM: readonly TeamRow[] = [
   { id: 1, fullName: "Sarah Jenkins", employeeNumber: "EMP-042", departmentName: "Finance", position: "Accountant", employmentTypeLabel: "Full-time", employmentStatus: "ACTIVE" },
   { id: 2, fullName: "David Kiprono", employeeNumber: "EMP-055", departmentName: "Operations", position: "Logistics Manager", employmentTypeLabel: "Full-time", employmentStatus: "ACTIVE" },
-  { id: 3, fullName: "Mercy Njeri", employeeNumber: "EMP-089", departmentName: "Sales", position: "Sales Rep", employmentTypeLabel: "Contract", employmentStatus: "ON_LEAVE" },
-  { id: 4, fullName: "Faith Wanjiru", employeeNumber: "EMP-102", departmentName: "HR", position: "HR Assistant", employmentTypeLabel: "Full-time", employmentStatus: "PROBATION" },
+  { id: 3, fullName: "Mercy Njeri", employeeNumber: "EMP-089", departmentName: "Sales", position: "Sales Rep", employmentTypeLabel: "Contract", employmentStatus: "INACTIVE" },
+  { id: 4, fullName: "Faith Wanjiru", employeeNumber: "EMP-102", departmentName: "HR", position: "HR Assistant", employmentTypeLabel: "Full-time", employmentStatus: "INACTIVE" },
   { id: 5, fullName: "Peter Otieno", employeeNumber: "EMP-115", departmentName: "Finance", position: "Financial Analyst", employmentTypeLabel: "Full-time", employmentStatus: "ACTIVE" },
   { id: 6, fullName: "Alice Mwangi", employeeNumber: "EMP-121", departmentName: "Operations", position: "Dispatcher", employmentTypeLabel: "Shift", employmentStatus: "ACTIVE" },
   { id: 7, fullName: "John Kamau", employeeNumber: "EMP-134", departmentName: "Sales", position: "Account Exec", employmentTypeLabel: "Full-time", employmentStatus: "ACTIVE" },
@@ -33,17 +33,13 @@ const TEAM: readonly TeamRow[] = [
 
 const STATUS_CHIP: Record<EmploymentStatus, string> = {
   ACTIVE: "bg-tertiary-container/10 text-tertiary-container",
-  PROBATION: "bg-surface-tint/10 text-surface-tint",
-  ON_LEAVE: "bg-error/10 text-error",
-  SUSPENDED: "bg-error/10 text-error",
+  INACTIVE: "bg-surface-tint/10 text-surface-tint",
   TERMINATED: "bg-outline/10 text-outline",
 };
 
 const STATUS_LABEL: Record<EmploymentStatus, string> = {
   ACTIVE: "Active",
-  PROBATION: "Probation",
-  ON_LEAVE: "On Leave",
-  SUSPENDED: "Suspended",
+  INACTIVE: "Inactive",
   TERMINATED: "Terminated",
 };
 
@@ -58,8 +54,8 @@ export default async function BranchTeamPage() {
   await requirePermission("employee:read");
 
   const activeCount = TEAM.filter((e) => e.employmentStatus === "ACTIVE").length;
-  const probationCount = TEAM.filter((e) => e.employmentStatus === "PROBATION").length;
-  const onLeaveCount = TEAM.filter((e) => e.employmentStatus === "ON_LEAVE").length;
+  const inactiveCount = TEAM.filter((e) => e.employmentStatus === "INACTIVE").length;
+  const terminatedCount = TEAM.filter((e) => e.employmentStatus === "TERMINATED").length;
 
   return (
     <>
@@ -147,8 +143,8 @@ export default async function BranchTeamPage() {
           <BentoCard title="Workforce Status">
             <div className="flex flex-col gap-3">
               <StatusRow label="Active" hint="Currently working" value={activeCount} tone="tertiary-container" />
-              <StatusRow label="Probation" hint="Under review" value={probationCount} tone="surface-tint" />
-              <StatusRow label="On Leave" hint="Away" value={onLeaveCount} tone="error" />
+              <StatusRow label="Inactive" hint="Not currently working" value={inactiveCount} tone="surface-tint" />
+              <StatusRow label="Terminated" hint="Left the company" value={terminatedCount} tone="error" />
             </div>
           </BentoCard>
 

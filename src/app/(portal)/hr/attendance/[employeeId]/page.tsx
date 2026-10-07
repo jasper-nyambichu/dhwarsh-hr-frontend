@@ -1,46 +1,51 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import {
   eachDayOfInterval,
   endOfMonth,
   endOfWeek,
   format,
   isSameMonth,
+  parseISO,
   startOfWeek,
 } from "date-fns";
 
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
+import { SegmentStrip, type Segment } from "@/components/shared/segment-strip";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { buttonVariants } from "@/components/ui/button-variants";
 import { Icon } from "@/components/ui/icon";
+import { getAttendanceForEmployee } from "@/lib/api/attendance";
+import { getEmployee } from "@/lib/api/employee";
 import {
   formatDate,
-  formatDuration,
+  formatHours,
   formatNumber,
-  formatPercent,
   formatTime,
+  humanizeEnum,
   initials,
 } from "@/lib/format";
-import type { AttendanceStatus } from "@/types";
+import { first } from "@/lib/search-params";
+import type { AttendanceResponse, EmployeeResponse } from "@/types";
 
 /**
- * One employee's attendance history — a month heat grid over a daily log.
+ * One employee's attendance history.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — no `/attendance/{employeeId}` endpoint yet. Replace
- * with `await api.get<Attendance[]>(`/attendance/${employeeId}`, { month })`;
- * `DAY_STATUS` is keyed by `attendanceDate` so the swap is a single reduce.
- * ─────────────────────────────────────────────────────────────────────────
+ * `GET /attendance/employee/{id}` requires `start` **and** `end` as mandatory
+ * query params — omitting either is a 400, not a defaulted range — so the month
+ * being viewed is what supplies them. That is also why the month is a real
+ * `?month=` search param rather than local state: the range is part of the
+ * request, so it belongs in the URL.
+ *
+ * There is no "hours worked" field on `AttendanceResponse`, so the Hours column
+ * is derived from clock-in against clock-out and shows nothing when either is
+ * missing. The dashboard's own projection has a real `hoursWorked`; this
+ * endpoint does not.
  */
-
-const EMPLOYEE = {
-  fullName: "Amina Yusuf",
-  employeeNumber: "NCBD-0211",
-  position: "Senior Financial Analyst",
-  branchName: "Nairobi CBD",
-} as const;
-
-/** First day of the month on display. Becomes a `?month=` param once wired. */
-const MONTH_ANCHOR = new Date(2026, 7, 1);
 
 /** Monday-first, matching the Kenyan working week. */
 const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
@@ -48,8 +53,8 @@ const WEEK_OPTIONS = { weekStartsOn: 1 } as const;
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] as const;
 
 /**
- * How a single day reads in the grid. `off` is an in-month day with no record
- * (weekend or not yet worked); `outside` is padding from the adjacent month.
+ * How a single day reads in the grid. `off` is an in-month day with no record;
+ * `outside` is padding from the adjacent month.
  */
 type DayTone = "present" | "late" | "absent" | "leave" | "off" | "outside";
 
@@ -89,102 +94,149 @@ const TONE: Record<DayTone, { cell: string; swatch: string; label: string }> = {
 /** Legend order. Drawn from `TONE` so swatches can never drift from cells. */
 const LEGEND: readonly DayTone[] = ["present", "late", "absent", "leave"];
 
-/** Keyed by `yyyy-MM-dd`. Days absent from the map render as `off`. */
-const DAY_STATUS: Record<string, DayTone> = {
-  "2026-08-03": "present",
-  "2026-08-04": "present",
-  "2026-08-05": "late",
-  "2026-08-06": "present",
-  "2026-08-07": "present",
-  "2026-08-10": "present",
-  "2026-08-11": "present",
-  "2026-08-12": "absent",
-  "2026-08-13": "present",
-  "2026-08-14": "present",
-  "2026-08-17": "leave",
-  "2026-08-18": "leave",
-  "2026-08-19": "present",
-  "2026-08-20": "present",
-  "2026-08-21": "late",
-  "2026-08-24": "present",
-  "2026-08-25": "present",
-  "2026-08-26": "present",
-  "2026-08-27": "present",
-  "2026-08-28": "present",
-  "2026-08-31": "present",
-};
+/**
+ * Status → tone. `HALF_DAY` and `HOLIDAY` are in the union but have no tone of
+ * their own; they fall through to `off` rather than being coloured as something
+ * they are not. An unrecognised status does the same — the column is a free
+ * `String` and can carry `OVERTIME`, which is not in the union at all.
+ */
+function toneFor(status: string): DayTone {
+  switch (status) {
+    case "PRESENT":
+      return "present";
+    case "LATE":
+      return "late";
+    case "ABSENT":
+      return "absent";
+    case "ON_LEAVE":
+      return "leave";
+    default:
+      return "off";
+  }
+}
 
-/** Six full weeks covering the month, padded to whole Mon–Sun rows. */
-const GRID_DAYS = eachDayOfInterval({
-  start: startOfWeek(MONTH_ANCHOR, WEEK_OPTIONS),
-  end: endOfWeek(endOfMonth(MONTH_ANCHOR), WEEK_OPTIONS),
-});
+/** `yyyy-MM` only. Anything else falls back to the current month. */
+function parseMonth(value: string | undefined): Date {
+  if (value && /^\d{4}-\d{2}$/.test(value)) {
+    const parsed = parseISO(`${value}-01`);
+    if (!Number.isNaN(parsed.getTime())) return parsed;
+  }
 
-type LogRow = {
-  date: string;
-  clockIn: string | null;
-  clockOut: string | null;
-  minutesWorked: number | null;
-  status: AttendanceStatus;
-};
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
+}
 
-const DAILY_LOG: readonly LogRow[] = [
-  {
-    date: "2026-08-07",
-    clockIn: "08:00:00",
-    clockOut: "17:00:00",
-    minutesWorked: 480,
-    status: "PRESENT",
-  },
-  {
-    date: "2026-08-06",
-    clockIn: "07:55:00",
-    clockOut: "17:05:00",
-    minutesWorked: 490,
-    status: "PRESENT",
-  },
-  {
-    date: "2026-08-05",
-    clockIn: "08:15:00",
-    clockOut: "17:00:00",
-    minutesWorked: 465,
-    status: "LATE",
-  },
-  {
-    date: "2026-08-04",
-    clockIn: "07:58:00",
-    clockOut: "17:02:00",
-    minutesWorked: 484,
-    status: "PRESENT",
-  },
-  {
-    date: "2026-08-03",
-    clockIn: "08:02:00",
-    clockOut: "17:00:00",
-    minutesWorked: 478,
-    status: "PRESENT",
-  },
-];
+function monthKey(date: Date): string {
+  return format(date, "yyyy-MM");
+}
 
-/** Hours worked against the contracted monthly target, in minutes. */
-const HOURS = { worked: 6870, target: 9600 } as const;
+/**
+ * The month stepper's target. Built by hand rather than through `buildHref`,
+ * because the employee id is a path segment here — `buildHref` only ever emits
+ * a query string.
+ */
+function monthHref(employeeId: number, date: Date): string {
+  return `/hr/attendance/${employeeId}?month=${monthKey(date)}`;
+}
 
-const SUMMARY: readonly { tone: DayTone; count: number }[] = [
-  { tone: "present", count: 16 },
-  { tone: "late", count: 2 },
-  { tone: "absent", count: 1 },
-];
+function minutesBetween(clockIn: string | null, clockOut: string | null): number | null {
+  if (!clockIn || !clockOut) return null;
+
+  const start = new Date(clockIn).getTime();
+  const end = new Date(clockOut).getTime();
+
+  if (Number.isNaN(start) || Number.isNaN(end) || end < start) return null;
+
+  return Math.round((end - start) / 60_000);
+}
+
+/** Decimal hours, or `null` when the day is not a complete pair of scans. */
+function hoursOf(record: AttendanceResponse): number | null {
+  const minutes = minutesBetween(record.clockIn, record.clockOut);
+  return minutes === null ? null : minutes / 60;
+}
 
 export default async function EmployeeAttendancePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ employeeId: string }>;
+  searchParams: Promise<{ month?: string | string[] }>;
 }) {
   await requirePermission("attendance:read");
-  const { employeeId } = await params;
-  const employee = EMPLOYEE; // TODO: fetch by `employeeId` once the endpoint exists
 
-  const hoursPct = Math.round((HOURS.worked / HOURS.target) * 100);
+  const { employeeId: rawEmployeeId } = await params;
+  const employeeId = Number(rawEmployeeId);
+
+  if (!Number.isInteger(employeeId) || employeeId <= 0) {
+    notFound();
+  }
+
+  const search = await searchParams;
+  const month = parseMonth(first(search.month));
+
+  // Inclusive bounds, `yyyy-MM-dd` — the endpoint rejects anything else, and
+  // rejects a missing bound outright.
+  const start = format(startOfWeek(month, WEEK_OPTIONS), "yyyy-MM-dd");
+  const end = format(endOfWeek(endOfMonth(month), WEEK_OPTIONS), "yyyy-MM-dd");
+
+  let employee: EmployeeResponse;
+  let records: AttendanceResponse[];
+
+  try {
+    [employee, records] = await Promise.all([
+      getEmployee(employeeId),
+      getAttendanceForEmployee(employeeId, { start, end }),
+    ]);
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) {
+      throw error;
+    }
+
+    if (error instanceof ApiError && error.isNotFound) {
+      notFound();
+    }
+
+    return (
+      <DataUnavailable
+        title="Employee Attendance"
+        description="One employee's clock history."
+        subject={`The attendance history for employee #${employeeId}`}
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
+
+  // One record per day per employee, newest first in the log.
+  const byDate = new Map(
+    records.map((record) => [record.attendanceDate, record]),
+  );
+  const log = [...records].sort((a, b) =>
+    a.attendanceDate < b.attendanceDate ? 1 : -1,
+  );
+
+  const gridDays = eachDayOfInterval({
+    start: startOfWeek(month, WEEK_OPTIONS),
+    end: endOfWeek(endOfMonth(month), WEEK_OPTIONS),
+  });
+
+  const inMonth = records.filter((record) =>
+    isSameMonth(parseISO(record.attendanceDate), month),
+  );
+
+  const counts = countByTone(inMonth);
+  const summary: Segment[] = (["present", "late", "absent"] as const).map(
+    (tone) => ({
+      label: TONE[tone].label,
+      value: formatNumber(counts[tone]),
+      tone: tone === "present" ? "success" : tone === "late" ? "warning" : "error",
+    }),
+  );
+
+  const totalMinutes = inMonth.reduce(
+    (sum, record) => sum + (minutesBetween(record.clockIn, record.clockOut) ?? 0),
+    0,
+  );
 
   return (
     <>
@@ -193,7 +245,7 @@ export default async function EmployeeAttendancePage({
           <span className="flex items-center gap-3">
             <Link
               href="/hr/attendance"
-              aria-label="Back to attendance log"
+              aria-label="Back to attendance board"
               className="text-on-surface-variant transition-colors hover:text-on-surface"
             >
               <Icon name="arrow_back" />
@@ -207,211 +259,270 @@ export default async function EmployeeAttendancePage({
             {employee.fullName} — Attendance
           </span>
         }
-        description={`${employee.employeeNumber} · ${employee.position} · ${employee.branchName}`}
+        description={`${employee.employeeNumber} · ${
+          employee.position ?? "No position"
+        } · ${employee.branchName ?? "No branch"}`}
         actions={
           <Link
             href={`/hr/employees/${employeeId}`}
-            className="flex items-center gap-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 font-body-md text-body-md font-semibold text-primary-container transition-colors hover:bg-surface-container-low"
+            className={buttonVariants({ variant: "secondary" })}
           >
             <Icon name="person" className="text-[18px]" />
-            View Profile
+            View profile
           </Link>
         }
       />
 
       <div className="grid grid-cols-12 gap-gutter">
-        {/* ───────────────────────────────── main column ─────────────────── */}
         <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
           <BentoCard
-            title={format(MONTH_ANCHOR, "MMMM yyyy")}
+            title={format(month, "MMMM yyyy")}
             action={
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  aria-label="Previous month"
+                <Link
+                  href={monthHref(employeeId, addMonths(month, -1))}
+                  aria-label={`Previous month — ${format(addMonths(month, -1), "MMMM yyyy")}`}
                   className="rounded bg-surface-container p-1 text-on-surface-variant transition-colors hover:bg-surface-container-high"
                 >
                   <Icon name="chevron_left" className="text-[18px]" />
-                </button>
-                <button
-                  type="button"
-                  aria-label="Next month"
+                </Link>
+                <Link
+                  href={monthHref(employeeId, addMonths(month, 1))}
+                  aria-label={`Next month — ${format(addMonths(month, 1), "MMMM yyyy")}`}
                   className="rounded bg-surface-container p-1 text-on-surface-variant transition-colors hover:bg-surface-container-high"
                 >
                   <Icon name="chevron_right" className="text-[18px]" />
-                </button>
+                </Link>
               </div>
             }
           >
-            <div className="grid grid-cols-7 gap-2">
-              {WEEKDAYS.map((weekday) => (
+            <div className="mb-2 grid grid-cols-7 gap-1">
+              {WEEKDAYS.map((day) => (
                 <div
-                  key={weekday}
-                  className="text-center font-table-header text-table-header uppercase text-outline"
+                  key={day}
+                  className="py-1 text-center font-table-header text-[10px] uppercase text-outline"
                 >
-                  {weekday}
+                  {day}
                 </div>
               ))}
+            </div>
 
-              {GRID_DAYS.map((day) => {
+            <div className="grid grid-cols-7 gap-1">
+              {gridDays.map((day) => {
                 const key = format(day, "yyyy-MM-dd");
-                const tone: DayTone = isSameMonth(day, MONTH_ANCHOR)
-                  ? (DAY_STATUS[key] ?? "off")
-                  : "outside";
+                const outside = !isSameMonth(day, month);
+                const record = byDate.get(key);
+                const tone: DayTone = outside
+                  ? "outside"
+                  : record
+                    ? toneFor(record.status)
+                    : "off";
 
                 return (
                   <div
                     key={key}
-                    className={`flex aspect-square items-center justify-center rounded-lg border ${TONE[tone].cell}`}
+                    title={
+                      outside
+                        ? undefined
+                        : record
+                          ? `${key} · ${humanizeEnum(record.status)} · ${
+                              record.clockIn ? formatTime(record.clockIn) : "no clock-in"
+                            }`
+                          : `${key} · no record`
+                    }
+                    className={`flex aspect-square flex-col items-center justify-center rounded-lg border text-[11px] font-medium ${TONE[tone].cell}`}
                   >
-                    <span className="font-body-md text-body-md font-medium tabular-nums">
-                      {format(day, "d")}
-                    </span>
-                    <span className="sr-only">
-                      {formatDate(key)} — {TONE[tone].label}
-                    </span>
+                    <span className="tabular-nums">{format(day, "d")}</span>
+                    {record && !outside ? (
+                      <span className="mt-0.5 text-[9px] tabular-nums opacity-80">
+                        {record.clockIn ? formatTime(record.clockIn) : "—"}
+                      </span>
+                    ) : null}
                   </div>
                 );
               })}
             </div>
 
-            <div className="mt-6 flex flex-wrap justify-center gap-4 border-t border-row-line pt-4">
+            <div className="mt-5 flex flex-wrap gap-4 border-t border-outline-variant/40 pt-4">
               {LEGEND.map((tone) => (
-                <div key={tone} className="flex items-center gap-2">
-                  <span
-                    aria-hidden
-                    className={`size-3 rounded border ${TONE[tone].swatch}`}
-                  />
-                  <span className="font-body-md text-body-md text-on-surface-variant">
+                <span key={tone} className="flex items-center gap-2">
+                  <span className={`size-3 rounded-sm border ${TONE[tone].swatch}`} />
+                  <span className="font-body-md text-[11px] text-on-surface-variant">
                     {TONE[tone].label}
                   </span>
-                </div>
+                </span>
               ))}
+              <span className="flex items-center gap-2">
+                <span className={`size-3 rounded-sm border ${TONE.off.swatch}`} />
+                <span className="font-body-md text-[11px] text-on-surface-variant">
+                  No record
+                </span>
+              </span>
             </div>
+
+            <p className="mt-4 text-[11px] text-outline">
+              The grid covers the whole weeks the month falls in, so a few days
+              either side of {format(month, "MMMM")} are fetched too. A day
+              carried by neither a shift nor a scan simply has no record —
+              nothing here infers absence.
+            </p>
           </BentoCard>
 
           <BentoCard
             title="Daily Log"
-            action={
-              <button
-                type="button"
-                className="flex items-center gap-1 rounded-md px-3 py-1 font-body-md text-body-md font-semibold text-primary transition-colors hover:bg-surface-container-low"
-              >
-                <Icon name="download" className="text-[18px]" />
-                Export
-              </button>
-            }
+            subtitle={`${formatNumber(log.length)} ${
+              log.length === 1 ? "record" : "records"
+            } in range`}
           >
-            <div className="overflow-x-auto">
-              <table className="data-table w-full border-collapse text-left">
-                <thead>
-                  <tr>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Date
-                    </th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Clock In
-                    </th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Clock Out
-                    </th>
-                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
-                      Hours
-                    </th>
-                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="font-body-md text-body-md text-on-surface">
-                  {DAILY_LOG.map((row) => {
-                    const tone: DayTone = row.status === "LATE" ? "late" : "present";
-
-                    return (
-                      <tr key={row.date}>
-                        <td className="py-3">{formatDate(row.date)}</td>
-                        <td className="py-3 tabular-nums">
-                          {formatTime(row.clockIn)}
+            {log.length === 0 ? (
+              <div className="rounded-card border border-dashed border-outline-variant px-4 py-12 text-center">
+                <Icon name="event_busy" className="text-[40px] text-outline-variant" />
+                <p className="mt-2 font-body-md text-body-md text-on-surface-variant">
+                  No attendance recorded in this range.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="data-table w-full border-collapse text-left">
+                  <thead>
+                    <tr>
+                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                        Date
+                      </th>
+                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                        Clock In
+                      </th>
+                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                        Clock Out
+                      </th>
+                      <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
+                        Hours
+                      </th>
+                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                        Source
+                      </th>
+                      <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
+                        Status
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-body-md text-body-md text-on-surface">
+                    {log.map((record) => (
+                      <tr
+                        key={record.id}
+                        className="border-b border-outline-variant/20 last:border-0"
+                      >
+                        <td className="py-3 text-on-surface-variant">
+                          {formatDate(record.attendanceDate)}
                         </td>
-                        <td className="py-3 tabular-nums">
-                          {formatTime(row.clockOut)}
+                        <td className="py-3 tabular-nums text-on-surface-variant">
+                          {formatTime(record.clockIn)}
                         </td>
-                        <td className="py-3 text-right tabular-nums">
-                          {formatDuration(row.minutesWorked)}
+                        <td className="py-3 tabular-nums text-on-surface-variant">
+                          {formatTime(record.clockOut)}
+                        </td>
+                        <td className="py-3 text-right tabular-nums text-on-surface-variant">
+                          {formatHours(hoursOf(record))}
+                        </td>
+                        <td className="py-3 text-on-surface-variant">
+                          {humanizeEnum(record.source)}
                         </td>
                         <td className="py-3 text-right">
-                          <span
-                            className={`inline-block rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${TONE[tone].cell}`}
-                          >
-                            {TONE[tone].label}
-                          </span>
+                          <StatusBadge status={record.status} />
                         </td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </BentoCard>
         </div>
 
-        {/* ──────────────────────────────── side column ──────────────────── */}
         <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
-          <BentoCard>
-            <div className="mb-2 flex items-start justify-between gap-2">
-              <span className="font-body-md text-body-md font-medium text-on-surface-variant">
-                Hours This Month
-              </span>
-              <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-soft text-primary-container">
-                <Icon name="schedule" className="text-sm" />
-              </span>
-            </div>
+          <SegmentStrip segments={summary} />
 
-            <p className="mb-4">
-              <span className="font-card-stat text-card-stat tabular-nums text-on-surface">
-                {formatDuration(HOURS.worked)}
-              </span>
-              <span className="ml-1 font-body-md text-body-md text-on-surface-variant">
-                / {formatDuration(HOURS.target)}
-              </span>
-            </p>
-
-            <div className="mb-2 h-2 w-full overflow-hidden rounded-full bg-surface-container-high">
-              <div
-                className="h-full rounded-full bg-primary"
-                style={{ width: `${Math.min(hoursPct, 100)}%` }}
+          <BentoCard title="This Month">
+            <dl className="flex flex-col gap-3">
+              <Stat
+                label="Days recorded"
+                value={formatNumber(inMonth.length)}
               />
-            </div>
-            <p className="text-right text-[10px] text-on-surface-variant">
-              {formatPercent(hoursPct)} of target — on track for month end
-            </p>
-          </BentoCard>
+              <Stat
+                label="Hours clocked"
+                value={formatHours(totalMinutes / 60)}
+              />
+              <Stat
+                label="Days with no record"
+                value={formatNumber(
+                  eachDayOfInterval({
+                    start: month,
+                    end: endOfMonth(month),
+                  }).filter(
+                    (day) =>
+                      day.getDay() !== 0 &&
+                      day.getDay() !== 6 &&
+                      !byDate.has(format(day, "yyyy-MM-dd")),
+                  ).length,
+                )}
+                hint="Weekdays only"
+              />
+            </dl>
 
-          <BentoCard title="Summary">
-            <div className="flex flex-col gap-4">
-              {SUMMARY.map((row) => (
-                <div
-                  key={row.tone}
-                  className="flex items-center justify-between rounded-xl border border-row-line p-3"
-                >
-                  <div className="flex items-center gap-3">
-                    <span
-                      aria-hidden
-                      className={`h-8 w-2 rounded-full border ${TONE[row.tone].swatch}`}
-                    />
-                    <span className="font-body-md text-body-md font-medium text-on-surface">
-                      {TONE[row.tone].label}
-                    </span>
-                  </div>
-                  <span className="font-card-stat text-[18px] font-bold tabular-nums text-on-surface">
-                    {formatNumber(row.count)}
-                  </span>
-                </div>
-              ))}
-            </div>
+            <p className="mt-5 border-t border-outline-variant/40 pt-4 text-[11px] text-outline">
+              &ldquo;Days with no record&rdquo; counts weekdays the endpoint
+              returned nothing for. It is a gap in the data, not a finding —
+              nothing in this API says whether the employee was expected to work
+              that day.
+            </p>
           </BentoCard>
         </div>
       </div>
     </>
   );
+}
+
+function Stat({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
+  return (
+    <div className="flex items-baseline justify-between gap-4">
+      <dt className="font-body-md text-body-md text-on-surface-variant">
+        {label}
+        {hint ? (
+          <span className="ml-1 text-[10px] text-outline">({hint})</span>
+        ) : null}
+      </dt>
+      <dd className="font-body-md text-body-md font-semibold tabular-nums text-on-surface">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function countByTone(records: AttendanceResponse[]): Record<DayTone, number> {
+  const counts: Record<DayTone, number> = {
+    present: 0,
+    late: 0,
+    absent: 0,
+    leave: 0,
+    off: 0,
+    outside: 0,
+  };
+
+  for (const record of records) {
+    counts[toneFor(record.status)] += 1;
+  }
+
+  return counts;
+}
+
+function addMonths(date: Date, delta: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + delta, 1);
 }

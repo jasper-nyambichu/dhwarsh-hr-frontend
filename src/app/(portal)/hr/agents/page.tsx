@@ -1,181 +1,347 @@
-// src/app/(portal)/hr/agents/page.tsx
+import Link from "next/link";
+
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
+import { getAgents } from "@/lib/api/agent";
+import { formatDate, formatMoney, formatNumber, humanizeEnum, initials } from "@/lib/format";
+import { buildHref, first } from "@/lib/search-params";
+import type { AgentResponse, ChargeType } from "@/types";
 
 /**
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — swap for `await api.get<LabourAgent[]>("/hr/agents")`.
- * Note: this is distinct from the Agent Portal's own `agent/*` routes —
- * this page is HR's internal view of external labour-supply agents.
- * ─────────────────────────────────────────────────────────────────────────
+ * Labour agents — HR's read-only view of the external staff suppliers.
+ *
+ * Read-only is not a design choice. `roles.ts` grants HR_MANAGER `agent:write`,
+ * but no agent write endpoint admits the role: `POST` and `PUT /agents` are
+ * SUPER_ADMIN/ADMIN, and `PUT /agents/{id}/deactivate` is SUPER_ADMIN alone. So
+ * there is no Add/Edit/Deactivate control on this page — rendering one would be
+ * a button that 403s.
+ *
+ * Two columns the old placeholder carried are gone because nothing can produce
+ * them: "Outstanding" (agent advances are their own module with their own
+ * status, not a per-agent total the API exposes) and "Active Contracts" (there
+ * is no contract entity — an agent has one contract window, the start and end
+ * dates on the row itself).
  */
-interface LabourAgent {
-  id: string;
-  name: string;
-  code: string;
-  initials: string;
-  contact: string;
-  staffDeployed: number;
-  activeContracts: number;
-  outstanding: string;
-  status: "Active" | "Suspended" | "Review";
-}
+export default async function LabourAgentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string | string[] }>;
+}) {
+  await requirePermission("agent:read");
 
-const AGENTS: LabourAgent[] = [
-  { id: "1", name: "Strategic Labour Ltd", code: "AGN-001", initials: "SL", contact: "John Kamau", staffDeployed: 45, activeContracts: 3, outstanding: "KES 1,250,000", status: "Active" },
-  { id: "2", name: "ProSource HR", code: "AGN-002", initials: "PR", contact: "Sarah Ochieng", staffDeployed: 112, activeContracts: 5, outstanding: "KES 3,400,000", status: "Active" },
-  { id: "3", name: "Metro Manpower", code: "AGN-005", initials: "MM", contact: "David Mutua", staffDeployed: 28, activeContracts: 1, outstanding: "KES 850,000", status: "Suspended" },
-  { id: "4", name: "Elite Kazi Solutions", code: "AGN-008", initials: "EK", contact: "Grace Wanjiku", staffDeployed: 65, activeContracts: 2, outstanding: "KES 1,920,000", status: "Active" },
-  { id: "5", name: "Apex Workforce", code: "AGN-012", initials: "AW", contact: "Peter Njoroge", staffDeployed: 18, activeContracts: 1, outstanding: "KES 450,000", status: "Active" },
-  { id: "6", name: "First Staffing Group", code: "AGN-015", initials: "FS", contact: "Mercy Kiprop", staffDeployed: 84, activeContracts: 4, outstanding: "KES 2,100,000", status: "Review" },
-];
+  const params = await searchParams;
+  const statusFilter = first(params.status);
 
-const TOP_BY_HEADCOUNT = [...AGENTS].sort((a, b) => b.staffDeployed - a.staffDeployed).slice(0, 4);
+  let agents: AgentResponse[];
 
-function statusBadge(status: LabourAgent["status"]) {
-  switch (status) {
-    case "Active":
-      return "bg-[#E6F4EA] text-[#137333]";
-    case "Suspended":
-      return "bg-[#FCE8E6] text-[#C5221F]";
-    case "Review":
-      return "bg-[#FEF7E0] text-[#B06000]";
+  try {
+    agents = await getAgents();
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) {
+      throw error;
+    }
+
+    return (
+      <DataUnavailable
+        title="Labour Agents"
+        description="Suppliers of outsourced staff."
+        subject="The agent list"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
   }
-}
 
-export default async function LabourAgentsPage() {
-  await requirePermission("agent:write");
+  const visible =
+    statusFilter === "ACTIVE" || statusFilter === "INACTIVE"
+      ? agents.filter((agent) => agent.status === statusFilter)
+      : agents;
+
+  const byHeadcount = [...agents]
+    .sort((a, b) => (b.employeeCount ?? 0) - (a.employeeCount ?? 0))
+    .slice(0, 5);
+
+  const chargeSplit = splitByChargeType(agents);
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-1 text-xl font-bold text-on-surface">Labour Agents</h1>
-          <p className="text-sm text-on-surface-variant">Suppliers of outsourced staff.</p>
-        </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-on-primary shadow-sm transition-colors hover:bg-on-primary-fixed-variant">
-          <Icon name="add" className="text-[18px]" />
-          Add Agent
-        </button>
+      <PageHeader
+        title="Labour Agents"
+        description="Suppliers of outsourced staff."
+      />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <FilterChip label="All" count={agents.length} href="/hr/agents" active={!statusFilter} />
+        <FilterChip
+          label="Active"
+          count={agents.filter((agent) => agent.status === "ACTIVE").length}
+          href={buildHref("/hr/agents", { status: "ACTIVE" })}
+          active={statusFilter === "ACTIVE"}
+        />
+        <FilterChip
+          label="Inactive"
+          count={agents.filter((agent) => agent.status === "INACTIVE").length}
+          href={buildHref("/hr/agents", { status: "INACTIVE" })}
+          active={statusFilter === "INACTIVE"}
+        />
       </div>
 
-      <div className="grid grid-cols-12 gap-gutter">
-        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
-          <div className="flex-1 rounded-2xl bg-surface-container-lowest p-6 shadow-[0_2px_8px_rgba(11,42,69,.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(11,42,69,.10)]">
-            <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-base font-bold text-on-surface">Active Labour Agents</h2>
-              <button className="flex items-center gap-1 rounded-md px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-surface-container-low">
-                <Icon name="filter_list" className="text-[16px]" />
-                Filter
-              </button>
-            </div>
-
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="border-b border-surface-container-high text-[10px] font-semibold uppercase text-on-surface-variant">
-                    <th className="pb-3 pr-4">Agent</th>
-                    <th className="px-4 pb-3">Contact</th>
-                    <th className="px-4 pb-3 text-center">Staff Deployed</th>
-                    <th className="px-4 pb-3 text-center">Active Contracts</th>
-                    <th className="px-4 pb-3 text-right">Outstanding</th>
-                    <th className="pb-3 pl-4 text-center">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {AGENTS.map((agent, i) => (
-                    <tr
-                      key={agent.id}
-                      className={`group cursor-pointer border-dashed transition-colors hover:bg-surface-bright ${i < AGENTS.length - 1 ? "border-b border-surface-container" : ""}`}
-                    >
-                      <td className="py-4 pr-4">
-                        <div className="flex items-center gap-3">
-                          <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-surface-container font-bold text-primary">
-                            {agent.initials}
-                          </div>
-                          <div>
-                            <div className="text-[13px] font-semibold text-on-surface">{agent.name}</div>
-                            <div className="mt-0.5 text-[11px] text-on-surface-variant">{agent.code}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-on-surface">{agent.contact}</td>
-                      <td className="px-4 py-4 text-center font-semibold text-on-surface">{agent.staffDeployed}</td>
-                      <td className="px-4 py-4 text-center text-on-surface-variant">{agent.activeContracts}</td>
-                      <td className="px-4 py-4 text-right font-medium text-on-surface">{agent.outstanding}</td>
-                      <td className="py-4 pl-4 text-center">
-                        <span className={`inline-flex items-center rounded-md px-2 py-1 text-[10px] font-bold ${statusBadge(agent.status)}`}>
-                          {agent.status}
-                        </span>
-                      </td>
+      <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
+        <div className="lg:col-span-8">
+          <BentoCard
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="handshake" className="text-[20px] text-primary" />
+                Agents
+              </span>
+            }
+            action={
+              <span className="font-body-md text-[11px] text-outline">
+                {formatNumber(visible.length)}{" "}
+                {visible.length === 1 ? "agent" : "agents"}
+              </span>
+            }
+          >
+            {visible.length === 0 ? (
+              <EmptyState
+                symbol="handshake"
+                title={statusFilter ? `No ${statusFilter.toLowerCase()} agents` : "No agents"}
+                description="Labour agents are created by an administrator; HR sees them but cannot add one."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-body-md text-body-md">
+                  <thead>
+                    <tr className="border-b border-outline-variant/50 font-table-header text-table-header uppercase text-outline">
+                      <th className="pb-3 pr-4">Agent</th>
+                      <th className="pb-3 pr-4">Contact</th>
+                      <th className="pb-3 pr-4 text-center">Deployed</th>
+                      <th className="pb-3 pr-4">Charge</th>
+                      <th className="pb-3 pr-4">Contract</th>
+                      <th className="pb-3">Status</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                  </thead>
+                  <tbody>
+                    {visible.map((agent) => (
+                      <tr
+                        key={agent.id}
+                        className="border-b border-outline-variant/25 last:border-0 hover:bg-surface-container-low/40"
+                      >
+                        <td className="py-3 pr-4">
+                          <Link
+                            href={`/hr/agents/${agent.id}`}
+                            className="group flex items-center gap-3"
+                          >
+                            <span
+                              aria-hidden
+                              className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary-container/20 text-[11px] font-bold text-primary"
+                            >
+                              {initials(agent.name)}
+                            </span>
+                            <span>
+                              <span className="block font-semibold text-on-surface group-hover:text-primary">
+                                {agent.name}
+                              </span>
+                              <span className="block text-[11px] text-outline">
+                                {agent.kraPin ?? "No KRA PIN on file"}
+                              </span>
+                            </span>
+                          </Link>
+                        </td>
+                        <td className="py-3 pr-4 text-on-surface-variant">
+                          <span className="block">
+                            {agent.contactPerson ?? "—"}
+                          </span>
+                          <span className="block text-[11px] text-outline">
+                            {agent.phone ?? agent.email ?? "No contact details"}
+                          </span>
+                        </td>
+                        <td className="py-3 pr-4 text-center tabular-nums text-on-surface-variant">
+                          {agent.employeeCount === null
+                            ? "—"
+                            : formatNumber(agent.employeeCount)}
+                        </td>
+                        <td className="py-3 pr-4 text-on-surface-variant">
+                          {describeCharge(agent)}
+                        </td>
+                        <td className="py-3 pr-4 text-[12px] text-on-surface-variant">
+                          {agent.contractStartDate || agent.contractEndDate
+                            ? `${agent.contractStartDate ? formatDate(agent.contractStartDate) : "—"} → ${
+                                agent.contractEndDate ? formatDate(agent.contractEndDate) : "open"
+                              }`
+                            : "Not set"}
+                        </td>
+                        <td className="py-3">
+                          <StatusBadge status={agent.status} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </BentoCard>
+
+          <p className="mt-4 text-[11px] text-outline">
+            Read-only. HR holds an <code>agent:write</code> permission in the
+            frontend role config, but no agent write endpoint accepts the role —
+            creating, editing and deactivating agents is an administrator task.
+          </p>
         </div>
 
-        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
-          <div className="flex w-full rounded-lg border border-surface-container-high bg-surface-container-low p-1 shadow-sm">
-            <button className="flex-1 rounded-md bg-surface-container-lowest py-1.5 text-xs font-semibold text-primary shadow-sm">Active (14)</button>
-            <button className="flex-1 rounded-md py-1.5 text-xs font-medium text-on-surface-variant transition-colors hover:text-on-surface">Inactive (3)</button>
-          </div>
-
-          <div className="rounded-2xl bg-surface-container-lowest p-6 shadow-[0_2px_8px_rgba(11,42,69,.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(11,42,69,.10)]">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-on-surface">Top by Headcount</h3>
-              <Icon name="groups" className="text-[20px] text-outline-variant" />
-            </div>
-            <div className="flex flex-col gap-3">
-              {TOP_BY_HEADCOUNT.map((agent) => (
-                <div key={agent.id} className="flex items-center justify-between rounded-lg border border-transparent p-2 transition-colors hover:border-surface-container hover:bg-surface-bright">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-xs font-bold text-primary">{agent.initials}</div>
-                    <div className="text-sm font-semibold text-on-surface">{agent.name}</div>
-                  </div>
-                  <div className="rounded bg-surface-container-low px-2 py-0.5 text-sm font-bold text-on-surface">{agent.staffDeployed}</div>
-                </div>
-              ))}
-            </div>
-            <button className="mt-4 w-full text-xs font-semibold text-primary hover:underline">View All Agents</button>
-          </div>
-
-          <div className="rounded-2xl bg-surface-container-lowest p-6 shadow-[0_2px_8px_rgba(11,42,69,.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(11,42,69,.10)]">
-            <div className="mb-6 flex items-center justify-between">
-              <h3 className="text-sm font-bold text-on-surface">Contract Distribution</h3>
-              <Icon name="donut_small" className="text-[20px] text-outline-variant" />
-            </div>
-            <div className="mb-6 flex justify-center">
-              <div
-                className="flex size-32 items-center justify-center rounded-full shadow-inner"
-                style={{ background: "conic-gradient(#1C6EB4 0% 40%, #F97316 40% 70%, #0B2A45 70% 100%)" }}
-              >
-                <div className="flex size-20 items-center justify-center rounded-full bg-surface-container-lowest shadow-sm">
-                  <span className="text-lg font-bold text-on-surface">17</span>
-                </div>
+        <div className="flex flex-col gap-gutter lg:col-span-4">
+          <BentoCard
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="groups" className="text-[20px] text-primary" />
+                Top by Headcount
+              </span>
+            }
+          >
+            {byHeadcount.length === 0 ? (
+              <EmptyState
+                symbol="groups"
+                title="Nothing to rank"
+                description="No agents are registered."
+              />
+            ) : (
+              <div className="flex flex-col gap-2">
+                {byHeadcount.map((agent) => (
+                  <Link
+                    key={agent.id}
+                    href={`/hr/agents/${agent.id}`}
+                    className="flex items-center justify-between rounded-lg p-2 transition-colors hover:bg-surface-container-low"
+                  >
+                    <span className="flex items-center gap-3">
+                      <span
+                        aria-hidden
+                        className="flex size-8 items-center justify-center rounded-md bg-primary/10 text-[11px] font-bold text-primary"
+                      >
+                        {initials(agent.name)}
+                      </span>
+                      <span className="font-body-md text-body-md font-semibold text-on-surface">
+                        {agent.name}
+                      </span>
+                    </span>
+                    <span className="rounded bg-surface-container-low px-2 py-0.5 font-body-md text-body-md font-bold tabular-nums text-on-surface">
+                      {agent.employeeCount === null
+                        ? "—"
+                        : formatNumber(agent.employeeCount)}
+                    </span>
+                  </Link>
+                ))}
               </div>
-            </div>
-            <div className="flex flex-col gap-2 text-xs">
-              <ContractRow color="bg-primary-container" label="Fixed Rate" pct="40%" />
-              <ContractRow color="bg-[#F97316]" label="Percentage Base" pct="30%" />
-              <ContractRow color="bg-[#0B2A45]" label="Per-Employee" pct="30%" />
-            </div>
-          </div>
+            )}
+          </BentoCard>
+
+          <BentoCard
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="donut_small" className="text-[20px] text-primary" />
+                How Agents Charge
+              </span>
+            }
+          >
+            {chargeSplit.length === 0 ? (
+              <EmptyState
+                symbol="donut_small"
+                title="No agents"
+                description="The breakdown appears once an agent exists."
+              />
+            ) : (
+              <div className="flex flex-col gap-3">
+                {chargeSplit.map((row) => (
+                  <div key={row.chargeType} className="flex flex-col gap-1">
+                    <div className="flex items-center justify-between font-body-md text-body-md">
+                      <span className="text-on-surface-variant">{row.label}</span>
+                      <span className="font-semibold tabular-nums text-on-surface">
+                        {formatNumber(row.count)}
+                      </span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-container-high">
+                      <div
+                        className="h-1.5 rounded-full bg-primary-container"
+                        style={{ width: `${row.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <p className="text-[11px] text-outline">
+                  Counted from the {formatNumber(agents.length)}{" "}
+                  {agents.length === 1 ? "agent" : "agents"} in the list, not
+                  from contracts — an agent has one charge type, not a portfolio.
+                </p>
+              </div>
+            )}
+          </BentoCard>
         </div>
       </div>
     </>
   );
 }
 
-function ContractRow({ color, label, pct }: { color: string; label: string; pct: string }) {
+function FilterChip({
+  label,
+  count,
+  href,
+  active,
+}: {
+  label: string;
+  count: number;
+  href: string;
+  active: boolean;
+}) {
   return (
-    <div className="flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className={`size-3 rounded-sm ${color}`} />
-        <span className="text-on-surface-variant">{label}</span>
-      </div>
-      <span className="font-semibold text-on-surface">{pct}</span>
-    </div>
+    <Link
+      href={href}
+      className={`rounded-full border px-3 py-1.5 font-body-md text-[12px] transition-colors ${
+        active
+          ? "border-primary-container bg-primary-container/10 font-semibold text-primary"
+          : "border-outline-variant text-on-surface-variant hover:bg-surface-container"
+      }`}
+    >
+      {label} ({formatNumber(count)})
+    </Link>
   );
+}
+
+/**
+ * `chargeType` decides which of the two amount columns is meaningful — the
+ * backend allows both to be set at once, so the type is what makes the number
+ * readable rather than the presence of a value.
+ */
+function describeCharge(agent: AgentResponse): string {
+  if (agent.chargeType === "PERCENTAGE") {
+    return agent.chargePercentage === null
+      ? "Percentage — rate not set"
+      : `${agent.chargePercentage}%`;
+  }
+
+  if (agent.chargeAmount === null) {
+    return `${humanizeEnum(agent.chargeType)} — amount not set`;
+  }
+
+  return `${formatMoney(agent.chargeAmount)}${agent.chargeType === "PER_EMPLOYEE" ? "/employee" : ""}`;
+}
+
+function splitByChargeType(agents: AgentResponse[]) {
+  const counts = new Map<ChargeType, number>();
+
+  for (const agent of agents) {
+    counts.set(agent.chargeType, (counts.get(agent.chargeType) ?? 0) + 1);
+  }
+
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([chargeType, count]) => ({
+      chargeType,
+      count,
+      label: humanizeEnum(chargeType),
+      pct: agents.length === 0 ? 0 : Math.round((count / agents.length) * 100),
+    }));
 }

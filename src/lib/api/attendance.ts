@@ -6,6 +6,7 @@ import type {
   AttendanceDashboardSummary,
   AttendanceDeviceItem,
   AttendanceRecordItem,
+  AttendanceResponse,
   AttendanceSyncFailure,
   Paginated,
 } from "@/types";
@@ -114,4 +115,34 @@ export function getAttendanceSyncFailures(): Promise<AttendanceSyncFailure[]> {
   return api.get<AttendanceSyncFailure[]>(
     "/attendance/dashboard/sync-failures",
   );
+}
+
+/**
+ * One employee's attendance over a date window.
+ *
+ * `start` and `end` are `@RequestParam` on the backend and are **required** —
+ * omitting either is a 400, not a defaulted range. Both are inclusive
+ * `yyyy-MM-dd`.
+ */
+export function getAttendanceForEmployee(
+  employeeId: number,
+  params: { start: string; end: string },
+  signal?: AbortSignal,
+): Promise<AttendanceResponse[]> {
+  return api.get<AttendanceResponse[]>(`/attendance/employee/${employeeId}`, {
+    query: { start: params.start, end: params.end },
+    signal,
+  });
+}
+
+/** One branch's attendance over a date window. `start` and `end` required. */
+export function getAttendanceForBranch(
+  branchId: number,
+  params: { start: string; end: string },
+  signal?: AbortSignal,
+): Promise<AttendanceResponse[]> {
+  return api.get<AttendanceResponse[]>(`/attendance/branch/${branchId}`, {
+    query: { start: params.start, end: params.end },
+    signal,
+  });
 }

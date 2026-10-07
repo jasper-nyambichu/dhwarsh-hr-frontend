@@ -1,160 +1,333 @@
-// src/app/(portal)/hr/shifts/roster/page.tsx
+import Link from "next/link";
+
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
+import { getBranches } from "@/lib/api/branch";
+import { getDepartmentsByBranch } from "@/lib/api/department";
+import { getEmployeesByBranch } from "@/lib/api/employee";
+import {
+  getShiftAssignmentsForBranch,
+  getShifts,
+} from "@/lib/api/shift";
+import { formatNumber } from "@/lib/format";
+import { buildHref, first, parseId } from "@/lib/search-params";
+import type {
+  BranchResponse,
+  DepartmentResponse,
+  EmployeeSummaryResponse,
+  ShiftAssignmentResponse,
+  ShiftResponse,
+} from "@/types";
+
+import { AssignShiftForm } from "./_components/assign-shift-form";
 
 /**
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — swap for `await api.get<RosterRow[]>("/hr/shifts/roster")`.
- * ─────────────────────────────────────────────────────────────────────────
+ * The roster — who is on which shift in one branch.
+ *
+ * Assignments are stored against a *target*, and `ShiftAssignmentRequest` lets
+ * that target be an employee, a department or a whole branch. `ShiftAssignmentResponse`
+ * mirrors that: three nullable id columns, only one of which is set. The table
+ * below therefore resolves whichever one is present rather than assuming a row
+ * means a person.
+ *
+ * Scope is a required choice, not decoration: `GET /shifts/assignments/branch/{id}`
+ * is per-branch and there is no company-wide assignment list, so the screen picks
+ * a branch before it can read anything.
  */
-type ShiftKind = "Morning" | "Evening" | "Night" | "Off";
+export default async function ShiftRosterPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ branchId?: string | string[] }>;
+}) {
+  await requirePermission("shift:read");
 
-interface Cell {
-  kind: ShiftKind;
-  time?: string;
-}
+  const params = await searchParams;
+  const requestedBranchId = parseId(first(params.branchId));
 
-interface RosterRow {
-  name: string;
-  employeeId: string;
-  initials: string;
-  days: Cell[]; // Mon-Sun
-}
+  let branches: BranchResponse[];
 
-const DAYS = [
-  { label: "MON", date: "23" },
-  { label: "TUE", date: "24" },
-  { label: "WED", date: "25" },
-  { label: "THU", date: "26" },
-  { label: "FRI", date: "27" },
-  { label: "SAT", date: "28" },
-  { label: "SUN", date: "29" },
-];
+  try {
+    branches = await getBranches();
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) {
+      throw error;
+    }
 
-const ROSTER: RosterRow[] = [
-  {
-    name: "Sarah Jenkins",
-    employeeId: "EMP-001",
-    initials: "SJ",
-    days: [
-      { kind: "Morning", time: "08:00 - 16:00" },
-      { kind: "Morning", time: "08:00 - 16:00" },
-      { kind: "Off" },
-      { kind: "Evening", time: "16:00 - 00:00" },
-      { kind: "Evening", time: "16:00 - 00:00" },
-      { kind: "Night", time: "00:00 - 08:00" },
-      { kind: "Off" },
-    ],
-  },
-];
-
-function cellClass(kind: ShiftKind) {
-  switch (kind) {
-    case "Morning":
-      return "bg-primary-container/20 border-primary-container/30 text-primary-fixed-dim";
-    case "Evening":
-      return "bg-secondary-container/30 border-secondary/30 text-secondary";
-    case "Night":
-      return "bg-on-secondary-fixed text-on-primary";
-    default:
-      return "bg-surface-container-high text-on-surface-variant border-dashed border-surface-variant";
+    return (
+      <DataUnavailable
+        title="Shift Roster"
+        description="Who is rostered onto which shift, branch by branch."
+        subject="The branch list"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
   }
-}
 
-export default async function WeeklyRosterPage() {
-  await requirePermission("shift:write");
+  if (branches.length === 0) {
+    return (
+      <>
+        <PageHeader
+          title="Shift Roster"
+          description="Who is rostered onto which shift, branch by branch."
+        />
+        <BentoCard title="No branches">
+          <EmptyState
+            symbol="account_tree"
+            title="No branches to roster"
+            description="A shift assignment is always scoped to a branch, so there is nothing to show until a branch exists."
+          />
+        </BentoCard>
+      </>
+    );
+  }
+
+  const activeBranch =
+    branches.find((branch) => branch.id === requestedBranchId) ?? branches[0];
+
+  // Everything the screen needs about the active branch, read together. The
+  // assignment list is the one that matters; the other two exist to resolve its
+  // ids into names, so a failure there degrades the labels, not the page.
+  const [shiftsResult, assignmentsResult, departmentsResult, employeesResult] =
+    await Promise.allSettled([
+      getShifts(),
+      getShiftAssignmentsForBranch(activeBranch.id),
+      getDepartmentsByBranch(activeBranch.id),
+      getEmployeesByBranch(activeBranch.id),
+    ]);
+
+  if (
+    assignmentsResult.status === "rejected" &&
+    assignmentsResult.reason instanceof ApiError &&
+    assignmentsResult.reason.isUnauthorized
+  ) {
+    throw assignmentsResult.reason;
+  }
+
+  if (assignmentsResult.status === "rejected") {
+    return (
+      <DataUnavailable
+        title="Shift Roster"
+        description="Who is rostered onto which shift, branch by branch."
+        subject={`The roster for ${activeBranch.name}`}
+        reason={
+          assignmentsResult.reason instanceof ApiError
+            ? assignmentsResult.reason.message
+            : undefined
+        }
+      />
+    );
+  }
+
+  const assignments = assignmentsResult.value;
+  const shifts = shiftsResult.status === "fulfilled" ? shiftsResult.value : [];
+  const departments =
+    departmentsResult.status === "fulfilled" ? departmentsResult.value : [];
+  const employees =
+    employeesResult.status === "fulfilled" ? employeesResult.value : [];
+
+  const shiftNames = new Map(shifts.map((shift) => [shift.id, shift.name]));
+  const departmentNames = new Map(
+    departments.map((department) => [department.id, department.name]),
+  );
+  const employeeNames = new Map(
+    employees.map((employee) => [employee.id, employee.fullName]),
+  );
 
   return (
-    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-gutter">
-      <div className="flex flex-col items-start justify-between gap-4 rounded-xl border border-surface-container-high bg-surface-container-lowest p-6 shadow-[0_2px_8px_rgba(11,42,69,.06)] md:flex-row md:items-center">
-        <div>
-          <h1 className="mb-1 text-xl font-bold text-on-surface">Weekly Roster</h1>
-          <p className="text-on-surface-variant">Manage and publish employee shifts</p>
-        </div>
-        <div className="flex w-full flex-col items-center gap-3 sm:w-auto sm:flex-row">
-          <div className="flex w-full items-center rounded-lg border border-surface-container-high bg-surface-container-low p-1 sm:w-auto">
-            <button className="rounded p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest">
-              <Icon name="chevron_left" />
-            </button>
-            <span className="whitespace-nowrap px-4 text-[10px] font-semibold uppercase tracking-wider text-on-surface">OCT 23 - OCT 29, 2023</span>
-            <button className="rounded p-2 text-on-surface-variant transition-colors hover:bg-surface-container-highest">
-              <Icon name="chevron_right" />
-            </button>
-          </div>
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary py-3 px-6 text-[10px] font-semibold uppercase tracking-wider text-on-primary shadow-sm transition-colors hover:bg-on-primary-fixed-variant sm:w-auto">
-            <Icon name="publish" className="text-[18px]" />
-            Publish Roster
-          </button>
-        </div>
+    <>
+      <PageHeader
+        title="Shift Roster"
+        description="Who is rostered onto which shift, branch by branch."
+        actions={
+          <Link
+            href="/hr/shifts"
+            className="font-body-md text-body-md font-semibold text-primary hover:underline"
+          >
+            Back to shifts
+          </Link>
+        }
+      />
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {branches.map((branch) => {
+          const active = branch.id === activeBranch.id;
+
+          return (
+            <Link
+              key={branch.id}
+              href={buildHref("/hr/shifts/roster", { branchId: branch.id })}
+              className={`rounded-full border px-3 py-1.5 font-body-md text-[12px] transition-colors ${
+                active
+                  ? "border-primary-container bg-primary-container/10 font-semibold text-primary"
+                  : "border-outline-variant text-on-surface-variant hover:bg-surface-container"
+              }`}
+            >
+              {branch.name}
+            </Link>
+          );
+        })}
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-surface-container-high bg-surface-container-lowest shadow-[0_2px_8px_rgba(11,42,69,.06)]">
-        <div className="flex-1 overflow-x-auto">
-          <div className="grid min-w-[1040px] border-l border-t border-surface-container-high" style={{ gridTemplateColumns: "200px repeat(7, minmax(120px, 1fr))" }}>
-            <div className="sticky left-0 top-0 z-30 flex items-end border-b border-r border-surface-container-high bg-surface-container-low p-3 pb-4 text-[10px] font-semibold uppercase text-on-surface-variant">
-              Employee
-            </div>
-            {DAYS.map((d, i) => (
-              <div
-                key={d.label}
-                className={`sticky top-0 z-10 border-b border-r border-surface-container-high bg-surface-container-low p-3 text-center text-[10px] font-semibold uppercase ${
-                  i >= 5 ? "bg-surface-container-high/30" : ""
-                }`}
-              >
-                <div className="mb-1 text-on-surface-variant">{d.label}</div>
-                <div className="text-sm text-on-surface">{d.date}</div>
+      <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
+        <div className="lg:col-span-8">
+          <BentoCard
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="calendar_view_week" className="text-[20px] text-primary" />
+                {activeBranch.name}
+              </span>
+            }
+            action={
+              <span className="font-body-md text-[11px] text-outline">
+                {formatNumber(assignments.length)}{" "}
+                {assignments.length === 1 ? "assignment" : "assignments"}
+              </span>
+            }
+          >
+            {assignments.length === 0 ? (
+              <EmptyState
+                symbol="calendar_view_week"
+                title="Nothing rostered yet"
+                description="No shift has been assigned to this branch, its departments or its employees."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left font-body-md text-body-md">
+                  <thead>
+                    <tr className="border-b border-outline-variant/50 font-table-header text-table-header uppercase text-outline">
+                      <th className="pb-3 pr-4">Shift</th>
+                      <th className="pb-3 pr-4">Assigned To</th>
+                      <th className="pb-3">Scope</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {assignments.map((assignment) => {
+                      const target = describeTarget(
+                        assignment,
+                        { employeeNames, departmentNames },
+                        activeBranch,
+                      );
+
+                      return (
+                        <tr
+                          key={assignment.id}
+                          className="border-b border-outline-variant/25 last:border-0"
+                        >
+                          <td className="py-3 pr-4 font-semibold text-on-surface">
+                            {assignment.shiftName ??
+                              shiftNames.get(assignment.shiftId) ??
+                              `Shift #${assignment.shiftId}`}
+                          </td>
+                          <td className="py-3 pr-4 text-on-surface-variant">
+                            {target.name}
+                          </td>
+                          <td className="py-3">
+                            <span className="rounded-full bg-surface-container px-2.5 py-0.5 text-[11px] font-semibold text-on-surface-variant">
+                              {target.scope}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            ))}
-
-            {ROSTER.map((row) => (
-              <>
-                <div key={row.employeeId} className="sticky left-0 z-20 border-b border-r-2 border-surface-container-high bg-surface-container-lowest p-3 transition-colors hover:bg-surface-container-low">
-                  <div className="flex items-center gap-3">
-                    <div className="flex size-8 items-center justify-center rounded-full bg-primary-container text-[10px] font-bold text-on-primary-container">
-                      {row.initials}
-                    </div>
-                    <div>
-                      <div className="font-bold text-on-surface">{row.name}</div>
-                      <div className="text-[10px] text-on-surface-variant">{row.employeeId}</div>
-                    </div>
-                  </div>
-                </div>
-                {row.days.map((cell, i) => (
-                  <div key={i} className={`border-b border-r border-surface-container-high p-3 transition-colors hover:bg-surface-container-low ${i >= 5 ? "bg-surface-container-highest/20" : ""}`}>
-                    <div className={`flex h-full cursor-pointer flex-col justify-center rounded border p-2 text-center transition-shadow hover:shadow-md ${cellClass(cell.kind)}`}>
-                      {cell.kind !== "Off" ? (
-                        <>
-                          <span className="text-[11px] font-bold">{cell.time}</span>
-                          <span className="mt-1 text-[9px} uppercase opacity-80">{cell.kind}</span>
-                        </>
-                      ) : (
-                        <span className="text-[11px] font-bold">OFF</span>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </>
-            ))}
-          </div>
+            )}
+          </BentoCard>
         </div>
 
-        <div className="flex flex-wrap items-center gap-6 border-t border-surface-container-high bg-surface-container-low p-4">
-          <span className="mr-2 text-[10px] font-semibold uppercase text-on-surface-variant">Legend:</span>
-          <LegendItem colorClass="bg-primary-container/20 border-primary-container/30" label="Morning Shift" />
-          <LegendItem colorClass="bg-secondary-container/30 border-secondary/30" label="Evening Shift" />
-          <LegendItem colorClass="bg-on-secondary-fixed" label="Night Shift" />
-          <LegendItem colorClass="bg-surface-container-high border-dashed border-surface-variant" label="Off Day" />
+        <div className="lg:col-span-4">
+          <BentoCard
+            title={
+              <span className="flex items-center gap-2">
+                <Icon name="assignment_ind" className="text-[20px] text-primary" />
+                Assign a Shift
+              </span>
+            }
+          >
+            {shifts.length === 0 ? (
+              <p className="font-body-md text-body-md text-on-surface-variant">
+                There are no shifts to assign yet.{" "}
+                <Link
+                  href="/hr/shifts"
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Create one first
+                </Link>
+                .
+              </p>
+            ) : (
+              <AssignShiftForm
+                shifts={shifts}
+                departments={departments}
+                employees={employees}
+                branchId={activeBranch.id}
+                branchName={activeBranch.name}
+              />
+            )}
+          </BentoCard>
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
-function LegendItem({ colorClass, label }: { colorClass: string; label: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <div className={`size-4 rounded border ${colorClass}`} />
-      <span className="text-[11px] font-medium text-on-surface">{label}</span>
-    </div>
-  );
+/**
+ * Which of the three target columns this row carries, and what to call it.
+ *
+ * A row should have exactly one; the employee branch is checked first because
+ * that is the most specific assignment, but a row with more than one set is
+ * reported as ambiguous rather than silently picking one.
+ */
+function describeTarget(
+  assignment: ShiftAssignmentResponse,
+  lookups: {
+    employeeNames: Map<number, string>;
+    departmentNames: Map<number, string>;
+  },
+  branch: BranchResponse,
+): { name: string; scope: string } {
+  const set = [
+    assignment.employeeId !== null ? "employee" : null,
+    assignment.departmentId !== null ? "department" : null,
+    assignment.branchId !== null ? "branch" : null,
+  ].filter((value): value is string => value !== null);
+
+  if (set.length !== 1) {
+    return {
+      name: set.length === 0 ? "No target set" : set.join(" + "),
+      scope: set.length === 0 ? "Unassigned" : "Ambiguous",
+    };
+  }
+
+  if (assignment.employeeId !== null) {
+    return {
+      name:
+        lookups.employeeNames.get(assignment.employeeId) ??
+        `Employee #${assignment.employeeId}`,
+      scope: "Employee",
+    };
+  }
+
+  if (assignment.departmentId !== null) {
+    return {
+      name:
+        lookups.departmentNames.get(assignment.departmentId) ??
+        `Department #${assignment.departmentId}`,
+      scope: "Department",
+    };
+  }
+
+  return {
+    name:
+      assignment.branchId === branch.id
+        ? branch.name
+        : `Branch #${assignment.branchId}`,
+    scope: "Whole branch",
+  };
 }

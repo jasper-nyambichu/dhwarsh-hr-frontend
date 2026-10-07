@@ -1,90 +1,121 @@
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
-import type { LeaveTypeRecord } from "@/types";
+import { getLeaveTypes } from "@/lib/api/leave";
+import { formatNumber } from "@/lib/format";
+import type { LeaveTypeResponse } from "@/types";
 
 /**
- * Leave type catalogue.
+ * Leave types, read-only.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — shaped against `types.LeaveTypeRecord`, plus the
- * carryForward/requiresDocument/status columns the list view needs, which
- * the backend will have to supply as a projection. Swap for
- * `await api.get<LeaveTypeRecord[]>("/leave/types")` when ready.
- * ─────────────────────────────────────────────────────────────────────────
+ * `roles.ts` gives HR_MANAGER a `leave:type:manage` permission, but no endpoint
+ * backs it: `LeaveController` exposes `GET /leave/types` and nothing that
+ * creates, edits or deletes a type. There is nowhere to POST to, so this screen
+ * deliberately has no add/edit controls rather than buttons that would fail.
+ *
+ * A create endpoint is a backend addition, and until it exists the honest thing
+ * is to show the configured types and say they are fixed.
  */
-
-type LeaveTypeRow = LeaveTypeRecord & {
-  code: string;
-  carryForwardDays: number;
-  requiresDocument: boolean;
-  status: "ACTIVE" | "INACTIVE";
-};
-
-const LEAVE_TYPES: readonly LeaveTypeRow[] = [
-  { id: 1, name: "Annual Leave", code: "AL", defaultEntitlementDays: 21, paid: true, carryForwardDays: 5, requiresDocument: false, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 2, name: "Sick Leave", code: "SL", defaultEntitlementDays: 30, paid: true, carryForwardDays: 0, requiresDocument: true, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 3, name: "Compassionate", code: "CL", defaultEntitlementDays: 5, paid: true, carryForwardDays: 0, requiresDocument: false, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 4, name: "Maternity", code: "ML", defaultEntitlementDays: 90, paid: true, carryForwardDays: 0, requiresDocument: true, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 5, name: "Paternity", code: "PL", defaultEntitlementDays: 14, paid: true, carryForwardDays: 0, requiresDocument: true, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 6, name: "Unpaid Leave", code: "UL", defaultEntitlementDays: 0, paid: false, carryForwardDays: 0, requiresDocument: false, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-];
-
 export default async function LeaveTypesPage() {
-  await requirePermission("leave:type:manage");
+  await requirePermission("leave:read");
+
+  let types: LeaveTypeResponse[];
+
+  try {
+    types = await getLeaveTypes();
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) {
+      throw error;
+    }
+
+    return (
+      <DataUnavailable
+        title="Leave Types"
+        description="The leave categories employees can request against."
+        subject="The leave type list"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
 
   return (
     <>
       <PageHeader
         title="Leave Types"
-        actions={
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg bg-on-primary-fixed-variant px-4 py-2 font-body-md text-body-md font-bold text-on-primary shadow-sm transition-colors hover:bg-primary"
-          >
-            <Icon name="add" className="text-[18px]" />
-            Add Leave Type
-          </button>
-        }
+        description="The leave categories employees can request against."
       />
 
-      <BentoCard title={null}>
-        <div className="w-full overflow-x-auto">
-          <table className="data-table w-full border-collapse text-left">
-            <thead>
-              <tr>
-                <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Name</th>
-                <th className="pb-3 font-table-header text-table-header uppercase text-outline">Code</th>
-                <th className="pb-3 font-table-header text-table-header uppercase text-outline">Annual Entitlement</th>
-                <th className="pb-3 font-table-header text-table-header uppercase text-outline">Carry Forward (days)</th>
-                <th className="pb-3 font-table-header text-table-header uppercase text-outline">Requires Document</th>
-                <th className="pb-3 font-table-header text-table-header uppercase text-outline">Paid</th>
-                <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Status</th>
-              </tr>
-            </thead>
-            <tbody className="font-body-md text-body-md">
-              {LEAVE_TYPES.map((type) => (
-                <tr key={type.id}>
-                  <td className="py-4 pl-2 font-medium text-on-surface">{type.name}</td>
-                  <td className="py-4 text-on-surface-variant">{type.code}</td>
-                  <td className="py-4 text-on-surface">
-                    {type.defaultEntitlementDays === 0 ? "—" : `${type.defaultEntitlementDays} Days`}
-                  </td>
-                  <td className="py-4 text-on-surface">{type.carryForwardDays} Days</td>
-                  <td className="py-4 text-on-surface">{type.requiresDocument ? "Yes" : "No"}</td>
-                  <td className="py-4 text-on-surface">{type.paid ? "Yes" : "No"}</td>
-                  <td className="py-4 pr-2 text-right">
-                    <span className="inline-flex items-center rounded-full bg-blue-soft px-2 py-1 text-[10px] font-semibold text-primary-container">
-                      {type.status === "ACTIVE" ? "Active" : "Inactive"}
-                    </span>
-                  </td>
+      <BentoCard
+        title={
+          <span className="flex items-center gap-2">
+            <Icon name="category" className="text-[20px] text-primary" />
+            Configured Types
+          </span>
+        }
+        action={
+          <span className="font-body-md text-[11px] text-outline">
+            {formatNumber(types.length)}{" "}
+            {types.length === 1 ? "type" : "types"}
+          </span>
+        }
+      >
+        {types.length === 0 ? (
+          <EmptyState
+            symbol="event_busy"
+            title="No leave types configured"
+            description="Leave types are set up in the database; the API has no endpoint to create one."
+          />
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left font-body-md text-body-md">
+              <thead>
+                <tr className="border-b border-outline-variant/50 font-table-header text-table-header uppercase text-outline">
+                  <th className="pb-3 pr-4">Name</th>
+                  <th className="pb-3 pr-4">Default Entitlement</th>
+                  <th className="pb-3 text-right">Paid</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {types.map((type) => (
+                  <tr
+                    key={type.id}
+                    className="border-b border-outline-variant/25 last:border-0"
+                  >
+                    <td className="py-3 pr-4 font-semibold text-on-surface">
+                      {type.name}
+                    </td>
+                    <td className="py-3 pr-4 text-on-surface-variant">
+                      {type.defaultEntitlementDays === null
+                        ? "Not set"
+                        : `${formatNumber(type.defaultEntitlementDays)} days`}
+                    </td>
+                    <td className="py-3 text-right">
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          type.paid
+                            ? "bg-tertiary-container/15 text-tertiary"
+                            : "bg-surface-container text-on-surface-variant"
+                        }`}
+                      >
+                        {type.paid ? "Paid" : "Unpaid"}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </BentoCard>
+
+      <p className="mt-4 text-[11px] text-outline">
+        Read-only. The API can list leave types but has no endpoint to create,
+        edit or remove one — adding a type is a database change today.
+      </p>
     </>
   );
 }

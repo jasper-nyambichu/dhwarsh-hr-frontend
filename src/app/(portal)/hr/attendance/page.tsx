@@ -1,131 +1,70 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { AttendanceFilters } from "@/components/features/attendance/attendance-filters";
+import { LiveAttendanceBoard } from "@/components/features/attendance/live-attendance-board";
 import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { FilterTabs, type FilterTab } from "@/components/shared/filter-tabs";
-import { PageHeader } from "@/components/shared/page-header";
-import { SegmentStrip, type Segment } from "@/components/shared/segment-strip";
+import { CountPill, PageHeader } from "@/components/shared/page-header";
+import { Pagination } from "@/components/shared/pagination";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
 import {
+  getAttendanceActivity,
+  getAttendanceDevices,
+  getAttendanceRecords,
+  getAttendanceSummary,
+  getAttendanceSyncFailures,
+} from "@/lib/api/attendance";
+import {
+  buildHref,
+  first,
+  parseDate,
+  parseId,
+  parsePage,
+} from "@/lib/search-params";
+import {
   formatDate,
-  formatDuration,
+  formatHours,
   formatNumber,
+  formatPercent,
+  formatRelativeTime,
   formatTime,
-  humanizeEnum,
   initials,
 } from "@/lib/format";
-import type { AttendanceSource, AttendanceStatus } from "@/types";
+import type {
+  AttendanceActivityItem,
+  AttendanceDashboardSummary,
+  AttendanceDeviceItem,
+  AttendanceRecordItem,
+  AttendanceSource,
+  AttendanceSyncFailure,
+  Paginated,
+} from "@/types";
 
 /**
- * Daily attendance log — every clock event for one date, across all branches.
+ * The HR attendance board.
  *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — no `/attendance` endpoint wired yet. Replace with
- * `await api.get<Paginated<Attendance>>("/attendance", { date, status })`
- * when it lands; the row shape below is already `Attendance`-compatible.
- * ─────────────────────────────────────────────────────────────────────────
+ * Same endpoints and the same live components as `/admin/attendance` — HR is in
+ * the backend's `VIEW_ROLES` on the summary, activity, records and devices
+ * mappings, and in `ADMIN_ROLES` on sync-failures. The only real difference is
+ * `basePath`, so `AttendanceFilters`, `LiveAttendanceBoard` and the records
+ * table are shared rather than copied.
+ *
+ * What this screen deliberately does **not** have is any way to *correct* an
+ * attendance row. There is no manual-entry or edit endpoint in
+ * `AttendanceController` — the only writes are the biometric sync and the
+ * checkout, both of which belong to the terminal. A "Add manual entry" button
+ * would have nothing to call.
+ *
+ * The biometric module itself (`/hr/biometric`) is out of scope on purpose: the
+ * terminals are enrolled and operated from the branch manager's desktop app.
  */
 
-/** The date being viewed. Becomes a `?date=` search param once wired. */
-const LOG_DATE = "2026-08-09";
-
-type LogRow = {
-  id: number;
-  employeeId: number;
-  employeeName: string;
-  employeeNumber: string;
-  branchName: string;
-  shift: string;
-  clockIn: string | null;
-  clockOut: string | null;
-  /** Minutes between clock-in and clock-out. `null` while still on shift. */
-  minutesWorked: number | null;
-  source: AttendanceSource;
-  status: AttendanceStatus;
-};
-
-const TODAY_LOG: readonly LogRow[] = [
-  {
-    id: 1,
-    employeeId: 1,
-    employeeName: "Peter Njuguna",
-    employeeNumber: "EMP-00412",
-    branchName: "Nairobi CBD",
-    shift: "Day",
-    clockIn: "08:55:00",
-    clockOut: null,
-    minutesWorked: null,
-    source: "BIOMETRIC",
-    status: "PRESENT",
-  },
-  {
-    id: 2,
-    employeeId: 2,
-    employeeName: "Grace Wambui",
-    employeeNumber: "EMP-00318",
-    branchName: "Nairobi CBD",
-    shift: "Day",
-    clockIn: "09:15:00",
-    clockOut: null,
-    minutesWorked: null,
-    source: "MANUAL",
-    status: "LATE",
-  },
-  {
-    id: 3,
-    employeeId: 3,
-    employeeName: "Ali Hassan",
-    employeeNumber: "EMP-00127",
-    branchName: "Mombasa Port",
-    shift: "Night",
-    clockIn: "19:58:00",
-    clockOut: "05:02:00",
-    minutesWorked: 544,
-    source: "BIOMETRIC",
-    status: "PRESENT",
-  },
-  {
-    id: 4,
-    employeeId: 4,
-    employeeName: "Jane Otieno",
-    employeeNumber: "EMP-00641",
-    branchName: "Kisumu Industrial",
-    shift: "Day",
-    clockIn: null,
-    clockOut: null,
-    minutesWorked: null,
-    source: "WEB",
-    status: "ON_LEAVE",
-  },
-  {
-    id: 5,
-    employeeId: 5,
-    employeeName: "Eunice Wanjiku",
-    employeeNumber: "EMP-00509",
-    branchName: "Thika Road",
-    shift: "Day",
-    clockIn: null,
-    clockOut: null,
-    minutesWorked: null,
-    source: "BIOMETRIC",
-    status: "ABSENT",
-  },
-];
-
-const SUMMARY: readonly Segment[] = [
-  { label: "Present", value: formatNumber(420) },
-  { label: "Late", value: formatNumber(12), tone: "warning" },
-  { label: "Absent", value: formatNumber(8), tone: "error" },
-];
-
-const REPEAT_LATE = [
-  { id: 1, employeeId: 2, name: "Grace Wambui", occurrences: 3 },
-  { id: 2, employeeId: 7, name: "David Kimani", occurrences: 3 },
-  { id: 3, employeeId: 9, name: "Mercy Chebet", occurrences: 2 },
-] as const;
-
-/** Which glyph stands for each capture channel in the Source column. */
+/** Mirrors the map on the admin board. */
 const SOURCE_ICON: Record<AttendanceSource, string> = {
   BIOMETRIC: "fingerprint",
   MANUAL: "badge",
@@ -133,210 +72,393 @@ const SOURCE_ICON: Record<AttendanceSource, string> = {
   WEB: "language",
 };
 
-const TABS: readonly FilterTab[] = [
-  { label: "All" },
-  { label: "Present", value: "PRESENT" },
-  { label: "Late", value: "LATE" },
-  { label: "Absent", value: "ABSENT" },
-  { label: "On Leave", value: "ON_LEAVE" },
+/**
+ * Only two tabs, because `openOnly` is the only server-side filter the records
+ * endpoint has. A status filter would have to sift the current page in the
+ * browser, which lies as soon as the results are paginated.
+ */
+const RECORD_TABS: readonly FilterTab[] = [
+  { label: "All records" },
+  { label: "On site now", value: "open" },
 ];
 
-export default async function AttendancePage({
+const RECORD_PAGE_SIZE = 25;
+
+type BoardData = {
+  summary: AttendanceDashboardSummary;
+  activity: AttendanceActivityItem[];
+  records: Paginated<AttendanceRecordItem>;
+  devices: AttendanceDeviceItem[];
+  syncFailures: AttendanceSyncFailure[];
+};
+
+/**
+ * All five reads in one round trip, and all five or none.
+ *
+ * Deliberately not `allSettled`: a half-loaded board would render a live ticker
+ * beside a records table that silently stopped at page one, and there is no way
+ * for the reader to tell which of the two is wrong.
+ */
+async function loadBoard(filters: {
+  date?: string;
+  branchId?: number;
+  openOnly: boolean;
+  page: number;
+}): Promise<BoardData> {
+  const { date, branchId, openOnly, page } = filters;
+
+  const [summary, activity, records, devices, syncFailures] = await Promise.all([
+    getAttendanceSummary({ date, branchId }),
+    getAttendanceActivity({ branchId, limit: 50 }),
+    getAttendanceRecords({
+      branchId,
+      // Omitted when no date is chosen, which tells the backend "today" in the
+      // company timezone rather than in the browser's.
+      start: date,
+      end: date,
+      openOnly,
+      page,
+      size: RECORD_PAGE_SIZE,
+    }),
+    getAttendanceDevices({ branchId }),
+    getAttendanceSyncFailures(),
+  ]);
+
+  return { summary, activity, records, devices, syncFailures };
+}
+
+export default async function HrAttendancePage({
   searchParams,
 }: {
-  searchParams: Promise<{ filter?: string }>;
+  searchParams: Promise<{
+    branchId?: string;
+    date?: string;
+    filter?: string;
+    page?: string;
+  }>;
 }) {
   await requirePermission("attendance:read");
-  const { filter } = await searchParams;
 
-  // The tab is a real filter, not decoration — it lives in the URL so a
-  // filtered log is shareable and survives a refresh.
-  const rows = filter
-    ? TODAY_LOG.filter((row) => row.status === filter)
-    : TODAY_LOG;
+  const params = await searchParams;
+
+  const branchId = parseId(first(params.branchId));
+  const date = parseDate(first(params.date));
+  const filter = first(params.filter);
+  const openOnly = filter === "open";
+  const page = parsePage(first(params.page));
+
+  let data: BoardData;
+
+  try {
+    data = await loadBoard({ date, branchId, openOnly, page });
+  } catch (error) {
+    if (error instanceof ApiError && error.isUnauthorized) {
+      throw error;
+    }
+
+    return (
+      <DataUnavailable
+        title="Attendance"
+        description="Live clock-in and clock-out activity, branch by branch."
+        subject="The attendance board"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
+
+  const { summary, activity, records, devices, syncFailures } = data;
+  const activeRate = summary.attendanceRatePercent;
+
+  const filters = {
+    branchId: branchId ? String(branchId) : undefined,
+    date,
+    filter,
+  };
 
   return (
     <>
       <PageHeader
         title="Attendance"
-        description="Every clock event for the selected day, across all branches."
+        description="Live clock-in and clock-out activity, branch by branch."
+        pill={
+          <CountPill
+            label={`${formatPercent(activeRate)} reported`}
+            tone={
+              activeRate >= 85 ? "success" : activeRate > 0 ? "warning" : "neutral"
+            }
+          />
+        }
         actions={
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 transition-colors hover:bg-surface-container-low"
-          >
-            <Icon name="calendar_month" className="text-[18px] text-primary" />
-            <span className="font-body-md text-body-md text-on-surface">
-              {formatDate(LOG_DATE)}
-            </span>
-            <Icon name="expand_more" className="text-[18px] text-outline" />
-          </button>
+          <AttendanceFilters
+            branches={summary.branches}
+            branchId={branchId}
+            date={date ?? summary.date}
+            filter={filter}
+            basePath="/hr/attendance"
+          />
         }
       />
 
-      <div className="grid grid-cols-12 gap-gutter">
-        {/* ───────────────────────────────── main column ─────────────────── */}
-        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
-          <FilterTabs
-            tabs={TABS}
-            active={filter}
-            basePath="/hr/attendance"
-            className="no-scrollbar overflow-x-auto"
-          />
+      <div className="flex flex-col gap-gutter">
+        <LiveAttendanceBoard
+          initialSnapshot={{
+            summary,
+            activity,
+            fetchedAt: summary.generatedAt,
+          }}
+          branchId={branchId}
+          recordsHref={buildHref("/hr/attendance", { ...filters, page: 0 })}
+        />
 
-          <BentoCard
-            title="Today's Log"
-            subtitle={`${formatNumber(rows.length)} shown · ${formatNumber(TODAY_LOG.length)} total`}
-            action={
-              <button
-                type="button"
-                className="flex items-center gap-1 rounded-md px-3 py-1 font-body-md text-body-md font-semibold text-primary transition-colors hover:bg-surface-container-low"
-              >
-                <Icon name="download" className="text-[18px]" />
-                Export
-              </button>
-            }
-            className="flex-1"
-          >
-            <div className="overflow-x-auto">
-              <table className="data-table w-full border-collapse text-left">
-                <thead>
-                  <tr>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Employee
-                    </th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Branch
-                    </th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Shift
-                    </th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Clock In
-                    </th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Clock Out
-                    </th>
-                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
-                      Hours
-                    </th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Source
-                    </th>
-                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="font-body-md text-body-md text-on-surface">
-                  {rows.map((row) => (
-                    <tr key={row.id} className="transition-colors">
-                      <td className="py-3">
-                        <Link
-                          href={`/hr/attendance/${row.employeeId}`}
-                          className="group flex items-center gap-3"
-                        >
-                          <span
-                            aria-hidden
-                            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-[11px] font-bold text-on-primary"
-                          >
-                            {initials(row.employeeName)}
-                          </span>
-                          <span className="min-w-0">
-                            <span className="block truncate font-medium text-on-surface group-hover:text-primary-container">
-                              {row.employeeName}
-                            </span>
-                            <span className="block text-[10px] text-outline">
-                              {row.employeeNumber}
-                            </span>
-                          </span>
-                        </Link>
-                      </td>
-                      <td className="py-3">{row.branchName}</td>
-                      <td className="py-3">{row.shift}</td>
-                      <td
-                        className={
-                          row.status === "LATE"
-                            ? "py-3 tabular-nums text-error"
-                            : "py-3 tabular-nums"
-                        }
-                      >
-                        {formatTime(row.clockIn)}
-                      </td>
-                      <td className="py-3 tabular-nums text-outline">
-                        {formatTime(row.clockOut)}
-                      </td>
-                      <td className="py-3 text-right tabular-nums">
-                        {formatDuration(row.minutesWorked)}
-                      </td>
-                      <td className="py-3">
-                        <span
-                          className="flex items-center gap-1 text-outline"
-                          title={humanizeEnum(row.source)}
-                        >
-                          <Icon
-                            name={SOURCE_ICON[row.source]}
-                            className="text-[18px]"
-                          />
-                          <span className="sr-only">
-                            {humanizeEnum(row.source)}
-                          </span>
-                        </span>
-                      </td>
-                      <td className="py-3 text-right">
-                        <StatusBadge status={row.status} />
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {rows.length === 0 ? (
-                <div className="mt-4 rounded-card border border-dashed border-outline-variant p-12 text-center">
+        <div className="grid grid-cols-12 gap-gutter">
+          <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
+            <BentoCard
+              title={
+                <span className="flex items-center gap-2">
+                  <Icon
+                    name="table_view"
+                    className="text-[18px] text-on-surface-variant"
+                  />
+                  {openOnly ? "On site now" : "Attendance records"}
+                </span>
+              }
+              subtitle={`${formatDate(summary.date)} · ${formatNumber(
+                records.totalElements,
+              )} ${records.totalElements === 1 ? "record" : "records"}`}
+              action={
+                <FilterTabs
+                  tabs={RECORD_TABS}
+                  active={filter}
+                  basePath="/hr/attendance"
+                  preserve={{
+                    branchId: branchId ? String(branchId) : undefined,
+                    date,
+                  }}
+                />
+              }
+            >
+              {records.content.length === 0 ? (
+                <div className="rounded-card border border-dashed border-outline-variant px-4 py-12 text-center">
                   <Icon
                     name="event_busy"
                     className="text-[40px] text-outline-variant"
                   />
                   <p className="mt-2 font-body-md text-body-md text-on-surface-variant">
-                    No attendance records match this filter.
+                    {openOnly
+                      ? "Nobody is clocked in right now."
+                      : "No attendance recorded for this day."}
+                  </p>
+                  <p className="mx-auto mt-1 max-w-md text-[11px] text-outline">
+                    Biometric events only reach this table once a branch terminal
+                    is registered under Devices and each employee has enrolled a
+                    fingerprint on it. Enrolment happens on the branch
+                    manager&rsquo;s desktop app, not here.
                   </p>
                 </div>
-              ) : null}
-            </div>
-          </BentoCard>
-        </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="data-table w-full border-collapse text-left">
+                    <thead>
+                      <tr>
+                        <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">
+                          Employee
+                        </th>
+                        <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                          Branch
+                        </th>
+                        <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                          Position
+                        </th>
+                        <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                          Clock In
+                        </th>
+                        <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                          Clock Out
+                        </th>
+                        <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
+                          Hours
+                        </th>
+                        <th className="pb-3 font-table-header text-table-header uppercase text-outline">
+                          Source
+                        </th>
+                        <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
 
-        {/* ──────────────────────────────── side column ──────────────────── */}
-        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
-          <SegmentStrip segments={SUMMARY} />
+                    <tbody className="font-body-md text-body-md text-on-surface">
+                      {records.content.map((record) => (
+                        <tr
+                          key={record.id}
+                          className="border-b border-outline-variant/20 transition-colors last:border-0 hover:bg-surface-container-low/50"
+                        >
+                          <td className="py-3 pl-2 pr-3">
+                            <Link
+                              href={`/hr/attendance/${record.employeeId}`}
+                              className="group flex items-center gap-3"
+                            >
+                              <span
+                                aria-hidden
+                                className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-container/20 text-[10px] font-bold text-primary"
+                              >
+                                {initials(record.employeeName ?? "Unknown")}
+                              </span>
+                              <span className="min-w-0">
+                                <span className="block truncate font-medium text-on-surface group-hover:text-primary">
+                                  {record.employeeName ?? "Unknown employee"}
+                                </span>
+                                <span className="block text-[10px] text-outline">
+                                  {record.employeeNumber ?? "—"}
+                                </span>
+                              </span>
+                            </Link>
+                          </td>
+                          <td className="px-3 py-3 text-on-surface-variant">
+                            {record.branchName ?? "—"}
+                          </td>
+                          <td className="px-3 py-3 text-on-surface-variant">
+                            {record.position ?? "—"}
+                          </td>
+                          <td className="px-3 py-3 tabular-nums text-on-surface-variant">
+                            {formatTime(record.clockIn)}
+                          </td>
+                          <td className="px-3 py-3 tabular-nums text-on-surface-variant">
+                            {formatTime(record.clockOut)}
+                          </td>
+                          <td className="px-3 py-3 text-right tabular-nums text-on-surface-variant">
+                            {formatHours(record.hoursWorked)}
+                          </td>
+                          <td className="px-3 py-3">
+                            <span
+                              className="flex items-center gap-1 text-outline"
+                              title={record.source}
+                            >
+                              <Icon
+                                name={SOURCE_ICON[record.source]}
+                                className="text-[18px]"
+                              />
+                              <span className="sr-only">{record.source}</span>
+                            </span>
+                          </td>
+                          <td className="py-3 pl-3 pr-2 text-right">
+                            <StatusBadge status={record.status} />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
 
-          <BentoCard title="Repeat Late" subtitle="This week">
-            <ul className="flex flex-col gap-3">
-              {REPEAT_LATE.map((person) => (
-                <li key={person.id}>
-                  <Link
-                    href={`/hr/attendance/${person.employeeId}`}
-                    className="group -mx-2 flex items-center justify-between gap-3 rounded-lg p-2 transition-colors hover:bg-surface-container-low"
-                  >
-                    <span className="flex min-w-0 items-center gap-3">
+                  <Pagination
+                    data={records}
+                    hrefFor={(target) =>
+                      buildHref("/hr/attendance", { ...filters, page: target })
+                    }
+                    className="mt-4"
+                  />
+                </div>
+              )}
+            </BentoCard>
+          </div>
+
+          <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
+            <BentoCard
+              title={
+                <span className="flex items-center gap-2">
+                  <Icon name="fingerprint" className="text-[18px] text-on-surface-variant" />
+                  Terminals
+                </span>
+              }
+              action={
+                <span className="font-body-md text-[11px] text-outline">
+                  {formatNumber(devices.filter((device) => device.online).length)}{" "}
+                  of {formatNumber(devices.length)} online
+                </span>
+              }
+            >
+              {devices.length === 0 ? (
+                <p className="font-body-md text-body-md text-on-surface-variant">
+                  No terminals registered
+                  {branchId ? " for this branch" : ""}. Enrolment is done from the
+                  branch manager&rsquo;s desktop app.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {devices.map((device) => (
+                    <li
+                      key={device.id}
+                      className="flex items-center justify-between gap-3"
+                    >
+                      <span className="min-w-0">
+                        <span className="block truncate font-body-md text-body-md font-medium text-on-surface">
+                          {device.deviceSerial}
+                        </span>
+                        <span className="block text-[11px] text-outline">
+                          {device.branchName ?? `Branch #${device.branchId}`} ·{" "}
+                          {device.lastSyncAt
+                            ? `last sync ${formatRelativeTime(device.lastSyncAt)}`
+                            : "never synced"}
+                        </span>
+                      </span>
                       <span
-                        aria-hidden
-                        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-[11px] font-bold text-on-primary"
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
+                          device.online
+                            ? "bg-tertiary-container/15 text-tertiary"
+                            : "bg-surface-container text-on-surface-variant"
+                        }`}
                       >
-                        {initials(person.name)}
+                        {device.online ? "Online" : "Offline"}
                       </span>
-                      <span className="truncate font-body-md text-body-md text-on-surface group-hover:text-primary-container">
-                        {person.name}
-                      </span>
-                    </span>
-                    <span className="shrink-0 rounded-md bg-error-container px-2 py-1 text-[10px] font-bold tabular-nums text-on-error-container">
-                      {person.occurrences} times
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </BentoCard>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </BentoCard>
+
+            <BentoCard
+              title={
+                <span className="flex items-center gap-2">
+                  <Icon name="report" className="text-[18px] text-on-surface-variant" />
+                  Rejected Scans
+                </span>
+              }
+              action={
+                <span className="font-body-md text-[11px] text-outline">
+                  Last {formatNumber(syncFailures.length)}
+                </span>
+              }
+            >
+              {syncFailures.length === 0 ? (
+                <p className="font-body-md text-body-md text-on-surface-variant">
+                  No scan has been refused. This list is the only place a clock-in
+                  that silently did not happen shows up — a rejected event leaves
+                  no row in the attendance table.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {syncFailures.slice(0, 8).map((failure) => (
+                    <li
+                      key={failure.id}
+                      className="border-b border-outline-variant/20 pb-3 last:border-0 last:pb-0"
+                    >
+                      <p className="font-body-md text-body-md font-medium text-on-surface">
+                        {failure.employeeName ??
+                          failure.deviceSerial ??
+                          "Unknown source"}
+                      </p>
+                      <p className="mt-0.5 font-body-md text-[11px] text-on-surface-variant">
+                        {failure.reason}
+                      </p>
+                      <p className="mt-0.5 text-[10px] text-outline">
+                        {formatRelativeTime(failure.createdAt)} · event{" "}
+                        <span className="font-mono">{failure.eventId}</span>
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </BentoCard>
+          </div>
         </div>
       </div>
     </>
