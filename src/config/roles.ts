@@ -146,6 +146,11 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "company:read", "company:write", "company:settings",
     "branch:read", "branch:write",
     "department:read", "department:write",
+    // Attendance read is here because the platform owner owns the
+    // company-wide attendance board at /admin/attendance and the backend's
+    // `AttendanceDashboardController.VIEW_ROLES` includes SUPER_ADMIN. Without
+    // it the DAL gate bounces SUPER_ADMIN off a page built for them.
+    "attendance:read",
     "biometric:device:manage",
     "report:read", "audit:read", "user:manage", "settings:manage",
     "notification:read:self",

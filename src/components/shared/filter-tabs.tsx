@@ -22,6 +22,7 @@ export function FilterTabs({
   active,
   param = "filter",
   basePath,
+  preserve,
   className,
 }: {
   tabs: readonly FilterTab[];
@@ -30,15 +31,28 @@ export function FilterTabs({
   param?: string;
   /** Route the tabs link to, e.g. "/admin/branches". */
   basePath: string;
+  /**
+   * Other query params to carry across a tab switch, e.g. `{ branchId: "3", date }`.
+   * Without this a tab is a link to a fresh query string, so switching tabs on a
+   * filtered list silently resets every other filter. Keys that collide with
+   * `param` are ignored — the tab owns its own.
+   */
+  preserve?: Record<string, string | undefined>;
   className?: string;
 }) {
   return (
     <div className={cn("flex flex-wrap gap-2", className)}>
       {tabs.map((tab) => {
         const selected = tab.value === active;
-        const href = tab.value
-          ? `${basePath}?${param}=${encodeURIComponent(tab.value)}`
-          : basePath;
+
+        const params = new URLSearchParams();
+        if (tab.value) params.set(param, tab.value);
+        for (const [key, value] of Object.entries(preserve ?? {})) {
+          if (value && key !== param) params.set(key, value);
+        }
+
+        const query = params.toString();
+        const href = query ? `${basePath}?${query}` : basePath;
 
         return (
           <Link

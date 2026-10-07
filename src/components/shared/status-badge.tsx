@@ -43,6 +43,14 @@ const STATUS_TONE: Record<string, Tone> = {
   HALF_DAY: "warning",
   OUTSTANDING: "warning",
   DRAFT: "warning",
+  /** Clocked in, not yet out — the shift is still open. */
+  IN_PROGRESS: "warning",
+
+  // Attendance events. A scan is not a state the employee is "in" — it is the
+  // moment they arrived or left — but it is what the live feed shows, so it
+  // needs a tone. In is the positive direction, out is simply recorded.
+  CLOCK_IN: "success",
+  CLOCK_OUT: "info",
 
   // Negative terminal states
   REJECTED: "danger",

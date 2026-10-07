@@ -505,3 +505,121 @@ export type AuditLog = AuditFields & {
   entityId: number | null;
   detailsJson: string | null;
 };
+
+/* ------------------------------------------------- attendance dashboard -- */
+
+/**
+ * Read projections from `controller/attendance/AttendanceDashboardController`.
+ *
+ * These are NOT the `Attendance` entity above. That type mirrors the
+ * `attendance` table; these mirror what the dashboard actually computes — an
+ * employee who is still on shift is `IN_PROGRESS`, one who has clocked out is
+ * `COMPLETED`, and a record's `hoursWorked` is a decimal number of hours. The
+ * `ATTENDANCE_STATUSES` union above deliberately does not cover them: widening
+ * it would let an entity-shaped row carry a projection status, and every
+ * existing consumer would silently accept it.
+ */
+
+/** Which way the finger went. Decided on the terminal, not by the server. */
+export const ATTENDANCE_ACTIVITY_TYPES = ["CLOCK_IN", "CLOCK_OUT"] as const;
+export type AttendanceActivityType = (typeof ATTENDANCE_ACTIVITY_TYPES)[number];
+
+export const ATTENDANCE_RECORD_STATUSES = ["IN_PROGRESS", "COMPLETED"] as const;
+export type AttendanceRecordStatus = (typeof ATTENDANCE_RECORD_STATUSES)[number];
+
+/** A device that has never reported. Distinct from OFFLINE, which has. */
+export const BRANCH_DEVICE_STATUSES = ["ONLINE", "OFFLINE", "NO_DEVICE"] as const;
+export type BranchDeviceStatus = (typeof BRANCH_DEVICE_STATUSES)[number];
+
+export type AttendanceDashboardSummary = {
+  /** The business-day the figures cover, in the company timezone. */
+  date: string;
+  generatedAt: string;
+  expectedEmployees: number;
+  reported: number;
+  currentlyIn: number;
+  clockedOut: number;
+  notYetIn: number;
+  attendanceRatePercent: number;
+  devicesTotal: number;
+  devicesOnline: number;
+  branches: AttendanceBranchSummary[];
+};
+
+export type AttendanceBranchSummary = {
+  branchId: number;
+  branchName: string;
+  branchCode: string | null;
+  expected: number;
+  reported: number;
+  currentlyIn: number;
+  clockedOut: number;
+  notYetIn: number;
+  attendanceRatePercent: number;
+  lastActivityAt: string | null;
+  deviceStatus: BranchDeviceStatus;
+  deviceLastSyncAt: string | null;
+};
+
+/** One row of the live feed. A single attendance record yields up to two. */
+export type AttendanceActivityItem = {
+  attendanceId: number;
+  employeeId: number;
+  employeeName: string | null;
+  employeeNumber: string | null;
+  branchId: number;
+  branchName: string | null;
+  type: AttendanceActivityType;
+  occurredAt: string;
+  source: AttendanceSource;
+};
+
+export type AttendanceRecordItem = {
+  id: number;
+  employeeId: number;
+  employeeName: string | null;
+  employeeNumber: string | null;
+  position: string | null;
+  branchId: number;
+  branchName: string | null;
+  attendanceDate: string;
+  clockIn: string | null;
+  clockOut: string | null;
+  /** Decimal hours. Not minutes — see `formatHours` in `lib/format`. */
+  hoursWorked: number | null;
+  status: AttendanceRecordStatus;
+  source: AttendanceSource;
+};
+
+export type AttendanceDeviceItem = {
+  id: number;
+  branchId: number;
+  branchName: string | null;
+  deviceSerial: string;
+  status: string;
+  lastSyncAt: string | null;
+  /** Reported inside the backend's 5-minute freshness window. */
+  online: boolean;
+};
+
+/**
+ * A scan the backend refused — unmapped finger, wrong branch, employee on
+ * leave, inactive employee. Kept on the dashboard because it is the only place
+ * an administrator finds out that a clock-in silently did not happen.
+ */
+export type AttendanceSyncFailure = {
+  id: number;
+  createdAt: string;
+  eventId: string;
+  deviceSerial: string | null;
+  employeeId: number | null;
+  employeeName: string | null;
+  reason: string;
+};
+
+/** Payload of the polling route at `/api/attendance/live`. */
+export type AttendanceLiveSnapshot = {
+  summary: AttendanceDashboardSummary;
+  activity: AttendanceActivityItem[];
+  fetchedAt: string;
+};

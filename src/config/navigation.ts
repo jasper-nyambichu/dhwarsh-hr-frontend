@@ -27,6 +27,7 @@ export type NavItem = {
 export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
   SUPER_ADMIN: [
     { title: "Dashboard", href: "/admin/dashboard", icon: "dashboard" },
+    { title: "Attendance", href: "/admin/attendance", icon: "schedule" },
     { title: "Companies", href: "/admin/companies", icon: "corporate_fare" },
     { title: "Branches", href: "/admin/branches", icon: "account_balance" },
     { title: "Departments", href: "/admin/departments", icon: "workspaces" },
@@ -38,6 +39,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
 
   ADMIN: [
     { title: "Dashboard", href: "/admin/dashboard", icon: "dashboard" },
+    { title: "Attendance", href: "/admin/attendance", icon: "schedule" },
     { title: "Branches", href: "/admin/branches", icon: "account_balance" },
     { title: "Departments", href: "/admin/departments", icon: "workspaces" },
     { title: "Agents", href: "/admin/agents", icon: "handshake" },

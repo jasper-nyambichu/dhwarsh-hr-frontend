@@ -42,6 +42,13 @@ export const queryKeys = {
     list: (filters?: unknown) => ["attendance", "list", filters ?? {}] as const,
     byEmployee: (employeeId: number, filters?: unknown) =>
       ["attendance", "employee", employeeId, filters ?? {}] as const,
+    /**
+     * Polled snapshot behind the live board. Keyed by branch because switching
+     * the filter must refetch, not serve the previous branch's feed.
+     * See `app/api/attendance/live/route.ts`.
+     */
+    live: (branchId?: number) =>
+      ["attendance", "live", branchId ?? "all"] as const,
   },
 
   biometric: {

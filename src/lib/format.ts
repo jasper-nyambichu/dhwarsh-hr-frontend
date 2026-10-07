@@ -169,3 +169,16 @@ export function formatDuration(minutes: number | null | undefined): string {
   if (hours === 0) return `${mins}m`;
   return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
 }
+
+/**
+ * "8h 15m" from a decimal number of hours.
+ *
+ * The attendance dashboard reports `hoursWorked` as hours (8.25), while
+ * `formatDuration` counts in minutes. Converting at the call site is the kind
+ * of unit mix-up that silently renders 8 minutes as "0h 8m", so the conversion
+ * lives here next to the function it feeds.
+ */
+export function formatHours(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return "—";
+  return formatDuration(Math.round(hours * 60));
+}
