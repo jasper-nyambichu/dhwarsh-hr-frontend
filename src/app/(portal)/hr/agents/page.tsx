@@ -316,7 +316,7 @@ function FilterChip({
  * readable rather than the presence of a value.
  */
 function describeCharge(agent: AgentResponse): string {
-  if (agent.chargeType === "PERCENTAGE") {
+  if (agent.chargeType === "PERCENTAGE_OF_GROSS") {
     return agent.chargePercentage === null
       ? "Percentage — rate not set"
       : `${agent.chargePercentage}%`;

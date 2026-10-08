@@ -178,7 +178,7 @@ function EmployeeFormInstance({
               label="National ID"
               name="nationalId"
               placeholder="e.g. 12345678"
-              defaultValue={initial?.nationalId}
+              defaultValue={initial?.nationalId ?? undefined}
               error={errors?.nationalId?.[0]}
             />
             <Field
@@ -186,7 +186,7 @@ function EmployeeFormInstance({
               name="phone"
               type="tel"
               placeholder="+254 700 000000"
-              defaultValue={initial?.phone}
+              defaultValue={initial?.phone ?? undefined}
               error={errors?.phone?.[0]}
             />
             <Field
@@ -194,14 +194,14 @@ function EmployeeFormInstance({
               name="email"
               type="email"
               placeholder="john.doe@company.com"
-              defaultValue={initial?.email}
+              defaultValue={initial?.email ?? undefined}
               error={errors?.email?.[0]}
             />
             <Field
               label="Address"
               name="address"
               placeholder="e.g. Kilimani, Nairobi"
-              defaultValue={initial?.address}
+              defaultValue={initial?.address ?? undefined}
               error={errors?.address?.[0]}
             />
           </div>
@@ -270,7 +270,7 @@ function EmployeeFormInstance({
               label="Job Title"
               name="position"
               placeholder="e.g. Software Engineer"
-              defaultValue={initial?.position}
+              defaultValue={initial?.position ?? undefined}
               error={errors?.position?.[0]}
             />
             <Field
@@ -318,14 +318,14 @@ function EmployeeFormInstance({
               label="Bank Name"
               name="bankName"
               placeholder="e.g. Equity Bank"
-              defaultValue={initial?.bankName}
+              defaultValue={initial?.bankName ?? undefined}
               error={errors?.bankName?.[0]}
             />
             <Field
               label="Bank Account Number"
               name="bankAccountNumber"
               placeholder="e.g. 0123456789"
-              defaultValue={initial?.bankAccountNumber}
+              defaultValue={initial?.bankAccountNumber ?? undefined}
               error={errors?.bankAccountNumber?.[0]}
             />
           </div>
@@ -345,28 +345,28 @@ function EmployeeFormInstance({
               name="kraPin"
               placeholder="A000000000X"
               className="uppercase"
-              defaultValue={initial?.kraPin}
+              defaultValue={initial?.kraPin ?? undefined}
               error={errors?.kraPin?.[0]}
             />
             <Field
               label="NSSF No"
               name="nssfNumber"
               placeholder="Enter NSSF Number"
-              defaultValue={initial?.nssfNumber}
+              defaultValue={initial?.nssfNumber ?? undefined}
               error={errors?.nssfNumber?.[0]}
             />
             <Field
               label="SHIF No"
               name="shifNumber"
               placeholder="Enter SHIF Number"
-              defaultValue={initial?.shifNumber}
+              defaultValue={initial?.shifNumber ?? undefined}
               error={errors?.shifNumber?.[0]}
             />
             <Field
               label="NITA No"
               name="nitaNumber"
               placeholder="Enter NITA Number"
-              defaultValue={initial?.nitaNumber}
+              defaultValue={initial?.nitaNumber ?? undefined}
               error={errors?.nitaNumber?.[0]}
             />
           </div>
@@ -385,7 +385,7 @@ function EmployeeFormInstance({
               label="Contact Name"
               name="emergencyContactName"
               placeholder="e.g. Jane Doe"
-              defaultValue={initial?.emergencyContactName}
+              defaultValue={initial?.emergencyContactName ?? undefined}
               error={errors?.emergencyContactName?.[0]}
             />
             <Field
@@ -393,7 +393,7 @@ function EmployeeFormInstance({
               name="emergencyContactPhone"
               type="tel"
               placeholder="+254 700 000000"
-              defaultValue={initial?.emergencyContactPhone}
+              defaultValue={initial?.emergencyContactPhone ?? undefined}
               error={errors?.emergencyContactPhone?.[0]}
             />
           </div>
