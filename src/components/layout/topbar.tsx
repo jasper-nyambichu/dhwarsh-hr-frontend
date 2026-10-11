@@ -6,6 +6,7 @@ import { useState } from "react";
 import { ROLE_LABEL } from "@/config/roles";
 import { Icon } from "@/components/ui/icon";
 import { useNav } from "@/components/layout/nav-context";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { initials } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { CurrentUser } from "@/types";
@@ -30,12 +31,9 @@ import type { CurrentUser } from "@/types";
 export function Topbar({
   user,
   searchPlaceholder = "Search...",
-  unreadNotifications = false,
 }: {
   user: CurrentUser;
   searchPlaceholder?: string;
-  /** Renders the dot on the bell. Wire to `notifications` once the API lands. */
-  unreadNotifications?: boolean;
 }) {
   const { toggle } = useNav();
   const pathname = usePathname();
@@ -109,19 +107,8 @@ export function Topbar({
             <Icon name={searchOpen ? "close" : "search"} />
           </button>
 
-          <button
-            type="button"
-            aria-label="Notifications"
-            className="relative flex size-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
-          >
-            <Icon name="notifications" />
-            {unreadNotifications ? (
-              <span
-                aria-hidden
-                className="absolute right-2 top-2 size-2 rounded-full bg-error"
-              />
-            ) : null}
-          </button>
+          {/* Self-contained: loads and polls its own unread list. */}
+          <NotificationBell />
 
           <button
             type="button"

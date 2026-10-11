@@ -29,6 +29,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Dashboard", href: "/admin/dashboard", icon: "dashboard" },
     { title: "Attendance", href: "/admin/attendance", icon: "schedule" },
     { title: "Companies", href: "/admin/companies", icon: "corporate_fare" },
+    { title: "Approvals", href: "/admin/employee-requests", icon: "fact_check" },
     { title: "Branches", href: "/admin/branches", icon: "account_balance" },
     { title: "Departments", href: "/admin/departments", icon: "workspaces" },
     { title: "Users", href: "/admin/users", icon: "manage_accounts" },
@@ -40,6 +41,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
   ADMIN: [
     { title: "Dashboard", href: "/admin/dashboard", icon: "dashboard" },
     { title: "Attendance", href: "/admin/attendance", icon: "schedule" },
+    { title: "Approvals", href: "/admin/employee-requests", icon: "fact_check" },
     { title: "Branches", href: "/admin/branches", icon: "account_balance" },
     { title: "Departments", href: "/admin/departments", icon: "workspaces" },
     { title: "Agents", href: "/admin/agents", icon: "handshake" },
@@ -52,6 +54,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
   HR_MANAGER: [
     { title: "Dashboard", href: "/hr/dashboard", icon: "dashboard" },
     { title: "Employees", href: "/hr/employees", icon: "group" },
+    { title: "Requests", href: "/hr/employees/requests", icon: "pending_actions" },
     { title: "Attendance", href: "/hr/attendance", icon: "schedule" },
     { title: "Biometric", href: "/hr/biometric", icon: "fingerprint" },
     { title: "Shifts", href: "/hr/shifts", icon: "calendar_month" },
@@ -127,5 +130,18 @@ export function navigationFor(role: Role): readonly NavItem[] {
  * distinct — `/hr/leave-types` must not light up the `/hr/leave` item.
  */
 export function isNavItemActive(pathname: string, href: string): boolean {
+  // A route that has its own rail item but lives under another item's prefix
+  // must not light up both. `/hr/employees/requests` is "Requests", not "Employees".
+  const carvedOut = NESTED_RAIL_ROUTES[href]?.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  );
+
+  if (carvedOut) return false;
+
   return pathname === href || pathname.startsWith(`${href}/`);
 }
+
+/** Parent rail href -> child routes that belong to a different rail item. */
+const NESTED_RAIL_ROUTES: Record<string, readonly string[]> = {
+  "/hr/employees": ["/hr/employees/requests"],
+};

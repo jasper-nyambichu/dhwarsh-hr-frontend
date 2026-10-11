@@ -1,7 +1,11 @@
+import Link from "next/link";
+
 import { ApiError } from "@/app/lib/api-error";
-import { requirePermission } from "@/app/lib/dal";
+import { requireRole } from "@/app/lib/dal";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
+import { buttonVariants } from "@/components/ui/button-variants";
+import { Icon } from "@/components/ui/icon";
 import { getAgents } from "@/lib/api/agent";
 import { getBranches } from "@/lib/api/branch";
 import { getDepartmentsByBranch } from "@/lib/api/department";
@@ -10,22 +14,24 @@ import type { AgentResponse, BranchResponse, DepartmentResponse } from "@/types"
 import { EmployeeForm } from "../_components/employee-form";
 
 /**
- * Add Employee.
+ * Add Employee — submits a request, it does not create the employee.
  *
- * The form posts to `POST /employees` through a Server Action. Everything this
- * page reads is only there to populate the dropdowns: branches (required),
- * departments per branch (filtered by branch, and the backend rejects a
- * mismatch), and agents (optional).
+ * The form posts to `POST /employee-requests` through a Server Action. An
+ * Admin approves the request and approval is what creates the employee, so
+ * HR_MANAGER can no longer call `POST /employees` (and the page is HR-only).
  *
- * HR_MANAGER is authorised for `POST /employees` — that is not in question.
- * What it needs *as well* is read access to `/branches` and `/agents`, because
- * a create call is useless if the form cannot offer a branch to choose. Those
- * two reads are granted by `docs/backend-patches/HR_MANAGER_READ_ACCESS.md`;
- * until that is applied the branch read comes back 403 and this page says so
- * rather than rendering an empty dropdown that looks like an empty company.
+ * Everything this page reads is only there to populate the dropdowns: branches
+ * (required), departments per branch (filtered by branch, and the backend
+ * rejects a mismatch), and agents (optional).
+ *
+ * HR_MANAGER also needs read access to `GET /branches` and `GET /agents`,
+ * because a request is useless if the form cannot offer a branch to choose.
+ * Until the backend grants those two reads, the branch call comes back 403 and
+ * this page says so rather than rendering an empty dropdown that looks like an
+ * empty company.
  */
 export default async function NewEmployeePage() {
-  await requirePermission("employee:write");
+  await requireRole(["HR_MANAGER"]);
 
   let branches: BranchResponse[];
 
@@ -36,9 +42,9 @@ export default async function NewEmployeePage() {
       return (
         <DataUnavailable
           title="Add Employee"
-          description="Create a new employee record."
+          description="Request a new employee record."
           subject="The branch list"
-          reason="Your role is not permitted to read /branches yet, so there is no branch to file the employee under. This is a backend permission that has been identified and is waiting to be applied — see docs/backend-patches/HR_MANAGER_READ_ACCESS.md."
+          reason="Your role is not permitted to read /branches yet, so there is no branch to file the employee under. The backend needs to allow HR_MANAGER on GET /branches (and GET /agents) — see docs/backend-patches/HR_MANAGER_READ_ACCESS.md."
         />
       );
     }
@@ -46,7 +52,7 @@ export default async function NewEmployeePage() {
     return (
       <DataUnavailable
         title="Add Employee"
-        description="Create a new employee record."
+        description="Request a new employee record."
         subject="The branch list"
         reason={error instanceof ApiError ? error.message : undefined}
       />
@@ -75,11 +81,20 @@ export default async function NewEmployeePage() {
     <>
       <PageHeader
         title="Add Employee"
-        description="Create a new employee record."
+        description="Fill in the employee's details and send them to an admin for approval."
+        actions={
+          <Link
+            href="/hr/employees/requests"
+            className={buttonVariants({ variant: "outline", className: "w-fit" })}
+          >
+            <Icon name="pending_actions" className="text-[18px]" />
+            My requests
+          </Link>
+        }
       />
 
       <EmployeeForm
-        mode="create"
+        mode="request"
         options={{ branches, departmentsByBranch, agents: agentsResult }}
       />
     </>

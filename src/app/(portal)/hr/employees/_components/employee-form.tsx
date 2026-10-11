@@ -3,10 +3,8 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 
-import {
-  createEmployeeAction,
-  updateEmployeeAction,
-} from "@/app/actions/employee";
+import { updateEmployeeAction } from "@/app/actions/employee";
+import { submitEmployeeRequestAction } from "@/app/actions/employee-request";
 import { BentoCard } from "@/components/shared/bento-card";
 import { SubmitButton } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
@@ -19,9 +17,16 @@ import type {
   DepartmentResponse,
   EmployeeResponse,
 } from "@/types";
+import type { EmployeeCreationRequestResponse } from "@/types/employee-request";
 
 /**
  * The employee form, used by both /hr/employees/new and /hr/employees/[id]/edit.
+ *
+ * Two modes:
+ *  - `request` (Add Employee) does NOT create anyone. It submits a request to
+ *    `POST /employee-requests`; an Admin approves it and approval is what
+ *    creates the employee. HR_MANAGER can no longer call `POST /employees`.
+ *  - `edit` updates an existing employee in place (`PUT /employees/{id}`).
  *
  * Its field list is `EmployeeRequest` and nothing else. Three absences are
  * deliberate and worth naming, because each one was a bug in the previous
@@ -46,12 +51,14 @@ export type EmployeeFormOptions = {
   agents: AgentResponse[];
 };
 
+type FormState = ActionState<EmployeeResponse | EmployeeCreationRequestResponse>;
+
 export function EmployeeForm({
   mode,
   options,
   initial,
 }: {
-  mode: "create" | "edit";
+  mode: "request" | "edit";
   options: EmployeeFormOptions;
   initial?: EmployeeResponse;
 }) {
@@ -76,27 +83,33 @@ function EmployeeFormInstance({
   initial,
   onStartAnother,
 }: {
-  mode: "create" | "edit";
+  mode: "request" | "edit";
   options: EmployeeFormOptions;
   initial?: EmployeeResponse;
   onStartAnother: () => void;
 }) {
-  const action = mode === "create" ? createEmployeeAction : updateEmployeeAction;
-
-  const [state, formAction] = useActionState<
-    ActionState<EmployeeResponse>,
-    FormData
-  >(action, { status: "idle" });
+  // The two actions return different payloads (a request vs an employee). Neither
+  // reads its previous state, so a thin wrapper gives useActionState one shape.
+  const [state, formAction] = useActionState<FormState, FormData>(
+    async (_prev, formData) =>
+      mode === "request"
+        ? submitEmployeeRequestAction({ status: "idle" }, formData)
+        : updateEmployeeAction({ status: "idle" }, formData),
+    { status: "idle" },
+  );
 
   useActionToast(state, {
     success:
-      mode === "create"
-        ? (employee) => `${employee.fullName} created as ${employee.employeeNumber}`
+      mode === "request"
+        ? "Request sent to an admin for approval"
         : "Employee updated",
   });
 
   const errors = state.status === "error" ? state.fieldErrors : undefined;
-  const created = state.status === "success" ? state.data : undefined;
+  const submitted =
+    state.status === "success" && mode === "request"
+      ? (state.data as EmployeeCreationRequestResponse)
+      : undefined;
 
   // Branch and department are the one controlled pair on the form: the
   // department list is a function of the branch, and the service rejects a
@@ -111,18 +124,29 @@ function EmployeeFormInstance({
 
   const departments = options.departmentsByBranch[Number(branchId)] ?? [];
 
-  if (created && mode === "create") {
-    return <CreatedPanel employee={created} onStartAnother={onStartAnother} />;
+  if (submitted) {
+    return <SubmittedPanel request={submitted} onStartAnother={onStartAnother} />;
   }
 
   return (
-    <form action={formAction} className="grid grid-cols-1 gap-gutter pb-24 lg:grid-cols-12">
+    <form action={formAction} className="grid grid-cols-1 gap-gutter pb-6 lg:grid-cols-12">
       {mode === "edit" && initial ? (
         <input type="hidden" name="id" value={initial.id} />
       ) : null}
 
       {/* ───────────────────────────────── main column ─────────────────── */}
       <div className="flex flex-col gap-gutter lg:col-span-8">
+        {mode === "request" ? (
+          <div className="flex items-start gap-3 rounded-lg border border-secondary-fixed bg-primary-fixed/40 px-4 py-3 font-body-md text-body-md text-on-surface">
+            <Icon name="how_to_reg" className="mt-0.5 text-[20px] text-primary" />
+            <p>
+              <strong className="font-semibold">Needs admin approval.</strong>{" "}
+              This sends a request to an admin. The employee is only created
+              once the admin approves it.
+            </p>
+          </div>
+        ) : null}
+
         {state.status === "error" ? (
           <p
             role="alert"
@@ -132,7 +156,7 @@ function EmployeeFormInstance({
           </p>
         ) : null}
 
-        <BentoCard title="Personal Details">
+        <BentoCard title="Personal Details" action={<StepTag n={1} />}>
           <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
             <Field
               label="Full Name"
@@ -214,6 +238,7 @@ function EmployeeFormInstance({
               Employment
             </span>
           }
+          action={<StepTag n={2} />}
         >
           <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
             <Select
@@ -301,6 +326,7 @@ function EmployeeFormInstance({
               Compensation
             </span>
           }
+          action={<StepTag n={3} />}
         >
           <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
             <Field
@@ -338,6 +364,7 @@ function EmployeeFormInstance({
               Statutory Details
             </span>
           }
+          action={<StepTag n={4} />}
         >
           <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
             <Field
@@ -379,6 +406,7 @@ function EmployeeFormInstance({
               Emergency Contact
             </span>
           }
+          action={<StepTag n={5} />}
         >
           <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
             <Field
@@ -420,30 +448,72 @@ function EmployeeFormInstance({
           </ul>
         </BentoCard>
 
-        <BentoCard title="What the server fills in" className="sticky top-24">
-          <dl className="flex flex-col gap-4 font-body-md text-body-md">
-            <div>
-              <dt className="font-table-header text-table-header uppercase text-outline">
-                Employee Number
-              </dt>
-              <dd className="mt-1 text-on-surface-variant">
-                Generated as <code className="text-[11px]">EMP-&lt;branch code&gt;-&lt;seq&gt;</code>{" "}
-                when the record is saved.
-              </dd>
-            </div>
-            <div>
-              <dt className="font-table-header text-table-header uppercase text-outline">
-                Employment Status
-              </dt>
-              <dd className="mt-1 text-on-surface-variant">
-                Starts as <strong>Active</strong>. Termination is a separate
-                action on the employee record.
-              </dd>
-            </div>
-          </dl>
-        </BentoCard>
+        {mode === "request" ? (
+          <BentoCard title="What happens next" className="sticky top-24">
+            <ol className="flex flex-col gap-4 font-body-md text-body-md text-on-surface-variant">
+              <li className="flex items-start gap-3">
+                <StepDot n={1} />
+                <span>You submit this form. Nothing is created yet.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <StepDot n={2} />
+                <span>An admin reviews every value, including salary and statutory numbers.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <StepDot n={3} />
+                <span>
+                  On approval the employee is created as{" "}
+                  <code className="text-[11px]">EMP-&lt;branch code&gt;-&lt;seq&gt;</code>{" "}
+                  and starts as <strong>Active</strong>. If it is rejected you
+                  will see the reason under <strong>Requests</strong>.
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <StepDot n={4} />
+                <span>
+                  Add the photo and documents from the employee record once it
+                  exists.
+                </span>
+              </li>
+            </ol>
+          </BentoCard>
+        ) : (
+          <BentoCard title="What the server fills in" className="sticky top-24">
+            <dl className="flex flex-col gap-4 font-body-md text-body-md">
+              <div>
+                <dt className="font-table-header text-table-header uppercase text-outline">
+                  Employee Number
+                </dt>
+                <dd className="mt-1 text-on-surface-variant">
+                  Generated as{" "}
+                  <code className="text-[11px]">EMP-&lt;branch code&gt;-&lt;seq&gt;</code>{" "}
+                  when the record is saved.
+                </dd>
+              </div>
+              <div>
+                <dt className="font-table-header text-table-header uppercase text-outline">
+                  Employment Status
+                </dt>
+                <dd className="mt-1 text-on-surface-variant">
+                  Starts as <strong>Active</strong>. Termination is a separate
+                  action on the employee record.
+                </dd>
+              </div>
+            </dl>
+          </BentoCard>
+        )}
+      </div>
 
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+      {/* ─────────────────────────────── action bar ───────────────────── */}
+      <div className="sticky bottom-4 z-10 flex flex-col gap-3 rounded-xl border border-outline-variant/40 bg-surface-container-lowest/95 px-4 py-3 shadow-lg backdrop-blur-md sm:flex-row sm:items-center sm:justify-between lg:col-span-12">
+        <p className="flex items-center gap-2 font-body-md text-body-md text-on-surface-variant">
+          <span className="size-2.5 rounded-full bg-orange" />
+          {mode === "request"
+            ? "Goes to an admin for approval — no employee is created yet."
+            : "Changes apply as soon as you save."}
+        </p>
+
+        <div className="flex flex-col-reverse gap-3 sm:flex-row">
           <Link
             href="/hr/employees"
             className="inline-flex h-11 items-center justify-center rounded-lg bg-surface-container px-6 font-body-md text-body-md font-semibold text-on-surface transition-colors hover:bg-surface-container-high"
@@ -453,10 +523,10 @@ function EmployeeFormInstance({
           <SubmitButton
             variant="primary"
             size="lg"
-            icon="save"
-            loadingText="Saving…"
+            icon={mode === "request" ? "send" : "save"}
+            loadingText={mode === "request" ? "Submitting…" : "Saving…"}
           >
-            {mode === "create" ? "Save Employee" : "Save Changes"}
+            {mode === "request" ? "Submit for approval" : "Save Changes"}
           </SubmitButton>
         </div>
       </div>
@@ -466,29 +536,29 @@ function EmployeeFormInstance({
 
 /* ----------------------------------------------------------------- success */
 
-function CreatedPanel({
-  employee,
+function SubmittedPanel({
+  request,
   onStartAnother,
 }: {
-  employee: EmployeeResponse;
+  request: EmployeeCreationRequestResponse;
   onStartAnother: () => void;
 }) {
   return (
     <div className="mx-auto max-w-xl rounded-card border border-tertiary-container/40 bg-tertiary-container/5 p-8 text-center">
-      <Icon name="check_circle" className="text-[44px] text-tertiary-container" />
+      <Icon name="mark_email_read" className="text-[44px] text-tertiary-container" />
       <h2 className="mt-3 text-[18px] font-bold text-on-surface">
-        {employee.fullName} was added
+        Request sent for approval
       </h2>
       <p className="mt-1 font-body-md text-body-md text-on-surface-variant">
-        Saved as{" "}
         <strong className="font-semibold text-on-surface">
-          {employee.employeeNumber}
+          {request.details.fullName}
         </strong>{" "}
-        in {employee.branchName ?? "their branch"}.
+        {request.branchName ? `(${request.branchName}) ` : ""}will be added once
+        an admin approves request #{request.id}.
       </p>
       <p className="mx-auto mt-3 max-w-sm text-[11px] text-outline">
-        That number was generated by the server, so seeing it here means the
-        record reached the database.
+        You can follow its status under Requests. If it is rejected, the admin&apos;s
+        reason shows there.
       </p>
 
       <div className="mt-6 flex flex-col-reverse justify-center gap-3 sm:flex-row">
@@ -500,11 +570,11 @@ function CreatedPanel({
           Add another
         </button>
         <Link
-          href={`/hr/employees/${employee.id}`}
+          href="/hr/employees/requests"
           className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-primary px-5 font-body-md text-body-md font-semibold text-on-primary transition-opacity hover:opacity-90"
         >
-          <Icon name="person" className="text-[18px]" />
-          View record
+          <Icon name="pending_actions" className="text-[18px]" />
+          View my requests
         </Link>
         <Link
           href="/hr/employees"
@@ -514,6 +584,24 @@ function CreatedPanel({
         </Link>
       </div>
     </div>
+  );
+}
+
+/* --------------------------------------------------------------- step marks */
+
+function StepTag({ n }: { n: number }) {
+  return (
+    <span className="rounded bg-surface-container-low px-2 py-1 font-table-header text-table-header uppercase text-outline">
+      Step {String(n).padStart(2, "0")}
+    </span>
+  );
+}
+
+function StepDot({ n }: { n: number }) {
+  return (
+    <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-primary-fixed text-[10px] font-bold text-primary">
+      {n}
+    </span>
   );
 }
 
