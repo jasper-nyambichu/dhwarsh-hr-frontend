@@ -6,25 +6,17 @@ import {
   approveEmployeeRequestAction,
   rejectEmployeeRequestAction,
 } from "@/app/actions/employee-request";
-import { Button, SubmitButton } from "@/components/ui/button";
 import { Icon } from "@/components/ui/icon";
-import { useActionToast } from "@/hooks/use-action-toast";
 import { refreshNotifications } from "@/lib/notification-events";
+import { cn } from "@/lib/utils";
 import type { ActionState } from "@/types";
 import type { EmployeeCreationRequestResponse } from "@/types/employee-request";
 
-type RequestState = ActionState<EmployeeCreationRequestResponse>;
+const INITIAL: ActionState<EmployeeCreationRequestResponse> = { status: "idle" };
 
 /**
- * Approve / reject for one pending request.
- *
- * Approving is the consequential one — it creates the employee — so it is a
- * single, clearly labelled button and the page above it has already shown every
- * value. Rejecting asks for a reason first, because HR reads that text next to
- * the rejected request and a blank one tells them nothing.
- *
- * On success the Server Action revalidates this route, so the page re-renders
- * with the request no longer PENDING and this panel disappears.
+ * Approve / reject controls for a pending employee creation request.
+ * Client Component — uses useActionState for both forms.
  */
 export function RequestReviewPanel({
   requestId,
@@ -33,127 +25,98 @@ export function RequestReviewPanel({
   requestId: number;
   fullName: string;
 }) {
-  const [rejecting, setRejecting] = useState(false);
-
-  // A decision clears this request's notification for every admin, so the bell
-  // is told to re-fetch the moment the action returns. It is done here, in the
-  // action wrapper, rather than in an effect: once the request is decided the
-  // page re-renders without this panel, and an effect on an unmounting
-  // component may never run.
-  const [approveState, approveAction] = useActionState<RequestState, FormData>(
-    async (previous, formData) => {
-      const result = await approveEmployeeRequestAction(previous, formData);
-      if (result.status === "success") refreshNotifications();
-      return result;
-    },
-    { status: "idle" },
+  const [approveState, approveAction, approvePending] = useActionState(
+    approveEmployeeRequestAction,
+    INITIAL,
   );
-  const [rejectState, rejectAction] = useActionState<RequestState, FormData>(
-    async (previous, formData) => {
-      const result = await rejectEmployeeRequestAction(previous, formData);
-      if (result.status === "success") refreshNotifications();
-      return result;
-    },
-    { status: "idle" },
+  const [rejectState, rejectAction, rejectPending] = useActionState(
+    rejectEmployeeRequestAction,
+    INITIAL,
   );
 
-  useActionToast(approveState, {
-    success: () => `${fullName} approved — employee created`,
-  });
-  useActionToast(rejectState, { success: `${fullName}'s request rejected` });
+  const [showReject, setShowReject] = useState(false);
 
-  const reasonError =
-    rejectState.status === "error" ? rejectState.fieldErrors?.reason?.[0] : undefined;
+  // Fire the bell refresh after a successful decision.
+  if (approveState.status === "success" || rejectState.status === "success") {
+    refreshNotifications();
+  }
+
+  const busy = approvePending || rejectPending;
 
   return (
     <div className="flex flex-col gap-3">
-      {approveState.status === "error" ? (
-        <p
-          role="alert"
-          className="rounded-lg border border-error/40 bg-error/5 px-3 py-2 font-body-md text-body-md text-error"
-        >
-          {approveState.message}
-        </p>
-      ) : null}
-
+      {/* Approve */}
       <form action={approveAction}>
         <input type="hidden" name="id" value={requestId} />
-        <SubmitButton
-          variant="primary"
-          size="lg"
-          block
-          icon="check"
-          loadingText="Creating employee…"
+        <button
+          type="submit"
+          disabled={busy}
+          className={cn(
+            "flex w-full items-center justify-center gap-2 rounded-xl bg-tertiary px-4 py-2.5 font-body-md text-body-md font-semibold text-on-tertiary transition-opacity",
+            busy && "opacity-50",
+          )}
         >
-          Approve &amp; create employee
-        </SubmitButton>
+          <Icon name="check_circle" className="text-[18px]" />
+          {approvePending ? "Approving…" : `Approve — create ${fullName}`}
+        </button>
+        {approveState.status === "error" && (
+          <p className="mt-1.5 text-[11px] text-error">{approveState.message}</p>
+        )}
       </form>
 
-      {rejecting ? (
+      {/* Reject toggle */}
+      {!showReject ? (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => setShowReject(true)}
+          className={cn(
+            "flex w-full items-center justify-center gap-2 rounded-xl border border-error/40 px-4 py-2.5 font-body-md text-body-md font-semibold text-error transition-colors hover:bg-error-container/30",
+            busy && "opacity-50",
+          )}
+        >
+          <Icon name="cancel" className="text-[18px]" />
+          Reject request
+        </button>
+      ) : (
         <form action={rejectAction} className="flex flex-col gap-2">
           <input type="hidden" name="id" value={requestId} />
-
-          <label
-            htmlFor="reject-reason"
-            className="text-xs font-semibold text-on-surface"
-          >
-            Reason for rejecting <span className="text-error">*</span>
+          <label className="font-table-header text-table-header uppercase text-outline">
+            Reason for rejection
           </label>
           <textarea
-            id="reject-reason"
             name="reason"
             rows={3}
-            maxLength={500}
             required
-            autoFocus
-            placeholder="e.g. KRA PIN is missing — please add it and resubmit."
-            aria-invalid={reasonError ? true : undefined}
-            className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2.5 font-body-md text-body-md text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            maxLength={500}
+            placeholder="Explain why this request is being rejected…"
+            className="w-full resize-none rounded-xl border border-outline-variant/40 bg-surface-container-low px-3 py-2 font-body-md text-body-md text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-error/40"
           />
-          {reasonError ? (
-            <p className="text-[11px] text-error">{reasonError}</p>
-          ) : rejectState.status === "error" ? (
-            <p role="alert" className="text-[11px] text-error">
-              {rejectState.message}
-            </p>
-          ) : (
-            <p className="text-[10px] text-outline">
-              HR sees this next to the rejected request.
+          {rejectState.status === "error" && (
+            <p className="text-[11px] text-error">
+              {rejectState.fieldErrors?.reason?.[0] ?? rejectState.message}
             </p>
           )}
-
           <div className="flex gap-2">
-            <Button
+            <button
               type="button"
-              variant="outline"
-              size="md"
-              className="flex-1"
-              onClick={() => setRejecting(false)}
+              onClick={() => setShowReject(false)}
+              className="flex-1 rounded-xl border border-outline-variant/40 px-4 py-2 font-body-md text-body-md font-semibold text-on-surface-variant transition-colors hover:bg-surface-container"
             >
-              Back
-            </Button>
-            <SubmitButton
-              variant="danger"
-              size="md"
-              className="flex-1"
-              icon="close"
-              loadingText="Rejecting…"
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={rejectPending}
+              className={cn(
+                "flex-1 rounded-xl bg-error px-4 py-2 font-body-md text-body-md font-semibold text-on-error transition-opacity",
+                rejectPending && "opacity-50",
+              )}
             >
-              Confirm reject
-            </SubmitButton>
+              {rejectPending ? "Rejecting…" : "Confirm rejection"}
+            </button>
           </div>
         </form>
-      ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          block
-          onClick={() => setRejecting(true)}
-        >
-          <Icon name="close" className="text-[18px]" />
-          Reject…
-        </Button>
       )}
     </div>
   );

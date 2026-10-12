@@ -68,6 +68,10 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL(home, request.url));
   }
 
+  if (pathname === "/legal" || pathname.startsWith("/legal/")) {
+    return NextResponse.next();
+  }
+
   // Wrong namespace: an EMPLOYEE poking at /payroll/runs lands back home.
   if (!canAccessPath(session.role, pathname)) {
     return NextResponse.redirect(new URL(home, request.url));
