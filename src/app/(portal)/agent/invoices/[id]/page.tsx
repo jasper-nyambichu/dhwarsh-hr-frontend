@@ -1,176 +1,118 @@
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
 import { requirePermission } from "@/app/lib/dal";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { Icon } from "@/components/ui/icon";
-import { formatDate, formatMoney } from "@/lib/format";
+import { getMyAgent } from "@/lib/api/agent";
+import { getMyAgentSummaries } from "@/lib/api/agent-payroll";
+import { formatDateRange, formatMoney, formatPercent } from "@/lib/format";
 
 /**
- * Printable agent invoice document.
- *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — shaped loosely against `types.AgentPayrollSummary`
- * plus line-item and billing details not on that DTO. Swap for the actual
- * invoice PDF/data endpoint once documented (currently only
- * `GET /payroll/runs/{id}/agents/{agentId}/invoice` returning a raw PDF is
- * documented — this page would need a JSON equivalent to render as HTML).
- * ─────────────────────────────────────────────────────────────────────────
+ * On-screen invoice for one payroll run. Mirrors the backend PDF
+ * (`AgentInvoiceGeneratorImpl`): amount before VAT, VAT, total. The PDF is the
+ * authoritative document — this view is for reading, and the buttons open it
+ * in the browser's viewer where printing is one click.
+ * The route `id` is the PAYROLL RUN id.
  */
-
-const INVOICE = {
-  reference: "INV-2026-1042",
-  issueDate: "2026-10-24",
-  periodStart: "2026-10-01",
-  periodEnd: "2026-10-15",
-  dueDate: "2026-11-08",
-  agentName: "Strategic Labour Ltd",
-  agentAddress: ["123 Business Park, Block A", "Nairobi, Kenya"],
-  agentVat: "P0123456789",
-  agentEmail: "billing@strategiclabour.co.ke",
-  billTo: "Dhwarsh Logistics",
-  billToAddress: ["Dhwarsh HQ, Industrial Area", "Nairobi, Kenya", "Attn: Accounts Payable"],
-  vatRate: 16,
-  paymentTerms: "Net 15 Days. Please make payments to Strategic Labour Ltd, KCB Bank, Acc: 1122334455.",
-};
-
-const LINE_ITEMS = [
-  { id: 1, name: "John Kamau", role: "Forklift Operator", days: 12, rate: 1_500 },
-  { id: 2, name: "Sarah Ochieng", role: "Warehouse Supervisor", days: 14, rate: 2_200 },
-  { id: 3, name: "Peter Njoroge", role: "Loader", days: 10, rate: 1_200 },
-  { id: 4, name: "Mary Wanjiku", role: "Quality Control", days: 15, rate: 1_800 },
-];
-
 export default async function AgentInvoiceDocumentPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("invoice:read:self");
-  const { id } = await params;
-  const invoice = INVOICE; // TODO: fetch by `id` once a JSON invoice endpoint exists
 
-  const subtotal = LINE_ITEMS.reduce((sum, item) => sum + item.days * item.rate, 0);
-  const vat = Math.round(subtotal * (invoice.vatRate / 100));
-  const total = subtotal + vat;
+  const { id } = await params;
+  const runId = Number(id);
+  if (!Number.isInteger(runId) || runId <= 0) notFound();
+
+  let agent: Awaited<ReturnType<typeof getMyAgent>>;
+  let summaries: Awaited<ReturnType<typeof getMyAgentSummaries>>;
+  try {
+    [agent, summaries] = await Promise.all([getMyAgent(), getMyAgentSummaries()]);
+  } catch (error) {
+    return (
+      <DataUnavailable
+        title="Invoice"
+        subject="This invoice"
+        reason={error instanceof Error ? error.message : undefined}
+      />
+    );
+  }
+
+  const s = summaries.find((item) => item.payrollRunId === runId);
+  if (!s) notFound();
 
   return (
     <div className="bg-surface-container-low py-10">
-      <div className="mx-auto mb-4 flex max-w-[210mm] justify-between px-4 print:hidden">
-        <button type="button" className="flex items-center gap-2 font-body-md text-body-md text-primary transition-colors hover:text-primary-container">
+      <div className="mx-auto mb-4 flex max-w-[210mm] flex-wrap items-center justify-between gap-3 px-4">
+        <Link href="/agent/invoices" className="flex items-center gap-2 font-body-md text-body-md text-primary transition-colors hover:text-primary-container">
           <Icon name="arrow_back" />
           Back to Invoices
-        </button>
+        </Link>
         <div className="flex flex-wrap gap-3 sm:gap-4">
-          <button type="button" className="flex items-center gap-2 rounded-lg border border-primary px-4 py-2 font-label-rail text-label-rail uppercase tracking-wider text-primary transition-colors hover:bg-primary-fixed">
+          <a
+            href={`/api/agent/documents/${s.payrollRunId}/invoice`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 rounded-lg border border-primary px-4 py-2 font-label-rail text-label-rail uppercase tracking-wider text-primary transition-colors hover:bg-primary-fixed"
+          >
             <Icon name="print" />
-            Print
-          </button>
-          <button type="button" className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-label-rail text-label-rail uppercase tracking-wider text-on-primary shadow-sm transition-colors hover:bg-primary-container">
+            Open / Print
+          </a>
+          <a
+            href={`/api/agent/documents/${s.payrollRunId}/invoice?download=1`}
+            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-label-rail text-label-rail uppercase tracking-wider text-on-primary shadow-sm transition-colors hover:bg-primary-container"
+          >
             <Icon name="download" />
             Download PDF
-          </button>
+          </a>
         </div>
       </div>
 
-      <div className="mx-auto flex min-h-[297mm] w-[210mm] flex-col rounded-card bg-white p-10 shadow-ambient-2 lg:p-16 print:min-h-0 print:w-auto print:rounded-none print:p-[15mm] print:shadow-none">
-        <div className="mb-16 flex items-start justify-between border-b border-surface-variant pb-8">
-          <div className="w-1/2 border-r border-surface-variant pr-8">
-            <div className="mb-4 flex items-center gap-3">
-              <span className="flex size-10 items-center justify-center rounded bg-orange text-white">
-                <Icon name="corporate_fare" />
-              </span>
-              <div>
-                <h1 className="font-page-title text-page-title text-orange">{invoice.agentName}</h1>
-                <p className="font-body-md text-body-md text-on-surface-variant">Your staffing partner</p>
-              </div>
-            </div>
-            <div className="space-y-1 font-body-md text-body-md text-on-surface-variant">
-              {invoice.agentAddress.map((line) => (
-                <p key={line}>{line}</p>
-              ))}
-              <p>VAT No: {invoice.agentVat}</p>
-              <p>Email: {invoice.agentEmail}</p>
-            </div>
-          </div>
-          <div className="w-1/2 pl-8">
-            <h2 className="mb-2 font-label-rail text-label-rail uppercase tracking-wider text-outline">Bill To</h2>
-            <h3 className="mb-4 font-page-title text-page-title text-primary">{invoice.billTo}</h3>
-            <div className="space-y-1 font-body-md text-body-md text-on-surface-variant">
-              {invoice.billToAddress.map((line) => (
-                <p key={line}>{line}</p>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-12 flex justify-between">
+      <div className="mx-auto flex min-h-[200mm] w-full max-w-[210mm] flex-col rounded-card bg-white p-10 shadow-ambient-2 lg:p-16">
+        <div className="mb-12 flex flex-wrap items-start justify-between gap-6 border-b border-surface-variant pb-8">
           <div>
             <h1 className="mb-2 text-4xl font-light text-primary">INVOICE</h1>
             <p className="font-body-md text-body-md text-on-surface-variant">
-              Reference: <span className="font-semibold text-on-surface">{invoice.reference}</span>
+              Reference: <span className="font-semibold text-on-surface">Run #{s.payrollRunId}</span>
+            </p>
+            <p className="font-body-md text-body-md text-on-surface-variant">
+              Payroll period: <span className="font-semibold text-on-surface">{formatDateRange(s.periodStart, s.periodEnd)}</span>
             </p>
           </div>
-          <div className="space-y-2 text-right">
-            <div className="flex justify-end gap-4 font-body-md text-body-md">
-              <span className="text-on-surface-variant">Date of Issue:</span>
-              <span className="w-32 font-semibold text-on-surface">{formatDate(invoice.issueDate)}</span>
+          <div className="space-y-1 text-right font-body-md text-body-md text-on-surface-variant">
+            <h2 className="font-page-title text-page-title text-orange">{agent.name}</h2>
+            {agent.address ? <p>{agent.address}</p> : null}
+            <p>KRA PIN: {agent.kraPin ?? "—"}</p>
+            {agent.email ? <p>{agent.email}</p> : null}
+          </div>
+        </div>
+
+        <div className="mb-10">
+          <h3 className="mb-2 font-label-rail text-label-rail uppercase tracking-wider text-outline">Billed To</h3>
+          <p className="font-page-title text-page-title text-primary">Company Payroll Department</p>
+        </div>
+
+        <div className="mb-12 flex justify-end">
+          <div className="w-full sm:w-1/2">
+            <div className="flex justify-between border-b border-surface-variant py-2 font-body-md text-body-md">
+              <span className="text-on-surface-variant">Amount Before VAT</span>
+              <span className="font-semibold text-on-surface">{formatMoney(s.subtotalBeforeVat, { showCurrency: false })}</span>
             </div>
-            <div className="flex justify-end gap-4 font-body-md text-body-md">
-              <span className="text-on-surface-variant">Billing Period:</span>
-              <span className="w-32 font-semibold text-on-surface">
-                {formatDate(invoice.periodStart)} – {formatDate(invoice.periodEnd)}
+            <div className="flex justify-between border-b border-surface-variant py-2 font-body-md text-body-md">
+              <span className="text-on-surface-variant">{s.vatApplied ? `VAT (${formatPercent(s.vatRateUsed)})` : "VAT"}</span>
+              <span className="font-semibold text-on-surface">
+                {s.vatApplied ? formatMoney(s.vatAmount, { showCurrency: false }) : "Not applicable"}
               </span>
             </div>
-            <div className="flex justify-end gap-4 font-body-md text-body-md">
-              <span className="text-on-surface-variant">Due Date:</span>
-              <span className="w-32 font-semibold text-error">{formatDate(invoice.dueDate)}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-12 flex-1 overflow-x-auto">
-          <table className="w-full min-w-[520px] border-collapse text-left">
-            <thead>
-              <tr className="border-b-2 border-primary">
-                <th className="px-2 py-3 font-table-header text-table-header uppercase text-primary">Employee</th>
-                <th className="px-2 py-3 text-right font-table-header text-table-header uppercase text-primary">Days Worked</th>
-                <th className="px-2 py-3 text-right font-table-header text-table-header uppercase text-primary">Daily Rate (KES)</th>
-                <th className="px-2 py-3 text-right font-table-header text-table-header uppercase text-primary">Amount (KES)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-surface-variant font-body-md text-body-md">
-              {LINE_ITEMS.map((item) => (
-                <tr key={item.id}>
-                  <td className="px-2 py-4">
-                    <div className="font-semibold text-on-surface">{item.name}</div>
-                    <div className="text-[10px] text-on-surface-variant">{item.role}</div>
-                  </td>
-                  <td className="px-2 py-4 text-right text-on-surface-variant">{item.days}</td>
-                  <td className="px-2 py-4 text-right text-on-surface-variant">{formatMoney(item.rate, { showCurrency: false })}</td>
-                  <td className="px-2 py-4 text-right font-semibold text-on-surface">
-                    {formatMoney(item.days * item.rate, { showCurrency: false })}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="mb-16 flex justify-end">
-          <div className="w-1/2 lg:w-1/3">
-            <div className="flex justify-between border-b border-surface-variant py-2 font-body-md text-body-md">
-              <span className="text-on-surface-variant">Subtotal</span>
-              <span className="font-semibold text-on-surface">{formatMoney(subtotal, { showCurrency: false })}</span>
-            </div>
-            <div className="flex justify-between border-b border-surface-variant py-2 font-body-md text-body-md">
-              <span className="text-on-surface-variant">VAT ({invoice.vatRate}%)</span>
-              <span className="font-semibold text-on-surface">{formatMoney(vat, { showCurrency: false })}</span>
-            </div>
             <div className="mt-2 flex justify-between rounded-lg border border-primary-fixed bg-primary-fixed-dim/20 px-4 py-4">
-              <span className="font-page-title text-page-title text-primary">Total Payable</span>
-              <span className="font-page-title text-page-title font-bold text-primary">{formatMoney(total)}</span>
+              <span className="font-page-title text-page-title text-primary">Total Amount Due</span>
+              <span className="font-page-title text-page-title font-bold text-primary">{formatMoney(s.finalAmountPayable)}</span>
             </div>
           </div>
         </div>
 
-        <div className="mt-auto border-t border-surface-variant pt-6 text-center font-body-md text-body-md text-on-surface-variant">
-          <p className="mb-2">
-            <strong className="text-on-surface">Payment Terms:</strong> {invoice.paymentTerms}
-          </p>
-          <p className="text-[10px]">Thank you for your continued partnership.</p>
+        <div className="mt-auto border-t border-surface-variant pt-6 text-center text-[11px] text-on-surface-variant">
+          {s.vatApplied
+            ? "VAT charged at the rate in force when this payroll run was processed."
+            : "This supplier is not VAT-registered; no VAT is charged."}
         </div>
       </div>
     </div>
