@@ -5,254 +5,204 @@ import { AlertSpotlight } from "@/components/shared/alert-spotlight";
 import { BarChart, type BarDatum } from "@/components/shared/bar-chart";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DonutChart } from "@/components/shared/charts";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
 import { MetricCard } from "@/components/shared/metric-card";
-import { SegmentStrip } from "@/components/shared/segment-strip";
-import { Icon } from "@/components/ui/icon";
-import { formatMoneyCompact, formatNumber, initials } from "@/lib/format";
+import { getAllAdvances } from "@/lib/api/agent-advance";
+import { getAllLoans } from "@/lib/api/loan";
+import { getPayrollRuns, getRunPayslips } from "@/lib/api/payroll";
+import { formatDateRange, formatMoney, formatMoneyCompact, formatNumber, initials } from "@/lib/format";
+import { RUN_STATUS_CHIP, runScopeLabel } from "@/lib/payroll-format";
+import { monthLabel, statutoryTotals } from "@/lib/payroll-stats";
 
-/**
- * Payroll Officer dashboard.
- *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — no `/dashboard/payroll` endpoint yet. Replace the
- * constants with `await api.get<PayrollDashboard>("/dashboard/payroll")`
- * when it lands; every component here takes props, so nothing else changes.
- * ─────────────────────────────────────────────────────────────────────────
- */
+/** Payroll Officer dashboard — live data from runs, payslips, loans and agent advances. */
 
-const KPI = {
-  currentRunGross: 18_400_000,
-  employeesPaid: 1_204,
-  pendingApprovals: 6,
-} as const;
-
-const COST_TREND: readonly BarDatum[] = [
-  { label: "May", value: 16.2, tooltip: "KES 16.2M" },
-  { label: "Jun", value: 16.8, tooltip: "KES 16.8M" },
-  { label: "Jul", value: 16.4, tooltip: "KES 16.4M" },
-  { label: "Aug", value: 17.1, tooltip: "KES 17.1M" },
-  { label: "Sep", value: 17.8, tooltip: "KES 17.8M" },
-  { label: "Oct", value: 17.5, tooltip: "KES 17.5M" },
-  { label: "Nov", value: 18.4, tooltip: "KES 18.4M" },
-];
-
-/** Run status breakdown, whole percent, ordered draft → completed. */
-const RUN_STATUS = [
-  { label: "Draft", pct: 15, count: 3, color: "bg-surface-variant" },
-  { label: "Processing", pct: 25, count: 5, color: "bg-secondary-container" },
-  { label: "Approved", pct: 20, count: 4, color: "bg-primary" },
-  { label: "Completed", pct: 40, count: 8, color: "bg-tertiary" },
-] as const;
-
-const RECENT_RUNS = [
-  { id: 1, period: "Nov 2026 — Main", branch: "Nairobi HQ", employees: 452, gross: 8_200_000, net: 5_800_000, status: "Completed" as const },
-  { id: 2, period: "Nov 2026 — Ops", branch: "Mombasa Port", employees: 310, gross: 4_100_000, net: 2_900_000, status: "Approved" as const },
-  { id: 3, period: "Nov 2026 — Sales", branch: "Kisumu", employees: 128, gross: 2_500_000, net: 1_700_000, status: "Processing" as const },
-  { id: 4, period: "Nov 2026 — Casuals", branch: "Eldoret", employees: 215, gross: 1_800_000, net: 1_500_000, status: "Draft" as const },
-];
-
-const RUN_STATUS_CHIP: Record<(typeof RECENT_RUNS)[number]["status"], string> = {
-  Completed: "bg-tertiary-container/20 text-tertiary",
-  Approved: "bg-secondary-container/30 text-primary",
-  Processing: "bg-surface-variant text-on-surface-variant",
-  Draft: "bg-surface-variant text-on-surface-variant",
-};
-
-const LOANS_ADVANCES = [
-  { id: 1, name: "David Omondi", note: "Salary Advance", amount: 45_000, status: "Approved", statusTone: "text-tertiary" },
-  { id: 2, name: "Mercy Wanjiku", note: "Car Loan Instalment", amount: 12_500, status: "Processing", statusTone: "text-on-surface-variant" },
-  { id: 3, name: "Peter Kiprono", note: "Emergency Advance", amount: 20_000, status: "Pending Doc", statusTone: "text-error" },
-  { id: 4, name: "John Mutua", note: "Mortgage Deduction", amount: 85_000, status: "Active", statusTone: "text-tertiary" },
-] as const;
-
-const DEDUCTIONS_SPLIT = [
-  { label: "PAYE", value: 55, color: "var(--color-primary)" },
-  { label: "NSSF", value: 15, color: "var(--color-primary-container)" },
-  { label: "SHIF", value: 20, color: "var(--color-secondary-fixed-dim)" },
-  { label: "Housing Levy", value: 10, color: "var(--color-surface-variant)" },
-] as const;
+async function load() {
+  const [runs, pendingLoans, advances] = await Promise.all([
+    getPayrollRuns(),
+    getAllLoans("PENDING"),
+    getAllAdvances(),
+  ]);
+  const latest = runs[0];
+  const latestPayslips = latest ? await getRunPayslips(latest.id) : [];
+  return { runs, pendingLoans, advances, latest, latestPayslips };
+}
 
 export default async function PayrollDashboardPage() {
   await requirePermission("payroll:read");
 
+  let data: Awaited<ReturnType<typeof load>>;
+  try {
+    data = await load();
+  } catch (error) {
+    return (
+      <DataUnavailable
+        title="Dashboard"
+        subject="Your payroll dashboard"
+        reason={error instanceof Error ? error.message : undefined}
+      />
+    );
+  }
+
+  const { runs, pendingLoans, advances, latest, latestPayslips } = data;
+
+  const outstandingAdvances = advances
+    .filter((advance) => advance.status !== "FULLY_RECOVERED")
+    .reduce((sum, advance) => sum + advance.outstandingBalance, 0);
+
+  const trend: BarDatum[] = runs
+    .slice(0, 6)
+    .reverse()
+    .map((run) => ({
+      label: monthLabel(run.periodEnd),
+      value: run.totalGrossPayroll ?? 0,
+      tooltip: formatMoney(run.totalGrossPayroll),
+    }));
+  const trendMax = Math.max(1, ...trend.map((point) => point.value));
+
+  const statutory = statutoryTotals(latestPayslips);
+  const pct = (value: number) => (statutory.total > 0 ? Math.round((value / statutory.total) * 100) : 0);
+  const deductionSplit = [
+    { label: "PAYE", value: pct(statutory.paye), color: "var(--color-primary)" },
+    { label: "NSSF", value: pct(statutory.nssf), color: "var(--color-primary-container)" },
+    { label: "SHIF", value: pct(statutory.shif), color: "var(--color-secondary-fixed-dim)" },
+    { label: "Housing Levy", value: pct(statutory.housingLevy), color: "var(--color-surface-variant)" },
+  ];
+
   return (
     <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
-      {/* ───────────────────────────────── main column ─────────────────── */}
       <div className="flex flex-col gap-gutter lg:col-span-8">
         <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
           <MetricCard
-            label="Current Run"
-            value={formatMoneyCompact(KPI.currentRunGross)}
+            label="Latest Run (Gross)"
+            value={latest ? formatMoneyCompact(latest.totalGrossPayroll) : "—"}
             icon="payments"
             tone="primary"
-            hint="+2.4% from last month"
+            hint={latest ? formatDateRange(latest.periodStart, latest.periodEnd) : "No payroll run yet"}
           />
           <MetricCard
             label="Employees Paid"
-            value={formatNumber(KPI.employeesPaid)}
+            value={latest ? formatNumber(latest.payslipCount) : "—"}
             icon="group"
-            hint="+12 new hires"
+            tone="primary"
+            hint={latest ? runScopeLabel(latest) : undefined}
           />
           <MetricCard
-            label="Pending Approvals"
-            value={formatNumber(KPI.pendingApprovals)}
+            label="Pending Loan Approvals"
+            value={formatNumber(pendingLoans.length)}
             icon="pending_actions"
-            tone="error"
-            accent
-            hint="Requires immediate attention"
+            tone="primary"
+            hint={`${formatMoneyCompact(outstandingAdvances)} advances outstanding`}
           />
-        </div>
-
-        <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
-          <BentoCard
-            title="Payroll Cost Trend"
-            subtitle="Last 7 months"
-            className="flex min-h-64 flex-col"
-            bodyClassName="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2"
-          >
-            <BarChart data={COST_TREND} max={20} axisLabels={["20M", "10M", "0"]} tone="primary" />
-          </BentoCard>
-
-          <BentoCard
-            title="Run Status"
-            subtitle="Current period"
-            className="flex min-h-64 flex-col"
-            bodyClassName="flex flex-1 flex-col"
-          >
-            <div className="flex h-3 w-full shrink-0 overflow-hidden rounded-full shadow-inner">
-              {RUN_STATUS.map((segment) => (
-                <div key={segment.label} className={segment.color} style={{ width: `${segment.pct}%` }} />
-              ))}
-            </div>
-            <ul className="mt-4 flex flex-1 flex-col justify-center gap-3">
-              {RUN_STATUS.map((segment) => (
-                <li key={segment.label} className="flex items-center justify-between gap-2 font-body-md text-body-md">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className={`size-2.5 shrink-0 rounded-full ${segment.color}`} />
-                    <span className="truncate text-on-surface">{segment.label}</span>
-                  </span>
-                  <span className="shrink-0 font-semibold tabular-nums text-on-surface">
-                    {segment.pct}% ({segment.count} runs)
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </BentoCard>
         </div>
 
         <BentoCard
-          title="Recent Payroll Runs"
+          title="Payroll Cost Trend"
+          subtitle="Gross payroll, last 6 runs"
+          className="flex min-h-64 flex-col"
+          bodyClassName="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2"
+        >
+          {trend.length === 0 ? (
+            <EmptyState symbol="bar_chart" title="No payroll runs yet" description="Run payroll and the cost trend appears here." />
+          ) : (
+            <BarChart
+              data={trend}
+              max={trendMax}
+              axisLabels={[formatMoneyCompact(trendMax, { showCurrency: false }), formatMoneyCompact(trendMax / 2, { showCurrency: false }), "0"]}
+              tone="primary"
+            />
+          )}
+        </BentoCard>
+
+        <BentoCard
+          title="Recent Runs"
           action={
-            <Link href="/payroll/runs" className="text-[10px] text-primary-container hover:underline">
+            <Link href="/payroll/runs" className="text-[10px] font-semibold text-primary hover:underline">
               View All
             </Link>
           }
         >
-          <div className="w-full overflow-x-auto">
-            <table className="data-table w-full border-collapse text-left">
-              <thead>
-                <tr>
-                  <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Period</th>
-                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Branch</th>
-                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Employees</th>
-                  <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Gross</th>
-                  <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Net</th>
-                  <th className="pb-3 pr-2 font-table-header text-table-header uppercase text-outline">Status</th>
-                </tr>
-              </thead>
-              <tbody className="font-body-md text-body-md">
-                {RECENT_RUNS.map((run) => (
-                  <tr key={run.id} className="group transition-colors">
-                    <td className="py-3 pl-2 font-medium text-on-surface">
-                      <Link href={`/payroll/runs/${run.id}`} className="group-hover:text-primary-container">
-                        {run.period}
-                      </Link>
-                    </td>
-                    <td className="py-3 text-on-surface-variant">{run.branch}</td>
-                    <td className="py-3 tabular-nums text-on-surface-variant">{formatNumber(run.employees)}</td>
-                    <td className="py-3 text-right tabular-nums text-on-surface-variant">
-                      {formatMoneyCompact(run.gross, { showCurrency: false })}
-                    </td>
-                    <td className="py-3 text-right tabular-nums text-on-surface-variant">
-                      {formatMoneyCompact(run.net, { showCurrency: false })}
-                    </td>
-                    <td className="py-3 pr-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${RUN_STATUS_CHIP[run.status]}`}
-                      >
-                        {run.status}
-                      </span>
-                    </td>
+          {runs.length === 0 ? (
+            <EmptyState symbol="payments" title="No runs yet" />
+          ) : (
+            <div className="w-full overflow-x-auto">
+              <table className="data-table w-full min-w-[560px] border-collapse text-left">
+                <thead>
+                  <tr>
+                    <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Period</th>
+                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">Scope</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Staff</th>
+                    <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Net (KES)</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody className="font-body-md text-body-md text-on-surface">
+                  {runs.slice(0, 5).map((run) => (
+                    <tr key={run.id} className="border-b border-outline-variant/20 last:border-0">
+                      <td className="py-3 pl-2 font-semibold text-primary">
+                        <Link href={`/payroll/runs/${run.id}`}>{formatDateRange(run.periodStart, run.periodEnd)}</Link>
+                      </td>
+                      <td className="py-3 text-on-surface-variant">
+                        <span className={`mr-2 inline-block size-2 rounded-full ${RUN_STATUS_CHIP[run.status].includes("error") ? "bg-error" : "bg-tertiary-container"}`} />
+                        {runScopeLabel(run)}
+                      </td>
+                      <td className="py-3 text-right tabular-nums">{formatNumber(run.payslipCount)}</td>
+                      <td className="py-3 pr-2 text-right font-semibold tabular-nums">{formatMoney(run.totalNetPayroll, { showCurrency: false })}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </BentoCard>
       </div>
 
-      {/* ──────────────────────────────── side column ──────────────────── */}
       <div className="flex flex-col gap-gutter lg:col-span-4">
-        <div className="flex gap-2">
-          <select className="flex-1 rounded-lg border border-outline-variant bg-surface-container-lowest px-4 py-2 font-body-md text-body-md text-on-surface shadow-sm focus:border-primary-container focus:outline-none">
-            <option>November 2026</option>
-            <option>October 2026</option>
-            <option>Year to Date (2026)</option>
-          </select>
-          <button
-            type="button"
-            className="flex items-center gap-2 whitespace-nowrap rounded-lg bg-on-primary-fixed-variant px-4 py-2 font-body-md text-[11px] font-medium text-on-primary transition-colors hover:bg-primary"
-          >
-            <Icon name="download" className="text-[18px]" />
-            Download
-          </button>
-        </div>
+        {pendingLoans.length > 0 ? (
+          <AlertSpotlight
+            eyebrow="Loan Approvals"
+            title={`${pendingLoans.length} loan request${pendingLoans.length === 1 ? " is" : "s are"} awaiting approval`}
+            message="Review each request and set its interest rate."
+            cta="Review Now"
+            href="/payroll/loans?status=PENDING"
+          />
+        ) : null}
 
-        <SegmentStrip
-          segments={[
-            { label: "Processed", value: formatNumber(412) },
-            { label: "Pending", value: formatNumber(190) },
-            { label: "On Hold", value: formatNumber(96), tone: "warning" },
-          ]}
-        />
-
-        <AlertSpotlight
-          eyebrow="Payroll Alert"
-          title="2 runs are awaiting your approval"
-          message="Mombasa Port & Nairobi HQ"
-          cta="Review Now"
-          href="/payroll/runs"
-        />
-
-        <BentoCard title="Loans & Advances">
-          <ul className="flex flex-col gap-4">
-            {LOANS_ADVANCES.map((item) => (
-              <li key={item.id} className="flex items-center gap-3">
-                <span
-                  aria-hidden
-                  className="flex size-10 shrink-0 items-center justify-center rounded-full bg-secondary-container text-[10px] font-bold text-on-secondary-container"
-                >
-                  {initials(item.name)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-body-md text-body-md font-medium text-on-surface">
-                    {item.name}
+        <BentoCard
+          title="Pending Loans"
+          action={
+            <Link href="/payroll/loans" className="text-[10px] font-semibold text-primary hover:underline">
+              View All
+            </Link>
+          }
+        >
+          {pendingLoans.length === 0 ? (
+            <p className="py-2 text-sm text-on-surface-variant">No loan requests are waiting.</p>
+          ) : (
+            <div className="flex flex-col divide-y divide-outline-variant/20">
+              {pendingLoans.slice(0, 4).map((loan) => (
+                <Link key={loan.id} href={`/payroll/loans/${loan.id}`} className="flex items-center justify-between gap-3 py-3 hover:opacity-80">
+                  <span className="flex items-center gap-3">
+                    <span className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+                      {initials(loan.employeeName)}
+                    </span>
+                    <span>
+                      <span className="block text-sm font-semibold text-on-surface">{loan.employeeName ?? `Employee #${loan.employeeId}`}</span>
+                      <span className="block text-xs text-on-surface-variant">Loan request</span>
+                    </span>
                   </span>
-                  <span className="block text-[10px] text-on-surface-variant">{item.note}</span>
-                </span>
-                <span className="shrink-0 text-right">
-                  <span className="block font-body-md text-body-md font-bold text-on-surface">
-                    {formatMoneyCompact(item.amount, { showCurrency: false })}
-                  </span>
-                  <span className={`block text-[10px] ${item.statusTone}`}>{item.status}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
+                  <span className="text-sm font-semibold tabular-nums text-on-surface">{formatMoney(loan.principalAmount, { showCurrency: false })}</span>
+                </Link>
+              ))}
+            </div>
+          )}
         </BentoCard>
 
-        <BentoCard title="Deductions Split">
-          <DonutChart segments={DEDUCTIONS_SPLIT} size={160} legend="value" centerLabel="Total" />
+        <BentoCard title="Statutory Split" subtitle={latest ? formatDateRange(latest.periodStart, latest.periodEnd) : undefined} bodyClassName="flex flex-col justify-center">
+          {statutory.total > 0 ? (
+            <DonutChart segments={deductionSplit} size={160} legend="value" centerLabel="Share %" />
+          ) : (
+            <EmptyState symbol="donut_large" title="No statutory data yet" />
+          )}
         </BentoCard>
       </div>
     </div>
