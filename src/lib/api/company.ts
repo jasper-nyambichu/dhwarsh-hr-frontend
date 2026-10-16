@@ -6,9 +6,10 @@ import type { CompanyResponse, CompanySettingsResponse } from "@/types";
 /**
  * `controller/company/CompanyController` and `CompanySettingsController`.
  *
- * Both are singleton reads — the deployment is single-tenant and the backend
- * resolves "the company" itself, so nothing here takes an id. That is also why
- * there is no company list to page.
+ * Both are singleton resources — the deployment is single-tenant and the backend
+ * resolves "the company" itself, so nothing here takes an id. Both return 404 on
+ * a database where they have not been set up yet; saving the company the first
+ * time also creates the default settings row.
  */
 
 /** Company profile. Open to any authenticated principal — it feeds the header. */
@@ -17,14 +18,47 @@ export function getCompany(signal?: AbortSignal): Promise<CompanyResponse> {
 }
 
 /**
- * Payroll and statutory settings — VAT rate, working hours, overtime
- * multiplier, weekend days, payroll period.
- *
- * SUPER_ADMIN, ADMIN and PAYROLL_OFFICER may read these. Only SUPER_ADMIN may
- * write them (`PUT /company/settings`), so an ADMIN sees this panel read-only.
+ * Payroll settings — VAT rate, working hours, overtime multiplier, weekend days,
+ * payroll period. SUPER_ADMIN, ADMIN and PAYROLL_OFFICER may read; only
+ * SUPER_ADMIN may write.
  */
-export function getCompanySettings(
-  signal?: AbortSignal,
-): Promise<CompanySettingsResponse> {
+export function getCompanySettings(signal?: AbortSignal): Promise<CompanySettingsResponse> {
   return api.get<CompanySettingsResponse>("/company/settings", { signal });
+}
+
+export type CompanyInput = {
+  name: string;
+  logoUrl?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+  kraPin?: string;
+  shifNumber?: string;
+  nssfNumber?: string;
+  nitaNumber?: string;
+  currency?: string;
+  timezone?: string;
+};
+
+/** Creates or updates the company. SUPER_ADMIN only. Replaces every field. */
+export function saveCompany(payload: CompanyInput): Promise<CompanyResponse> {
+  return api.put<CompanyResponse>("/company", payload);
+}
+
+export type CompanySettingsInput = {
+  vatRate: number;
+  defaultWorkingHoursPerDay?: number;
+  overtimeMultiplier?: number;
+  /** Comma-separated day names, at most two — e.g. "SATURDAY,SUNDAY". */
+  weekendDays?: string;
+  /** Only MONTHLY is supported by the payroll engine. */
+  payrollPeriod?: string;
+};
+
+/** Updates the payroll settings (creating them on first use). SUPER_ADMIN only. */
+export function updateCompanySettings(
+  payload: CompanySettingsInput,
+): Promise<CompanySettingsResponse> {
+  return api.put<CompanySettingsResponse>("/company/settings", payload);
 }

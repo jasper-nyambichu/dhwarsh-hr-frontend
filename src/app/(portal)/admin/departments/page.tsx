@@ -1,137 +1,148 @@
+import Link from "next/link";
+
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { PageHeader } from "@/components/shared/page-header";
+import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
+import { CountPill, PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
-import { formatNumber, initials } from "@/lib/format";
-import type { Department } from "@/types";
+import { hasPermission } from "@/config/roles";
+import { getBranches } from "@/lib/api/branch";
+import { getDepartments } from "@/lib/api/department";
+import { formatNumber } from "@/lib/format";
+import type { BranchResponse, DepartmentResponse } from "@/types";
 
-/**
- * Departments list.
- *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — shaped against `types.Department`, plus code, head
- * name, employee count, and status the list view needs as a projection.
- * Swap for `await api.get<Paginated<DepartmentSummary>>("/departments")`
- * when ready.
- * ─────────────────────────────────────────────────────────────────────────
- */
+import { DeleteDepartmentButton } from "./_components/delete-department-button";
 
-type DepartmentRow = Department & {
-  code: string;
-  headName: string | null;
-  employeeCount: number;
-  status: "ACTIVE" | "INACTIVE";
-};
+/** Departments across every branch, filtered by `?branch=`. From `GET /departments`. */
+export default async function DepartmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ branch?: string }>;
+}) {
+  const session = await requirePermission("department:write");
+  const canDelete = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
+  const canWrite = hasPermission(session.role, "department:write");
+  const { branch: branchParam } = await searchParams;
 
-const DEPARTMENTS: readonly DepartmentRow[] = [
-  { id: 1, name: "Operations", branchId: 1, branchName: "Nairobi CBD", headOfDepartmentId: 1, code: "OPS", headName: "David Mutua", employeeCount: 142, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 2, name: "Sales & Marketing", branchId: 2, branchName: "Mombasa Hub", headOfDepartmentId: 2, code: "SAL", headName: "Sarah Ochieng", employeeCount: 85, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 3, name: "Human Resources", branchId: 1, branchName: "Nairobi CBD", headOfDepartmentId: 3, code: "HRM", headName: "John Kamau", employeeCount: 12, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 4, name: "Information Technology", branchId: 3, branchName: "Nakuru Branch", headOfDepartmentId: 4, code: "ITD", headName: "Peter Njoroge", employeeCount: 34, status: "INACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 5, name: "Finance & Accounts", branchId: 1, branchName: "Nairobi CBD", headOfDepartmentId: 5, code: "FIN", headName: "Mercy Nduta", employeeCount: 28, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-  { id: 6, name: "Customer Support", branchId: 2, branchName: "Mombasa Hub", headOfDepartmentId: 6, code: "CSD", headName: "Aisha Hassan", employeeCount: 56, status: "ACTIVE", createdAt: null, updatedAt: null, createdBy: null, updatedBy: null },
-];
+  let departments: DepartmentResponse[];
+  let branches: BranchResponse[];
+  try {
+    [departments, branches] = await Promise.all([getDepartments(), getBranches()]);
+  } catch (error) {
+    return (
+      <DataUnavailable
+        title="Departments"
+        description="Teams and units across your branches."
+        subject="The department list"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
 
-export default async function DepartmentsPage() {
-  await requirePermission("department:write");
+  const branchFilter = Number(branchParam);
+  const rows = Number.isInteger(branchFilter) && branchFilter > 0
+    ? departments.filter((department) => department.branchId === branchFilter)
+    : departments;
+  const sorted = [...rows].sort(
+    (a, b) => (a.branchName ?? "").localeCompare(b.branchName ?? "") || a.name.localeCompare(b.name),
+  );
 
   return (
     <>
       <PageHeader
         title="Departments"
-        description="Manage company divisions and their respective leads."
+        description="Teams and units across your branches."
+        pill={<CountPill label={`${formatNumber(departments.length)} total`} />}
         actions={
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg bg-on-primary-fixed-variant px-5 py-2.5 font-bold text-white shadow-sm transition-all hover:bg-primary"
-          >
-            <Icon name="add" className="text-sm" />
-            <span className="text-sm">Add Department</span>
-          </button>
+          canWrite ? (
+            <Link
+              href="/admin/departments/new"
+              className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-body-md text-body-md font-bold text-on-primary shadow-sm transition-colors hover:bg-on-primary-fixed-variant"
+            >
+              <Icon name="add" className="text-[18px]" />
+              Add Department
+            </Link>
+          ) : null
         }
       />
 
-      <div className="overflow-hidden rounded-card border border-outline-variant/30 bg-surface-container-lowest shadow-ambient-1">
-        <div className="flex items-center justify-between border-b border-outline-variant/30 bg-surface-bright/50 p-card-padding">
-          <h3 className="font-bold text-on-surface">Active Departments</h3>
-          <div className="flex gap-2">
-            <button type="button" className="rounded-md p-1.5 text-on-surface-variant transition-colors hover:bg-primary-container/10 hover:text-primary">
-              <Icon name="filter_list" className="text-sm" />
-            </button>
-            <button type="button" className="rounded-md p-1.5 text-on-surface-variant transition-colors hover:bg-primary-container/10 hover:text-primary">
-              <Icon name="download" className="text-sm" />
-            </button>
-          </div>
-        </div>
-        <div className="w-full overflow-x-auto">
-          <table className="data-table w-full border-collapse text-left">
-            <thead>
-              <tr className="bg-surface-bright">
-                <th className="border-b border-[#E9EFF5] px-6 py-4 font-table-header text-table-header uppercase text-on-surface-variant">Department Name</th>
-                <th className="border-b border-[#E9EFF5] px-6 py-4 font-table-header text-table-header uppercase text-on-surface-variant">Code</th>
-                <th className="border-b border-[#E9EFF5] px-6 py-4 font-table-header text-table-header uppercase text-on-surface-variant">Branch</th>
-                <th className="border-b border-[#E9EFF5] px-6 py-4 font-table-header text-table-header uppercase text-on-surface-variant">Head</th>
-                <th className="border-b border-[#E9EFF5] px-6 py-4 text-center font-table-header text-table-header uppercase text-on-surface-variant">Employees</th>
-                <th className="border-b border-[#E9EFF5] px-6 py-4 font-table-header text-table-header uppercase text-on-surface-variant">Status</th>
-                <th className="border-b border-[#E9EFF5] px-6 py-4 text-right font-table-header text-table-header uppercase text-on-surface-variant">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E9EFF5] font-body-md text-body-md text-on-surface">
-              {DEPARTMENTS.map((dept) => (
-                <tr key={dept.id} className="group cursor-pointer transition-colors hover:bg-background/80">
-                  <td className="px-6 py-4 font-medium text-primary">{dept.name}</td>
-                  <td className="px-6 py-4">
-                    <span className="rounded bg-surface-container px-2 py-1 font-mono text-xs text-on-surface-variant">{dept.code}</span>
-                  </td>
-                  <td className="px-6 py-4 text-on-surface-variant">{dept.branchName}</td>
-                  <td className="px-6 py-4">
-                    <span className="flex items-center gap-3">
-                      <span
-                        aria-hidden
-                        className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-container/20 text-xs font-bold text-primary"
-                      >
-                        {dept.headName ? initials(dept.headName) : "—"}
-                      </span>
-                      <span className="font-medium">{dept.headName ?? "Unassigned"}</span>
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-center font-medium">{formatNumber(dept.employeeCount)}</td>
-                  <td className="px-6 py-4">
-                    {dept.status === "ACTIVE" ? (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-soft px-2.5 py-1 text-[10px] font-bold text-primary-container">
-                        <span className="size-1.5 rounded-full bg-primary-container" />
-                        Active
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container-highest px-2.5 py-1 text-[10px] font-bold text-on-surface-variant">
-                        <span className="size-1.5 rounded-full bg-outline" />
-                        Inactive
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button type="button" className="p-1 text-on-surface-variant opacity-0 transition-colors hover:text-primary group-hover:opacity-100">
-                      <Icon name="more_vert" className="text-[18px]" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between border-t border-[#E9EFF5] bg-surface-bright px-6 py-4">
-          <span className="text-xs text-on-surface-variant">Showing 1 to {DEPARTMENTS.length} of 12 entries</span>
-          <div className="flex gap-1">
-            <button type="button" disabled className="flex size-8 items-center justify-center rounded border border-[#E9EFF5] text-on-surface-variant hover:bg-surface-container-low disabled:opacity-50">
-              <Icon name="chevron_left" className="text-sm" />
-            </button>
-            <button type="button" className="flex size-8 items-center justify-center rounded bg-primary text-sm font-medium text-white">1</button>
-            <button type="button" className="flex size-8 items-center justify-center rounded border border-[#E9EFF5] text-sm font-medium text-on-surface transition-colors hover:bg-surface-container-low">2</button>
-            <button type="button" className="flex size-8 items-center justify-center rounded border border-[#E9EFF5] text-on-surface-variant transition-colors hover:bg-surface-container-low">
-              <Icon name="chevron_right" className="text-sm" />
-            </button>
-          </div>
-        </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Link
+          href="/admin/departments"
+          className={`rounded-full px-3 py-1.5 font-body-md text-[11px] font-semibold transition-colors ${
+            !branchParam ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+          }`}
+        >
+          All branches
+        </Link>
+        {branches.map((branch) => (
+          <Link
+            key={branch.id}
+            href={`/admin/departments?branch=${branch.id}`}
+            className={`rounded-full px-3 py-1.5 font-body-md text-[11px] font-semibold transition-colors ${
+              branchParam === String(branch.id)
+                ? "bg-primary text-on-primary"
+                : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
+            }`}
+          >
+            {branch.name}
+          </Link>
+        ))}
       </div>
+
+      <BentoCard title="Departments" subtitle={`${formatNumber(sorted.length)} shown`}>
+        {sorted.length === 0 ? (
+          <EmptyState
+            symbol="account_tree"
+            title="No departments yet"
+            description={
+              branches.length === 0
+                ? "Add a branch first — every department belongs to one."
+                : "Add the first department. HR can then assign employees to it."
+            }
+          />
+        ) : (
+          <div className="w-full overflow-x-auto">
+            <table className="data-table w-full min-w-[560px] border-collapse text-left">
+              <thead>
+                <tr>
+                  <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Department</th>
+                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Branch</th>
+                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Head</th>
+                  <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="font-body-md text-body-md text-on-surface">
+                {sorted.map((department) => (
+                  <tr key={department.id} className="border-b border-outline-variant/20 last:border-0">
+                    <td className="py-3 pl-2 font-semibold text-primary">
+                      <Link href={`/admin/departments/${department.id}`}>{department.name}</Link>
+                    </td>
+                    <td className="py-3 text-on-surface-variant">{department.branchName ?? "—"}</td>
+                    <td className="py-3 text-on-surface-variant">
+                      {department.headOfDepartmentName ?? <span className="text-amber-main">No head</span>}
+                    </td>
+                    <td className="py-3 pr-2">
+                      <div className="flex items-start justify-end gap-3">
+                        <Link
+                          href={`/admin/departments/${department.id}`}
+                          aria-label={`Edit ${department.name}`}
+                          className="inline-flex text-on-surface-variant hover:text-primary"
+                        >
+                          <Icon name="edit" className="text-[18px]" />
+                        </Link>
+                        {canDelete ? <DeleteDepartmentButton id={department.id} name={department.name} /> : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </BentoCard>
     </>
   );
 }

@@ -12,6 +12,7 @@ import { CountPill, PageHeader } from "@/components/shared/page-header";
 import { SegmentStrip } from "@/components/shared/segment-strip";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
+import { hasPermission } from "@/config/roles";
 import { getBranches } from "@/lib/api/branch";
 import { getEmployeesByBranch } from "@/lib/api/employee";
 import { formatNumber } from "@/lib/format";
@@ -21,20 +22,10 @@ import type { BranchResponse } from "@/types";
  * Branch directory.
  *
  * `GET /branches` returns `List<BranchResponse>` — the bare entity, with no
- * aggregates. Three columns the Stitch brief asks for therefore have no source
- * and are gone rather than invented: **region** (there is no such column on
- * `branches`), **attendance %** and **payroll total** (neither is projected
- * onto this endpoint; both would need a dashboard-style aggregate the backend
- * does not serve today).
- *
- * Headcount is the exception, and it is real: the backend has no
- * count-per-branch projection either, but it does expose
- * `GET /employees/by-branch/{id}`, so the page fans out one call per branch and
- * counts the result. That is O(branches) requests — acceptable at seven, and
- * flagged here because it would not be at seventy. The fix at that size is a
- * `employeeCount` field on `BranchResponse`, not a bigger fan-out.
+ * aggregates. Headcount is real: it is counted from `GET /employees/by-branch/{id}`,
+ * one call per branch (acceptable at a handful of branches). Adding and editing
+ * branches is SUPER_ADMIN / ADMIN; deactivating is SUPER_ADMIN only (on the edit page).
  */
-
 const STATUS_TABS: readonly FilterTab[] = [
   { label: "All Branches" },
   { label: "Active", value: "ACTIVE" },
@@ -54,18 +45,17 @@ export default async function BranchesPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  await requirePermission("branch:read");
+  const session = await requirePermission("branch:read");
+  const canWrite = hasPermission(session.role, "branch:write");
 
   // searchParams is a Promise in Next.js 16 — it must be awaited.
   const { status } = await searchParams;
 
   let branches: BranchResponse[];
-
   try {
     branches = await getBranches();
   } catch (error) {
     if (error instanceof ApiError && error.isUnauthorized) redirect("/login");
-
     return (
       <DataUnavailable
         title="Branches"
@@ -77,31 +67,19 @@ export default async function BranchesPage({
   }
 
   // Headcounts are a second, independent read. `allSettled` so one failing
-  // branch does not blank a page whose primary data loaded fine — a missing
-  // count renders as "—", which is honest, where losing the directory is not.
-  const counts = await Promise.allSettled(
-    branches.map((branch) => getEmployeesByBranch(branch.id)),
-  );
-
+  // branch does not blank a page whose primary data loaded fine.
+  const counts = await Promise.allSettled(branches.map((branch) => getEmployeesByBranch(branch.id)));
   const headcount = new Map<number, number | null>(
     branches.map((branch, index) => {
       const result = counts[index];
-      return [
-        branch.id,
-        result && result.status === "fulfilled" ? result.value.length : null,
-      ];
+      return [branch.id, result && result.status === "fulfilled" ? result.value.length : null];
     }),
   );
 
-  const rows = status
-    ? branches.filter((branch) => branch.status === status)
-    : branches;
-
+  const rows = status ? branches.filter((branch) => branch.status === status) : branches;
   const active = branches.filter((branch) => branch.status === "ACTIVE").length;
   const unmanaged = branches.filter((branch) => branch.managerName === null);
-  const counted = [...headcount.values()].filter(
-    (value): value is number => value !== null,
-  );
+  const counted = [...headcount.values()].filter((value): value is number => value !== null);
   const totalEmployees = counted.reduce((sum, value) => sum + value, 0);
 
   return (
@@ -111,26 +89,23 @@ export default async function BranchesPage({
         description="Manage organization locations and regional performance."
         pill={<CountPill label={`${active} Active`} />}
         actions={
-          <button
-            type="button"
-            className="bento-shadow flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-body-md text-body-md font-bold text-on-primary transition-colors hover:bg-on-primary-fixed-variant"
-          >
-            <Icon name="add" className="text-[18px]" />
-            Add Branch
-          </button>
+          canWrite ? (
+            <Link
+              href="/admin/branches/new"
+              className="bento-shadow flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-body-md text-body-md font-bold text-on-primary transition-colors hover:bg-on-primary-fixed-variant"
+            >
+              <Icon name="add" className="text-[18px]" />
+              Add Branch
+            </Link>
+          ) : null
         }
       />
 
       <div className="grid grid-cols-12 gap-gutter">
-        {/* ─────────────────────────────── main column ─────────────────── */}
+        {/* main column */}
         <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
           <div className="bento-shadow flex flex-wrap items-center justify-between gap-3 rounded-card bg-surface-container-lowest p-3">
-            <FilterTabs
-              tabs={STATUS_TABS}
-              active={status}
-              param="status"
-              basePath="/admin/branches"
-            />
+            <FilterTabs tabs={STATUS_TABS} active={status} param="status" basePath="/admin/branches" />
           </div>
 
           <BentoCard
@@ -152,76 +127,55 @@ export default async function BranchesPage({
                 <table className="data-table w-full border-collapse text-left">
                   <thead>
                     <tr>
-                      <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">
-                        Branch
-                      </th>
-                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                        Manager
-                      </th>
-                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                        Contact
-                      </th>
-                      <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
-                        Employees
-                      </th>
-                      <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">
-                        Status
-                      </th>
+                      <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Branch</th>
+                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">Manager</th>
+                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">Contact</th>
+                      <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Employees</th>
+                      <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Status</th>
+                      {canWrite ? <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Edit</th> : null}
                     </tr>
                   </thead>
-
                   <tbody className="font-body-md text-body-md">
                     {rows.map((branch) => {
                       const count = headcount.get(branch.id);
-
                       return (
                         <tr key={branch.id} className="group transition-colors">
                           <td className="py-3 pl-2">
-                            <Link
-                              href={`/admin/branches/${branch.id}`}
-                              className="flex items-center gap-2"
-                            >
+                            <Link href={`/admin/branches/${branch.id}`} className="flex items-center gap-2">
                               <span className="flex size-6 shrink-0 items-center justify-center rounded bg-primary-container/10 text-primary-container">
                                 <Icon name="location_city" className="text-sm" />
                               </span>
                               <span className="min-w-0">
-                                <span className="block font-medium text-on-surface group-hover:text-primary-container">
-                                  {branch.name}
-                                </span>
-                                <span className="block text-[10px] text-outline">
-                                  {branch.code}
-                                </span>
+                                <span className="block font-medium text-on-surface group-hover:text-primary-container">{branch.name}</span>
+                                <span className="block text-[10px] text-outline">{branch.code}</span>
                               </span>
                             </Link>
                           </td>
                           <td className="py-3 text-on-surface-variant">
-                            {branch.managerName ?? (
-                              <span className="text-amber-main">Unassigned</span>
-                            )}
+                            {branch.managerName ?? <span className="text-amber-main">Unassigned</span>}
                           </td>
                           <td className="py-3 text-on-surface-variant">
-                            {branch.phone ? (
-                              <span className="block font-mono text-[11px]">
-                                {branch.phone}
-                              </span>
-                            ) : null}
-                            {branch.email ? (
-                              <span className="block text-[10px] text-outline">
-                                {branch.email}
-                              </span>
-                            ) : null}
-                            {!branch.phone && !branch.email ? (
-                              <span className="text-outline">—</span>
-                            ) : null}
+                            {branch.phone ? <span className="block font-mono text-[11px]">{branch.phone}</span> : null}
+                            {branch.email ? <span className="block text-[10px] text-outline">{branch.email}</span> : null}
+                            {!branch.phone && !branch.email ? <span className="text-outline">—</span> : null}
                           </td>
                           <td className="py-3 text-right tabular-nums text-on-surface-variant">
-                            {count === null || count === undefined
-                              ? "—"
-                              : formatNumber(count)}
+                            {count === null || count === undefined ? "—" : formatNumber(count)}
                           </td>
-                          <td className="py-3 pr-2 text-right">
+                          <td className="py-3 text-right">
                             <StatusBadge status={branch.status} />
                           </td>
+                          {canWrite ? (
+                            <td className="py-3 pr-2 text-right">
+                              <Link
+                                href={`/admin/branches/${branch.id}/edit`}
+                                aria-label={`Edit ${branch.name}`}
+                                className="inline-flex text-on-surface-variant hover:text-primary"
+                              >
+                                <Icon name="edit" className="text-[18px]" />
+                              </Link>
+                            </td>
+                          ) : null}
                         </tr>
                       );
                     })}
@@ -232,7 +186,7 @@ export default async function BranchesPage({
           </BentoCard>
         </div>
 
-        {/* ────────────────────────────── side column ──────────────────── */}
+        {/* side column */}
         <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
           <SegmentStrip
             segments={[
@@ -260,33 +214,22 @@ export default async function BranchesPage({
             </BentoCard>
           ) : null}
 
-          <BentoCard
-            title="Needs attention"
-            subtitle="Branches with no manager assigned"
-          >
+          <BentoCard title="Needs attention" subtitle="Branches with no manager assigned">
             {unmanaged.length === 0 ? (
-              <p className="py-4 text-center font-body-md text-body-md text-outline">
-                Every branch has a manager.
-              </p>
+              <p className="py-4 text-center font-body-md text-body-md text-outline">Every branch has a manager.</p>
             ) : (
               <ul className="flex flex-col gap-3">
                 {unmanaged.map((branch) => (
                   <li key={branch.id}>
                     <Link
-                      href={`/admin/branches/${branch.id}`}
+                      href={canWrite ? `/admin/branches/${branch.id}/edit` : `/admin/branches/${branch.id}`}
                       className="group -mx-2 flex items-center justify-between gap-3 rounded-lg p-2 transition-colors hover:bg-surface-container"
                     >
                       <span className="min-w-0">
-                        <span className="block truncate text-[11px] font-semibold text-on-surface group-hover:text-primary-container">
-                          {branch.name}
-                        </span>
-                        <span className="block text-[10px] text-on-surface-variant">
-                          {branch.code}
-                        </span>
+                        <span className="block truncate text-[11px] font-semibold text-on-surface group-hover:text-primary-container">{branch.name}</span>
+                        <span className="block text-[10px] text-on-surface-variant">{branch.code}</span>
                       </span>
-                      <span className="shrink-0 rounded bg-amber-main/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-main">
-                        No manager
-                      </span>
+                      <span className="shrink-0 rounded bg-amber-main/10 px-1.5 py-0.5 text-[10px] font-bold text-amber-main">No manager</span>
                     </Link>
                   </li>
                 ))}
