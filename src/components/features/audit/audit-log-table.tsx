@@ -1,240 +1,59 @@
-// src/components/features/audit/audit-log-table.tsx
-"use client";
+import Link from "next/link";
 
-import { Fragment, useState } from "react";
-import { Icon } from "@/components/ui/icon";
-import { toast } from "@/lib/toast";
+import { actionLabel, actionTone, formatTimestamp, parseDetails, TONE_CHIP } from "@/lib/audit-format";
+import type { AuditLogResponse } from "@/types/audit";
 
 /**
- * ─────────────────────────────────────────────────────────────────────────
- * Shaped as a page-local type until an `AuditLogEntry` shape exists on
- * `@/types`. Swap for the real DTO when the audit-log API is wired up.
- * ─────────────────────────────────────────────────────────────────────────
+ * Read-only table of audit events. `detailBasePath` is where each row's detail page lives
+ * (`/audit/logs` for the Auditor, `/admin/audit` for the Super Admin).
  */
-export type AuditLogAction = "CREATE" | "UPDATE" | "DELETE" | "EXECUTE";
-
-export type AuditLogDetail =
-  | {
-      kind: "diff";
-      lines: { type: "context" | "added" | "removed"; text: string }[];
-      transactionId: string;
-      sessionId: string;
-    }
-  | { kind: "note"; message: string }
-  | { kind: "error"; title: string; message: string };
-
-export interface AuditLogEntry {
-  id: number;
-  timestamp: string;
-  actor: string;
-  role: string;
-  module: string;
-  action: AuditLogAction;
-  entity: string;
-  ipAddress: string;
-  result: "success" | "error";
-  detail: AuditLogDetail;
-}
-
-function actionColor(action: AuditLogAction) {
-  switch (action) {
-    case "UPDATE":
-      return "text-tertiary";
-    case "EXECUTE":
-      return "text-primary-container";
-    case "DELETE":
-      return "text-error";
-    default:
-      return "text-on-surface";
-  }
-}
-
-/**
- * Copies the raw diff, and says whether it worked.
- *
- * `navigator.clipboard` is undefined on insecure origins and rejects when the
- * document is not focused, so the unguarded call this replaces could throw or
- * no-op while still looking like it had copied.
- */
-async function copyDiff(detail: AuditLogDetail) {
-  if (detail.kind !== "diff") return;
-
-  const raw = detail.lines.map((line) => line.text).join("\n");
-
-  try {
-    if (!navigator.clipboard) throw new Error("Clipboard unavailable");
-    await navigator.clipboard.writeText(raw);
-    toast.success("Diff copied to clipboard");
-  } catch {
-    toast.error("Couldn't copy to clipboard", {
-      description: "Your browser blocked clipboard access. Select the text and copy manually.",
-    });
-  }
-}
-
-export function AuditLogTable({ logs }: { logs: AuditLogEntry[] }) {
-  const [expandedId, setExpandedId] = useState<number | null>(logs[0]?.id ?? null);
-
+export function AuditLogTable({
+  logs,
+  detailBasePath,
+}: {
+  logs: AuditLogResponse[];
+  detailBasePath: string;
+}) {
   return (
-    <div className="flex w-full flex-col overflow-hidden rounded-2xl bg-white shadow-ambient-1">
-      <div className="overflow-x-auto">
-        <table className="w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-outline-variant bg-surface-container-low/50">
-              <th className="w-10 px-4 py-3" />
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Timestamp
-              </th>
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Actor
-              </th>
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Role
-              </th>
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Module
-              </th>
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Action
-              </th>
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Entity
-              </th>
-              <th className="px-4 py-3 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                IP Address
-              </th>
-              <th className="px-4 py-3 text-center text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                Result
-              </th>
-            </tr>
-          </thead>
-          <tbody className="text-xs">
-            {logs.map((log) => {
-              const isOpen = expandedId === log.id;
-              return (
-                /* The key belongs on the outermost node returned from map —
-                   on a bare <> it has nowhere to go, so the row and its detail
-                   panel are wrapped in a keyed Fragment instead. */
-                <Fragment key={log.id}>
-                  <tr
-                    onClick={() => setExpandedId(isOpen ? null : log.id)}
-                    data-live=""
-                    aria-expanded={isOpen}
-                    className={`cursor-pointer border-b border-outline-variant transition-colors hover:bg-surface ${
-                      log.result === "error" ? "bg-error-container/10" : ""
-                    }`}
-                  >
-                    <td className="px-4 py-3 text-center">
-                      <Icon
-                        name="keyboard_arrow_down"
-                        className={`text-on-surface-variant transition-transform ${isOpen ? "rotate-180" : ""}`}
-                      />
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-on-surface">{log.timestamp}</td>
-                    <td className="px-4 py-3 font-medium text-primary">{log.actor}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded bg-surface-container px-2 py-1 text-[10px] font-semibold text-on-surface-variant">
-                        {log.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{log.module}</td>
-                    <td className={`px-4 py-3 font-medium ${actionColor(log.action)}`}>{log.action}</td>
-                    <td className="px-4 py-3 text-on-surface-variant">{log.entity}</td>
-                    <td className="px-4 py-3 font-mono text-[10px] text-on-surface-variant">{log.ipAddress}</td>
-                    <td className="px-4 py-3 text-center">
-                      <Icon
-                        name={log.result === "success" ? "check_circle" : "error"}
-                        className={log.result === "success" ? "text-tertiary" : "text-error"}
-                      />
-                    </td>
-                  </tr>
+    <div className="w-full overflow-x-auto">
+      <table className="data-table w-full min-w-[820px] border-collapse text-left">
+        <thead>
+          <tr>
+            <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">When</th>
+            <th className="pb-3 font-table-header text-table-header uppercase text-outline">Who</th>
+            <th className="pb-3 font-table-header text-table-header uppercase text-outline">Action</th>
+            <th className="pb-3 font-table-header text-table-header uppercase text-outline">Record</th>
+            <th className="pb-3 pr-2 font-table-header text-table-header uppercase text-outline">From</th>
+          </tr>
+        </thead>
+        <tbody className="font-body-md text-body-md text-on-surface">
+          {logs.map((log) => {
+            const details = parseDetails(log.detailsJson);
+            const who = log.performedByUsername ?? details.identifier ?? (log.performedByUserId ? `User #${log.performedByUserId}` : "System");
 
-                  {isOpen && (
-                    <tr key={`${log.id}-detail`} className="border-b border-outline-variant/50 bg-surface-container-low/30">
-                      <td className="p-0" colSpan={9}>
-                        <div className="px-8 py-4">
-                          {log.detail.kind === "diff" && (
-                            <>
-                              <div className="mb-3 flex items-center justify-between">
-                                <h4 className="text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                                  Mutation Payload (JSON Diff)
-                                </h4>
-                                <button
-                                  type="button"
-                                  data-live=""
-                                  onClick={() => copyDiff(log.detail)}
-                                  className="flex items-center gap-1 text-[10px] font-medium text-primary hover:underline"
-                                >
-                                  <Icon name="content_copy" className="text-[14px]" />
-                                  Copy Raw
-                                </button>
-                              </div>
-                              <div className="overflow-x-auto rounded-lg bg-inverse-surface p-4 font-mono text-[11px] leading-relaxed text-inverse-on-surface shadow-inner">
-                                {log.detail.lines.map((line, i) => (
-                                  <div
-                                    key={i}
-                                    className={
-                                      line.type === "added"
-                                        ? "bg-tertiary-container/20 text-tertiary"
-                                        : line.type === "removed"
-                                          ? "bg-error-container/20 text-error line-through opacity-70"
-                                          : "text-inverse-on-surface"
-                                    }
-                                  >
-                                    {line.text}
-                                  </div>
-                                ))}
-                              </div>
-                              <div className="mt-4 flex gap-4 text-[10px] text-on-surface-variant">
-                                <div>
-                                  <span className="font-medium">Transaction ID:</span> {log.detail.transactionId}
-                                </div>
-                                <div>
-                                  <span className="font-medium">Session ID:</span> {log.detail.sessionId}
-                                </div>
-                              </div>
-                            </>
-                          )}
-
-                          {log.detail.kind === "note" && (
-                            <p className="py-4 text-sm italic text-on-surface-variant">{log.detail.message}</p>
-                          )}
-
-                          {log.detail.kind === "error" && (
-                            <div className="mb-4 flex items-start gap-3 rounded-lg border border-error-container bg-error-container/30 p-4 text-on-surface">
-                              <Icon name="warning" className="mt-0.5 text-error" />
-                              <div>
-                                <h5 className="mb-1 font-medium text-error">{log.detail.title}</h5>
-                                <p className="text-xs text-on-surface-variant">{log.detail.message}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </Fragment>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="flex items-center justify-between border-t border-outline-variant px-6 py-4">
-        <span className="text-xs text-on-surface-variant">Showing 1-25 of 1,492 entries</span>
-        <div className="flex gap-1">
-          <button className="rounded p-1 text-on-surface-variant hover:bg-surface-container-high disabled:opacity-50" disabled>
-            <Icon name="chevron_left" />
-          </button>
-          <button className="rounded bg-primary-container px-3 py-1 text-xs font-medium text-on-primary">1</button>
-          <button className="rounded px-3 py-1 text-xs font-medium text-on-surface hover:bg-surface-container-high">2</button>
-          <button className="rounded px-3 py-1 text-xs font-medium text-on-surface hover:bg-surface-container-high">3</button>
-          <span className="px-2 py-1 text-xs text-on-surface-variant">...</span>
-          <button className="rounded p-1 text-on-surface-variant hover:bg-surface-container-high">
-            <Icon name="chevron_right" />
-          </button>
-        </div>
-      </div>
+            return (
+              <tr key={log.id} className="border-b border-outline-variant/20 transition-colors last:border-0 hover:bg-surface">
+                <td className="whitespace-nowrap py-3 pl-2 text-on-surface-variant">
+                  <Link href={`${detailBasePath}/${log.id}`} className="text-primary hover:underline">
+                    {formatTimestamp(log.createdAt)}
+                  </Link>
+                </td>
+                <td className="py-3 font-medium">{who}</td>
+                <td className="py-3">
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${TONE_CHIP[actionTone(log.action)]}`}>
+                    {actionLabel(log.action)}
+                  </span>
+                </td>
+                <td className="py-3 text-on-surface-variant">
+                  {log.entityType}
+                  {log.entityId ? <span className="text-outline"> #{log.entityId}</span> : null}
+                </td>
+                <td className="py-3 pr-2 font-mono text-[11px] text-on-surface-variant">{details.ip ?? "—"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }

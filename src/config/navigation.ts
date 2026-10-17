@@ -38,6 +38,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Settings", href: "/admin/settings", icon: "settings" },
   ],
 
+  // The audit trail is for Super Admin, Auditor and Finance (proposal §4) — not the Admin.
   ADMIN: [
     { title: "Dashboard", href: "/admin/dashboard", icon: "dashboard" },
     { title: "Attendance", href: "/admin/attendance", icon: "schedule" },
@@ -47,7 +48,6 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Agents", href: "/admin/agents", icon: "handshake" },
     { title: "Users", href: "/admin/users", icon: "manage_accounts" },
     { title: "Devices", href: "/admin/devices", icon: "fingerprint" },
-    { title: "Audit", href: "/admin/audit", icon: "policy" },
     { title: "Settings", href: "/admin/settings", icon: "settings" },
   ],
 
@@ -110,10 +110,13 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Reports", href: "/finance/reports", icon: "analytics" },
   ],
 
+  // Read-only across the board (proposal §4): the full history log plus every financial record.
   AUDITOR: [
     { title: "Dashboard", href: "/audit/dashboard", icon: "dashboard" },
     { title: "Audit Logs", href: "/audit/logs", icon: "policy" },
     { title: "Payroll", href: "/audit/payroll", icon: "payments" },
+    { title: "Loans", href: "/audit/loans", icon: "savings" },
+    { title: "Advances", href: "/audit/advances", icon: "account_balance_wallet" },
     { title: "Employees", href: "/audit/employees", icon: "group" },
     { title: "Reports", href: "/audit/reports", icon: "analytics" },
   ],
