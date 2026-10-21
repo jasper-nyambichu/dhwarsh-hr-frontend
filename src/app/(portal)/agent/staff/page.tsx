@@ -1,7 +1,10 @@
+import Link from "next/link";
+
 import { requirePermission } from "@/app/lib/dal";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { Icon } from "@/components/ui/icon";
 import { getAgentStaff } from "@/lib/api/agent";
 import { humanizeEnum, initials } from "@/lib/format";
 import type { EmployeeSummaryResponse } from "@/types";
@@ -26,11 +29,7 @@ export default async function DeployedStaffPage() {
     return (
       <>
         <PageHeader title="My Deployed Staff" />
-        <EmptyState
-          symbol="link_off"
-          title="Account not linked"
-          description="Your login is not linked to an agent record. Contact the company's administrators."
-        />
+        <EmptyState symbol="link_off" title="Account not linked" description="Your login is not linked to an agent record. Contact the company's administrators." />
       </>
     );
   }
@@ -39,13 +38,7 @@ export default async function DeployedStaffPage() {
   try {
     staff = await getAgentStaff(session.agentId);
   } catch (error) {
-    return (
-      <DataUnavailable
-        title="My Deployed Staff"
-        subject="Your deployed staff"
-        reason={error instanceof Error ? error.message : undefined}
-      />
-    );
+    return <DataUnavailable title="My Deployed Staff" subject="Your deployed staff" reason={error instanceof Error ? error.message : undefined} />;
   }
 
   const activeCount = staff.filter((person) => person.employmentStatus === "ACTIVE").length;
@@ -55,6 +48,17 @@ export default async function DeployedStaffPage() {
       <PageHeader
         title="My Deployed Staff"
         description={`${activeCount} active of ${staff.length} staff placed through your agency.`}
+        actions={
+          <div className="flex flex-wrap gap-3">
+            <Link href="/agent/requests" className="flex items-center gap-2 rounded-lg border border-primary px-4 py-2 font-body-md text-body-md font-semibold text-primary transition-colors hover:bg-primary-fixed">
+              My Requests
+            </Link>
+            <Link href="/agent/staff/new" className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-body-md text-body-md font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-container">
+              <Icon name="person_add" className="text-[18px]" />
+              Add Employee
+            </Link>
+          </div>
+        }
       />
 
       <div className="flex min-h-[300px] flex-col rounded-card border border-line bg-surface-container-lowest shadow-ambient-1">
@@ -63,7 +67,7 @@ export default async function DeployedStaffPage() {
         </div>
 
         {staff.length === 0 ? (
-          <EmptyState symbol="group" title="No staff deployed yet" description="Staff assigned to your agency by HR appear here." className="m-4 border-0" />
+          <EmptyState symbol="group" title="No staff deployed yet" description="Add your first employee. Once an Admin approves them they appear here." className="m-4 border-0" />
         ) : (
           <div className="w-full flex-1 overflow-x-auto">
             <table className="w-full min-w-[640px] border-collapse text-left">
@@ -82,9 +86,7 @@ export default async function DeployedStaffPage() {
                     <tr key={person.id} className={person.employmentStatus === "ACTIVE" ? "" : "opacity-70"}>
                       <td className="px-6 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
-                            {initials(person.fullName)}
-                          </div>
+                          <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{initials(person.fullName)}</div>
                           <div>
                             <div className="font-semibold text-on-surface">{person.fullName}</div>
                             <div className="text-xs text-outline">ID: {person.employeeNumber}</div>

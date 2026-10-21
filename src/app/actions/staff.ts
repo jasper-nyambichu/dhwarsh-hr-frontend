@@ -1,0 +1,163 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+
+import { toActionError } from "@/app/lib/api-error";
+import { requirePermission, requireRole } from "@/app/lib/dal";
+import { terminateEmployee } from "@/lib/api/employee";
+import {
+  assignEmployeeDepartment,
+  createEmployeeDirect,
+  submitEmployeeRequest,
+} from "@/lib/api/staff";
+import { EMPLOYMENT_TYPES, type ActionState, type EmploymentType } from "@/types";
+import type { EmployeeEntryPayload } from "@/types/staff";
+
+/**
+ * TRANSITIONAL: the current payroll engine still reads a monthly figure from the employee record.
+ * Until the days-worked × daily-rate model replaces it (Phase 4), new staff get 30 days × KES 1,000
+ * so their payslips are not zero. It is not asked for on the forms and is not an agreed salary.
+ */
+const TRANSITIONAL_MONTHLY_PAY = 30000;
+
+function text(formData: FormData, name: string): string | undefined {
+  const value = String(formData.get(name) ?? "").trim();
+  return value === "" ? undefined : value;
+}
+
+type Parsed = { ok: true; payload: EmployeeEntryPayload } | { ok: false; state: ActionState };
+
+function readEmployee(formData: FormData): Parsed {
+  const fullName = text(formData, "fullName");
+  const branchId = Number(formData.get("branchId"));
+  const employmentType = String(formData.get("employmentType") ?? "");
+  const email = text(formData, "email");
+  const mpesa = text(formData, "mpesaNumber");
+
+  const fieldErrors: Record<string, string[]> = {};
+  if (!fullName) fieldErrors.fullName = ["Required"];
+  if (!Number.isInteger(branchId) || branchId <= 0) fieldErrors.branchId = ["Choose a branch"];
+  if (!(EMPLOYMENT_TYPES as readonly string[]).includes(employmentType)) fieldErrors.employmentType = ["Choose a type"];
+  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fieldErrors.email = ["Not a valid email"];
+  if (mpesa && !/^(\+?254|0)[17]\d{8}$/.test(mpesa.replace(/\s/g, ""))) fieldErrors.mpesaNumber = ["Use a Kenyan number, e.g. 0712 345 678"];
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { ok: false, state: { status: "error", message: "Check the fields below.", fieldErrors } };
+  }
+
+  const department = text(formData, "departmentId");
+  const agent = text(formData, "agentId");
+
+  return {
+    ok: true,
+    payload: {
+      fullName: fullName!,
+      nationalId: text(formData, "nationalId"),
+      dateOfBirth: text(formData, "dateOfBirth"),
+      gender: text(formData, "gender"),
+      phone: text(formData, "phone"),
+      email,
+      branchId,
+      departmentId: department ? Number(department) : undefined,
+      agentId: agent ? Number(agent) : undefined,
+      position: text(formData, "position"),
+      employmentType: employmentType as EmploymentType,
+      basicSalary: TRANSITIONAL_MONTHLY_PAY,
+      dateHired: text(formData, "dateHired"),
+      // Pay goes out by M-Pesa for now, so the "bank" details are the M-Pesa number.
+      bankName: mpesa ? "M-PESA" : undefined,
+      bankAccountNumber: mpesa?.replace(/\s/g, ""),
+      emergencyContactName: text(formData, "emergencyContactName"),
+      emergencyContactPhone: text(formData, "emergencyContactPhone"),
+    },
+  };
+}
+
+/** Admin: add an employee straight away — no approval step. */
+export async function addEmployeeAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("employee:write");
+
+  const parsed = readEmployee(formData);
+  if (!parsed.ok) return parsed.state;
+
+  let employeeId: number;
+  try {
+    employeeId = (await createEmployeeDirect(parsed.payload)).id;
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin/employees", "layout");
+  redirect(`/admin/employees/${employeeId}`);
+}
+
+/** Branch Manager / Agent: propose an employee. Nothing exists until an Admin approves. */
+export async function requestEmployeeAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  const session = await requirePermission("employee:request");
+
+  const parsed = readEmployee(formData);
+  if (!parsed.ok) return parsed.state;
+
+  try {
+    await submitEmployeeRequest(parsed.payload);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/branch", "layout");
+  revalidatePath("/agent", "layout");
+  redirect(session.role === "AGENT" ? "/agent/requests" : "/branch/requests");
+}
+
+/** Admin or Branch Manager: put an employee in one of the company-wide departments. */
+export async function assignDepartmentAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireRole(["ADMIN", "SUPER_ADMIN", "BRANCH_MANAGER", "HR_MANAGER"]);
+
+  const id = Number(formData.get("employeeId"));
+  const departmentId = Number(formData.get("departmentId"));
+
+  if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown employee." };
+  if (!Number.isInteger(departmentId) || departmentId <= 0) {
+    return { status: "error", message: "Choose a department.", fieldErrors: { departmentId: ["Required"] } };
+  }
+
+  try {
+    await assignEmployeeDepartment(id, departmentId);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin/employees", "layout");
+  revalidatePath("/branch/team", "layout");
+  return { status: "success", data: undefined };
+}
+
+/** Admin: end an employee's employment. */
+export async function terminateStaffAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("employee:write");
+
+  const id = Number(formData.get("employeeId"));
+  if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown employee." };
+
+  try {
+    await terminateEmployee(id);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin/employees", "layout");
+  return { status: "success", data: undefined };
+}

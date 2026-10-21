@@ -4,9 +4,15 @@
  * Mirrors `entity/auth/Role.java` exactly. The `users.role` column is a single
  * VARCHAR(30), so a user holds exactly one role.
  *
- * Related: security/AccessGuard, security/CustomUserDetailsService
+ * The business runs on SIX dashboards:
+ *   Admin · Branch Manager · Agent · Back Office · Payroll · Accounts Office
+ * Admin also holds everything Super Admin could do (the backend grants that through a role
+ * hierarchy), and the Finance Officer role is presented as "Accounts Office". HR Manager,
+ * Auditor and Employee remain valid roles so existing accounts keep working, but they are no
+ * longer part of the way the business is organised and are not offered when creating users.
+ *
+ * Related: security/AccessGuard, security/CustomUserDetailsService, security/RoleHierarchyConfig
  */
-
 export const ROLES = [
   "SUPER_ADMIN",
   "ADMIN",
@@ -17,6 +23,7 @@ export const ROLES = [
   "EMPLOYEE",
   "FINANCE_OFFICER",
   "AUDITOR",
+  "BACK_OFFICE",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -24,6 +31,16 @@ export type Role = (typeof ROLES)[number];
 export function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value);
 }
+
+/** The roles the business actually uses — what a user can be created as. */
+export const ACTIVE_ROLES = [
+  "ADMIN",
+  "BRANCH_MANAGER",
+  "AGENT",
+  "BACK_OFFICE",
+  "PAYROLL_OFFICER",
+  "FINANCE_OFFICER",
+] as const satisfies readonly Role[];
 
 /**
  * Which login surface a principal authenticates through.
@@ -47,6 +64,7 @@ export const ROLE_PRINCIPAL: Record<Role, PrincipalType> = {
   EMPLOYEE: "EMPLOYEE",
   FINANCE_OFFICER: "STAFF",
   AUDITOR: "STAFF",
+  BACK_OFFICE: "STAFF",
 };
 
 /** Where to send an unauthenticated principal of each type. */
@@ -76,6 +94,7 @@ export const ROLE_NAMESPACE: Record<Role, string> = {
   EMPLOYEE: "/me",
   FINANCE_OFFICER: "/finance",
   AUDITOR: "/audit",
+  BACK_OFFICE: "/backoffice",
 };
 
 /** Landing route after a successful login. */
@@ -89,26 +108,28 @@ export const ROLE_HOME: Record<Role, string> = {
   EMPLOYEE: "/me/dashboard",
   FINANCE_OFFICER: "/finance/dashboard",
   AUDITOR: "/audit/dashboard",
+  BACK_OFFICE: "/backoffice/dashboard",
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
-  SUPER_ADMIN: "Super Admin",
+  SUPER_ADMIN: "Administrator",
   ADMIN: "Administrator",
   HR_MANAGER: "HR Manager",
   PAYROLL_OFFICER: "Payroll Officer",
   BRANCH_MANAGER: "Branch Manager",
   AGENT: "Agent",
   EMPLOYEE: "Employee",
-  FINANCE_OFFICER: "Finance Officer",
+  FINANCE_OFFICER: "Accounts Office",
   AUDITOR: "Auditor",
+  BACK_OFFICE: "Back Office",
 };
 
 /**
  * Permissions named `<module>:<action>`, mirroring the backend module layout.
  * Suffixes narrow the data scope:
- *   :self   — only the caller's own rows
- *   :branch — rows within users.branch_id
- *   :team   — rows the caller manages
+ *   :self    only the caller's own rows
+ *   :branch  rows within users.branch_id
+ *   :team    rows the caller manages
  *
  * This drives menu visibility and optimistic UI only. The Spring AccessGuard
  * stays authoritative on every request.
@@ -118,9 +139,12 @@ export const PERMISSIONS = [
   "branch:read", "branch:read:own", "branch:write",
   "department:read", "department:write",
   "employee:read", "employee:read:branch", "employee:read:self", "employee:write",
+  "employee:request",
   "employee:document:read", "employee:document:write",
   "attendance:read", "attendance:read:branch", "attendance:read:self", "attendance:write",
   "biometric:read", "biometric:enroll", "biometric:device:manage",
+  "dayswork:read",
+  "damage:read", "damage:record",
   "shift:read", "shift:read:branch", "shift:read:self", "shift:write", "shift:assign",
   "leave:read", "leave:read:branch", "leave:read:self",
   "leave:request", "leave:approve:manager", "leave:approve:hr", "leave:type:manage",
@@ -141,49 +165,45 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
-  /** Platform owner: multi-company, system config, no day-to-day HR. */
-  SUPER_ADMIN: [
+  /**
+   * Admin — the top role. Everything Super Admin could do (company, settings, users, history
+   * log, branches, departments, devices) plus day-to-day running: adding employees directly,
+   * approving requests from Branch Managers and Agents, approving loans and advances.
+   */
+  ADMIN: [
     "company:read", "company:write", "company:settings",
     "branch:read", "branch:write",
     "department:read", "department:write",
-    // Attendance read is here because the platform owner owns the
-    // company-wide attendance board at /admin/attendance and the backend's
-    // `AttendanceDashboardController.VIEW_ROLES` includes SUPER_ADMIN. Without
-    // it the DAL gate bounces SUPER_ADMIN off a page built for them.
-    "attendance:read",
-    // The same reasoning covers these two reads, and both were omissions
-    // rather than policy. `/admin/agents` is in the platform owner's rail and
-    // the backend's `GET /agents` is
-    // `hasAnyRole('SUPER_ADMIN', 'ADMIN', 'PAYROLL_OFFICER')` — omitting the
-    // permission here bounced SUPER_ADMIN off a page the API serves them. The
-    // /admin dashboard's headcount tile reads
-    // `GET /employees/by-branch/{id}`, whose `@PreAuthorize` likewise lists
-    // SUPER_ADMIN.
-    //
-    // Reads only: the `:write` counterparts stay out, so the "no day-to-day HR"
-    // intent above still holds — oversight without operational control.
-    "agent:read",
-    "employee:read",
-    "biometric:device:manage",
-    "report:read", "audit:read", "user:manage", "settings:manage",
-    "notification:read:self",
-  ],
-
-  /** Company-wide administrator. */
-  ADMIN: [
-    "company:read", "company:settings",
-    "branch:read", "branch:write",
-    "department:read", "department:write",
-    "employee:read", "employee:write", "employee:document:read",
-    "attendance:read", "biometric:read", "biometric:device:manage",
-    "shift:read", "leave:read", "loan:read",
-    "agent:read", "agent:write", "agentadvance:read",
+    "employee:read", "employee:write", "employee:document:read", "employee:document:write",
+    "attendance:read", "attendance:write",
+    "biometric:read", "biometric:enroll", "biometric:device:manage",
+    "shift:read", "shift:write", "shift:assign",
+    "leave:read", "leave:approve:hr", "leave:type:manage",
+    "loan:read", "loan:approve", "loan:repayment:read",
+    "agent:read", "agent:write",
+    "agentadvance:read", "agentadvance:approve",
     "payroll:read", "payroll:approve", "payslip:read", "agentsummary:read", "invoice:read",
     "report:read", "audit:read", "user:manage", "settings:manage",
     "notification:read:self",
   ],
-
-  /** People operations: staff records, time, leave. */
+  /** Legacy platform-owner role — identical to Admin; kept so existing accounts keep working. */
+  SUPER_ADMIN: [
+    "company:read", "company:write", "company:settings",
+    "branch:read", "branch:write",
+    "department:read", "department:write",
+    "employee:read", "employee:write", "employee:document:read", "employee:document:write",
+    "attendance:read", "attendance:write",
+    "biometric:read", "biometric:enroll", "biometric:device:manage",
+    "shift:read", "shift:write", "shift:assign",
+    "leave:read", "leave:approve:hr", "leave:type:manage",
+    "loan:read", "loan:approve", "loan:repayment:read",
+    "agent:read", "agent:write",
+    "agentadvance:read", "agentadvance:approve",
+    "payroll:read", "payroll:approve", "payslip:read", "agentsummary:read", "invoice:read",
+    "report:read", "audit:read", "user:manage", "settings:manage",
+    "notification:read:self",
+  ],
+  /** Legacy people-operations role; its duties now sit with Admin and Branch Manager. */
   HR_MANAGER: [
     "branch:read", "department:read", "department:write",
     "employee:read", "employee:write",
@@ -198,11 +218,10 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "report:read",
     "notification:read:self",
   ],
-
-  /** Runs payroll batches; approves loans and agent advances. */
+  /** Runs payroll; applies loan and damage deductions; approves loans and agent advances. */
   PAYROLL_OFFICER: [
     "branch:read", "department:read",
-    "employee:read", "attendance:read",
+    "employee:read", "attendance:read", "dayswork:read", "damage:read",
     "loan:read", "loan:approve", "loan:repayment:read",
     "agent:read", "agentadvance:read", "agentadvance:approve",
     "payroll:read", "payroll:run",
@@ -210,28 +229,27 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "report:read",
     "notification:read:self",
   ],
-
-  /** Scoped to users.branch_id — first-stage leave approver. */
+  /** Scoped to users.branch_id — manages that branch's employees and submits new ones. */
   BRANCH_MANAGER: [
     "branch:read:own", "department:read",
-    "employee:read:branch",
+    "employee:read:branch", "employee:request",
     "attendance:read:branch", "attendance:write",
     "shift:read:branch", "shift:assign",
     "leave:read:branch", "leave:approve:manager",
     "report:read:branch",
     "notification:read:self",
   ],
-
-  /** External supplier of outsourced staff (employees.agent_id). */
+  /** Supplies and pays outsourced staff (employees.agent_id). */
   AGENT: [
     "agent:read:self",
+    "employee:request",
+    "loan:request",
     "agentadvance:read:self", "agentadvance:request",
     "agentsummary:read:self", "invoice:read:self",
     "report:read:self",
     "notification:read:self",
   ],
-
-  /** Self-service only. */
+  /** Legacy self-service role — employees no longer sign in; kept so existing accounts keep working. */
   EMPLOYEE: [
     "employee:read:self",
     "attendance:read:self",
@@ -242,19 +260,17 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "report:read:self",
     "notification:read:self",
   ],
-
-  /** Money out: disbursement, statutory remittance, agent invoices. */
+  /** Accounts Office: money out — disbursement, statutory remittance, agent invoices. */
   FINANCE_OFFICER: [
     "branch:read", "company:read",
     "payroll:read", "payslip:read",
     "agentsummary:read", "invoice:read",
     "loan:read", "loan:repayment:read",
     "agentadvance:read",
-    "report:read",
+    "report:read", "audit:read",
     "notification:read:self",
   ],
-
-  /** Read-only across the board. Never mutates. */
+  /** Legacy read-only role — its history-log duty now sits with Admin and the Accounts Office. */
   AUDITOR: [
     "company:read", "branch:read", "department:read",
     "employee:read", "attendance:read", "shift:read",
@@ -262,6 +278,20 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "agent:read", "agentadvance:read",
     "payroll:read", "payslip:read", "agentsummary:read", "invoice:read",
     "report:read", "audit:read",
+    "notification:read:self",
+  ],
+  /**
+   * Back Office: runs the clock-in/out desktop application and the biometric devices, records
+   * how many days each employee reports to work (payroll's input), and records damages.
+   */
+  BACK_OFFICE: [
+    "branch:read",
+    "employee:read",
+    "attendance:read", "attendance:write",
+    "biometric:read", "biometric:enroll", "biometric:device:manage",
+    "dayswork:read",
+    "damage:read", "damage:record",
+    "report:read",
     "notification:read:self",
   ],
 };

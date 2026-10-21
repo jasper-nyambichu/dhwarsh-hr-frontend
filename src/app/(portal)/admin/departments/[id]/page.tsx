@@ -14,7 +14,7 @@ import { formatNumber } from "@/lib/format";
 
 import { DepartmentForm } from "../_components/department-form";
 
-/** Edit a department and see who works in it. `id` is the department id. */
+/** Edit a department and see who works in it, across every branch. */
 export default async function DepartmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("department:write");
 
@@ -23,60 +23,44 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
   if (!Number.isInteger(departmentId) || departmentId <= 0) notFound();
 
   let department: Awaited<ReturnType<typeof getDepartment>>;
-  let branches: Awaited<ReturnType<typeof getBranches>>;
   let staff: Awaited<ReturnType<typeof getEmployeesByDepartment>>;
+  let people: { id: number; name: string }[];
   try {
-    [department, branches, staff] = await Promise.all([
+    const [found, members, branches] = await Promise.all([
       getDepartment(departmentId),
-      getBranches(),
       getEmployeesByDepartment(departmentId),
+      getBranches(),
     ]);
+    department = found;
+    staff = members;
+
+    const results = await Promise.allSettled(branches.map((branch) => getEmployeesByBranch(branch.id)));
+    people = results
+      .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
+      .filter((employee) => employee.employmentStatus === "ACTIVE" || employee.id === found.headOfDepartmentId)
+      .map((employee) => ({ id: employee.id, name: `${employee.fullName} (${employee.employeeNumber})` }));
   } catch (error) {
     if (error instanceof ApiError && error.isNotFound) notFound();
-    return (
-      <DataUnavailable
-        title="Department"
-        subject="This department"
-        reason={error instanceof ApiError ? error.message : undefined}
-      />
-    );
+    return <DataUnavailable title="Department" subject="This department" reason={error instanceof ApiError ? error.message : undefined} />;
   }
-
-  const usable = branches.filter((branch) => branch.status === "ACTIVE" || branch.id === department.branchId);
-  const results = await Promise.allSettled(usable.map((branch) => getEmployeesByBranch(branch.id)));
-  const headsByBranch: Record<number, { id: number; name: string }[]> = {};
-  usable.forEach((branch, index) => {
-    const result = results[index];
-    headsByBranch[branch.id] =
-      result?.status === "fulfilled"
-        ? result.value
-            .filter((employee) => employee.employmentStatus === "ACTIVE" || employee.id === department.headOfDepartmentId)
-            .map((employee) => ({ id: employee.id, name: `${employee.fullName} (${employee.employeeNumber})` }))
-        : [];
-  });
 
   return (
     <>
-      <PageHeader title={department.name} description={`${department.branchName ?? "Branch"} · ${formatNumber(staff.length)} employee${staff.length === 1 ? "" : "s"}`} />
+      <PageHeader title={department.name} description={`${formatNumber(staff.length)} employee${staff.length === 1 ? "" : "s"} across all branches`} />
 
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-gutter">
-        <DepartmentForm
-          mode="edit"
-          initial={department}
-          branches={usable.map((branch) => ({ id: branch.id, name: branch.name }))}
-          headsByBranch={headsByBranch}
-        />
+        <DepartmentForm mode="edit" initial={department} people={people} />
 
         <BentoCard title="Employees in this department">
           {staff.length === 0 ? (
-            <EmptyState symbol="group_off" title="Nobody assigned yet" description="HR assigns employees to a department when adding or editing them." />
+            <EmptyState symbol="group_off" title="Nobody assigned yet" description="Branch Managers assign employees to departments." />
           ) : (
             <div className="w-full overflow-x-auto">
               <table className="w-full border-collapse text-left font-body-md text-body-md">
                 <thead>
                   <tr className="border-b border-outline-variant/50 font-table-header text-table-header uppercase text-outline">
                     <th className="pb-3">Employee</th>
-                    <th className="pb-3">Position</th>
+                    <th className="pb-3">Branch</th>
                     <th className="pb-3 text-right">Status</th>
                   </tr>
                 </thead>
@@ -87,7 +71,7 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
                         <span className="block font-semibold text-on-surface">{person.fullName}</span>
                         <span className="block font-mono text-[11px] text-outline">{person.employeeNumber}</span>
                       </td>
-                      <td className="py-3 text-on-surface-variant">{person.position ?? "—"}</td>
+                      <td className="py-3 text-on-surface-variant">{person.branchName ?? "—"}</td>
                       <td className="py-3 text-right"><StatusBadge status={person.employmentStatus} /></td>
                     </tr>
                   ))}

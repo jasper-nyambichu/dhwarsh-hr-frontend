@@ -17,21 +17,16 @@ type Parsed = { ok: true; input: DepartmentInput } | { ok: false; state: ActionS
 
 function readDepartment(formData: FormData): Parsed {
   const name = String(formData.get("name") ?? "").trim();
-  const branchId = Number(formData.get("branchId"));
   const head = String(formData.get("headOfDepartmentId") ?? "").trim();
-  const fieldErrors: Record<string, string[]> = {};
 
-  if (!name) fieldErrors.name = ["Required"];
-  if (!Number.isInteger(branchId) || branchId <= 0) fieldErrors.branchId = ["Choose a branch"];
-
-  if (Object.keys(fieldErrors).length > 0) {
-    return { ok: false, state: { status: "error", message: "Check the fields below.", fieldErrors } };
+  if (!name) {
+    return {
+      ok: false,
+      state: { status: "error", message: "Check the fields below.", fieldErrors: { name: ["Required"] } },
+    };
   }
 
-  return {
-    ok: true,
-    input: { name, branchId, headOfDepartmentId: head ? Number(head) : undefined },
-  };
+  return { ok: true, input: { name, headOfDepartmentId: head ? Number(head) : undefined } };
 }
 
 export async function createDepartmentAction(
@@ -49,7 +44,7 @@ export async function createDepartmentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/departments");
+  revalidatePath("/admin/departments", "layout");
   redirect("/admin/departments");
 }
 
@@ -71,12 +66,11 @@ export async function updateDepartmentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/departments");
-  revalidatePath(`/admin/departments/${id}`);
+  revalidatePath("/admin/departments", "layout");
   return { status: "success", data: undefined };
 }
 
-/** Admin / Super Admin only. The backend refuses while employees are still assigned. */
+/** Admin only. The backend refuses while employees are still assigned. */
 export async function deleteDepartmentAction(
   _previous: ActionState,
   formData: FormData,
@@ -92,6 +86,6 @@ export async function deleteDepartmentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/departments");
+  revalidatePath("/admin/departments", "layout");
   return { status: "success", data: undefined };
 }
