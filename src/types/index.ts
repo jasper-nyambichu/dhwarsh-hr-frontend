@@ -761,11 +761,16 @@ export type BranchResponse = {
   status: Status;
 };
 
-/** `dto/response/department/DepartmentResponse`. */
+/**
+ * `dto/response/department/DepartmentResponse`.
+ *
+ * Departments are company-wide (`departments.branch_id` is no longer used), so the
+ * backend can return a null `branchId`. Kept in sync with `CompanyDepartment`.
+ */
 export type DepartmentResponse = {
   id: number;
   name: string;
-  branchId: number;
+  branchId: number | null;
   branchName: string | null;
   headOfDepartmentId: number | null;
   headOfDepartmentName: string | null;
