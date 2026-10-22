@@ -1,130 +1,126 @@
-// src/app/(portal)/branch/roster/page.tsx
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { Icon } from "@/components/ui/icon";
+import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { getMyBranch } from "@/lib/api/branch";
+import { getDepartments } from "@/lib/api/department";
+import { getEmployeesByBranch } from "@/lib/api/employee";
+import { getShiftAssignmentsForBranch, getShifts } from "@/lib/api/shift";
+import { humanizeEnum } from "@/lib/format";
 
-/**
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — swap for `await api.get<RosterRow[]>("/branch/roster")`.
- * Drag-and-drop reassignment is NOT wired yet — chips are display-only.
- * ─────────────────────────────────────────────────────────────────────────
- */
-type ShiftKind = "Morning" | "Evening" | "Night" | "Off";
+import { AssignShiftForm } from "./_components/assign-shift-form";
 
-interface Shift {
-  kind: ShiftKind;
-  time?: string;
+function hhmm(value: string | null): string {
+  return value ? value.slice(0, 5) : "—";
 }
 
-interface RosterRow {
-  employeeName: string;
-  days: Shift[]; // 7 entries, Mon–Sun
-}
+/** The branch's shifts and who is on which one — and assigning a shift to one employee or the whole branch. */
+export default async function BranchRosterPage() {
+  await requirePermission("shift:read:branch");
 
-const DAYS = ["MON 23", "TUE 24", "WED 25", "THU 26", "FRI 27", "SAT 28", "SUN 29"];
-
-const ROSTER: RosterRow[] = [
-  {
-    employeeName: "Alice Johnson",
-    days: [
-      { kind: "Morning", time: "08:00 - 16:00" },
-      { kind: "Morning", time: "08:00 - 16:00" },
-      { kind: "Evening", time: "15:00 - 23:00" },
-      { kind: "Off" },
-      { kind: "Morning", time: "08:00 - 16:00" },
-      { kind: "Off" },
-      { kind: "Off" },
-    ],
-  },
-  {
-    employeeName: "Bob Smith",
-    days: [
-      { kind: "Evening", time: "15:00 - 23:00" },
-      { kind: "Off" },
-      { kind: "Morning", time: "08:00 - 16:00" },
-      { kind: "Evening", time: "15:00 - 23:00" },
-      { kind: "Evening", time: "15:00 - 23:00" },
-      { kind: "Night", time: "23:00 - 07:00" },
-      { kind: "Night", time: "23:00 - 07:00" },
-    ],
-  },
-];
-
-function chipClass(kind: ShiftKind) {
-  switch (kind) {
-    case "Morning":
-      return "bg-primary-container/10 border-primary-container/20 text-on-primary-fixed-variant";
-    case "Evening":
-      return "bg-tertiary-container/10 border-tertiary-container/20 text-tertiary";
-    case "Night":
-      return "bg-secondary-container/30 border-secondary/20 text-secondary";
-    default:
-      return "bg-surface-variant/30 border-outline-variant/30 border-dashed text-on-surface-variant justify-center";
+  let data: {
+    branch: Awaited<ReturnType<typeof getMyBranch>>;
+    shifts: Awaited<ReturnType<typeof getShifts>>;
+    assignments: Awaited<ReturnType<typeof getShiftAssignmentsForBranch>>;
+    employees: Awaited<ReturnType<typeof getEmployeesByBranch>>;
+    departments: Awaited<ReturnType<typeof getDepartments>>;
+  };
+  try {
+    const branch = await getMyBranch();
+    const [shifts, assignments, employees, departments] = await Promise.all([
+      getShifts(),
+      getShiftAssignmentsForBranch(branch.id),
+      getEmployeesByBranch(branch.id),
+      getDepartments(),
+    ]);
+    data = { branch, shifts, assignments, employees, departments };
+  } catch (error) {
+    return (
+      <DataUnavailable
+        title="Roster"
+        subject="Your roster"
+        reason={error instanceof ApiError ? error.message : "Your account may not be assigned to a branch yet — ask an Admin."}
+      />
+    );
   }
-}
 
-export default async function WeeklyRosterPage() {
-  await requirePermission("shift:assign");
+  const employeeNames = new Map(data.employees.map((person) => [person.id, person.fullName]));
+  const departmentNames = new Map(data.departments.map((department) => [department.id, department.name]));
+
+  const target = (assignment: (typeof data.assignments)[number]): string => {
+    if (assignment.employeeId) return employeeNames.get(assignment.employeeId) ?? `Employee #${assignment.employeeId}`;
+    if (assignment.departmentId) return `${departmentNames.get(assignment.departmentId) ?? "Department"} (all branches)`;
+    return `Whole branch — ${data.branch.name}`;
+  };
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-1 text-xl font-bold text-on-surface">Weekly Roster: Downtown Branch</h1>
-          <p className="text-xs text-on-surface-variant">Oct 23 - Oct 29, 2023</p>
-        </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-1 rounded-md border border-outline-variant px-3 py-1.5 text-sm font-medium transition hover:bg-surface-variant">
-            <Icon name="chevron_left" className="text-sm" />
-            Prev
-          </button>
-          <button className="flex items-center gap-1 rounded-md border border-outline-variant px-3 py-1.5 text-sm font-medium transition hover:bg-surface-variant">
-            Next
-            <Icon name="chevron_right" className="text-sm" />
-          </button>
-        </div>
-      </div>
+      <PageHeader title="Roster" description={`Shifts for ${data.branch.name}.`} />
 
-      <div className="overflow-hidden rounded-2xl bg-white shadow-ambient-1">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-[#E9EFF5] bg-surface/50">
-                <th className="sticky left-0 z-10 w-48 bg-surface/90 p-4 text-[10px] font-semibold uppercase text-on-surface-variant backdrop-blur">
-                  Employee
-                </th>
-                {DAYS.map((d) => (
-                  <th key={d} className="min-w-[140px] p-4 text-center text-[10px] font-semibold uppercase text-on-surface-variant">
-                    {d}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#E9EFF5] text-sm">
-              {ROSTER.map((row) => (
-                <tr key={row.employeeName} className="transition-colors hover:bg-surface-variant/20">
-                  <td className="sticky left-0 z-10 bg-surface-container-lowest/90 p-4 font-medium backdrop-blur">{row.employeeName}</td>
-                  {row.days.map((shift, i) => (
-                    <td key={i} className="p-2">
-                      <div className={`flex min-h-[58px] items-center gap-2 rounded-md border p-2 ${chipClass(shift.kind)}`}>
-                        {shift.kind !== "Off" ? (
-                          <>
-                            <Icon name="drag_indicator" className="cursor-grab text-sm text-outline-variant" />
-                            <div className="flex-1 text-center font-medium">
-                              {shift.kind}
-                              <br />
-                              <span className="text-[10px] font-normal text-on-surface-variant">{shift.time}</span>
-                            </div>
-                          </>
-                        ) : (
-                          <span className="text-xs font-medium">OFF</span>
-                        )}
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+      <div className="grid grid-cols-12 gap-gutter">
+        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
+          <BentoCard title="Who is on which shift">
+            {data.assignments.length === 0 ? (
+              <EmptyState symbol="calendar_month" title="No shifts assigned yet" description="Assign a shift to an employee or the whole branch." />
+            ) : (
+              <div className="w-full overflow-x-auto">
+                <table className="data-table w-full min-w-[420px] border-collapse text-left">
+                  <thead>
+                    <tr>
+                      <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">For</th>
+                      <th className="pb-3 pr-2 font-table-header text-table-header uppercase text-outline">Shift</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-body-md text-body-md text-on-surface">
+                    {data.assignments.map((assignment) => (
+                      <tr key={assignment.id} className="border-b border-outline-variant/20 last:border-0">
+                        <td className="py-3 pl-2 font-semibold">{target(assignment)}</td>
+                        <td className="py-3 pr-2 text-on-surface-variant">{assignment.shiftName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </BentoCard>
+
+          <BentoCard title="Shifts" subtitle="Defined by the Admin">
+            {data.shifts.length === 0 ? (
+              <p className="py-2 text-sm text-on-surface-variant">No shifts defined yet.</p>
+            ) : (
+              <div className="w-full overflow-x-auto">
+                <table className="data-table w-full min-w-[420px] border-collapse text-left">
+                  <thead>
+                    <tr>
+                      <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Name</th>
+                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">Type</th>
+                      <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Hours</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-body-md text-body-md text-on-surface">
+                    {data.shifts.map((shift) => (
+                      <tr key={shift.id} className="border-b border-outline-variant/20 last:border-0">
+                        <td className="py-3 pl-2 font-semibold">{shift.name}</td>
+                        <td className="py-3 text-on-surface-variant">{humanizeEnum(shift.type)}</td>
+                        <td className="py-3 pr-2 text-right tabular-nums text-on-surface-variant">{hhmm(shift.startTime)} – {hhmm(shift.endTime)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </BentoCard>
+        </div>
+
+        <div className="col-span-12 lg:col-span-4">
+          <AssignShiftForm
+            shifts={data.shifts.map((shift) => ({ id: shift.id, label: `${shift.name} (${hhmm(shift.startTime)}–${hhmm(shift.endTime)})` }))}
+            employees={data.employees
+              .filter((person) => person.employmentStatus === "ACTIVE")
+              .map((person) => ({ id: person.id, name: `${person.fullName} (${person.employeeNumber})` }))}
+          />
         </div>
       </div>
     </>

@@ -33,6 +33,7 @@ const ADMIN_NAV: readonly NavItem[] = [
   { title: "Dashboard", href: "/admin/dashboard", icon: "dashboard" },
   { title: "Employees", href: "/admin/employees", icon: "group" },
   { title: "Approvals", href: "/admin/employee-requests", icon: "fact_check" },
+  { title: "Leave", href: "/admin/leave", icon: "event_available" },
   { title: "Attendance", href: "/admin/attendance", icon: "schedule" },
   { title: "Branches", href: "/admin/branches", icon: "account_balance" },
   { title: "Departments", href: "/admin/departments", icon: "workspaces" },

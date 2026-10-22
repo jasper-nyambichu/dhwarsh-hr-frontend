@@ -1,44 +1,75 @@
-// src/app/(portal)/branch/approvals/page.tsx
+import { differenceInCalendarDays, parseISO } from "date-fns";
+
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { ApprovalQueue, type ApprovalRequest } from "@/components/features/branch/approval-queue";
+import { LeaveDecisionForm } from "@/components/features/leave/leave-decision-form";
+import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
+import { PageHeader } from "@/components/shared/page-header";
+import { getPendingManagerApprovals } from "@/lib/api/leave";
+import { formatDateRange } from "@/lib/format";
 
-/**
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — swap for `await api.get<ApprovalRequest[]>("/branch/approvals")`.
- * Approve/Reject buttons currently just remove the card locally — wire to
- * `POST /branch/approvals/{id}/approve` and `/reject` when ready.
- * ─────────────────────────────────────────────────────────────────────────
- */
-const REQUESTS: ApprovalRequest[] = [
-  { id: "1", employeeName: "Sarah Jenkins", avatarUrl: "/avatars/sarah.jpg", type: "Leave", detailIcon: "event", detailText: "Annual Leave: 3 days (Oct 12 - Oct 14)", submittedAt: "Submitted 2 hours ago" },
-  { id: "2", employeeName: "David Ochieng", avatarUrl: "/avatars/david-o.jpg", type: "Overtime", detailIcon: "schedule", detailText: "Weekend Shift: 6 hours (Project Delta Delivery)", submittedAt: "Submitted yesterday" },
-  { id: "3", employeeName: "Mercy Njoroge", initials: "MN", type: "Advance", detailIcon: "payments", detailText: "Salary Advance: KES 15,000 (Medical Emergency)", submittedAt: "", highPriority: true },
-  { id: "4", employeeName: "James Kamau", avatarUrl: "/avatars/james.jpg", type: "Leave", detailIcon: "sick", detailText: "Sick Leave: 2 days (Recovering from flu)", submittedAt: "Submitted 3 days ago" },
-];
+function days(start: string, end: string): number {
+  try {
+    return differenceInCalendarDays(parseISO(end), parseISO(start)) + 1;
+  } catch {
+    return 0;
+  }
+}
 
-export default async function ApprovalsPage() {
+/** Leave requests from this branch's employees. Approving passes them to the Admin for the final decision. */
+export default async function BranchApprovalsPage() {
   await requirePermission("leave:approve:manager");
 
-  return (
-    <div className="mx-auto max-w-5xl">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-1 text-xl font-bold text-on-surface">Approval Queue</h1>
-          <p className="text-sm text-on-surface-variant">Review and manage pending requests from your branch team.</p>
-        </div>
-        <div className="flex gap-2">
-          <button className="flex items-center gap-1 rounded-md border border-outline-variant/50 bg-white px-3 py-1.5 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-low">
-            <span className="material-symbols-outlined text-[18px]">filter_list</span>
-            Filter
-          </button>
-          <button className="flex items-center gap-1 rounded-md border border-outline-variant/50 bg-white px-3 py-1.5 text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container-low">
-            <span className="material-symbols-outlined text-[18px]">sort</span>
-            Sort
-          </button>
-        </div>
-      </div>
+  let pending: Awaited<ReturnType<typeof getPendingManagerApprovals>>;
+  try {
+    pending = await getPendingManagerApprovals();
+  } catch (error) {
+    return <DataUnavailable title="Approvals" subject="The leave queue" reason={error instanceof ApiError ? error.message : undefined} />;
+  }
 
-      <ApprovalQueue requests={REQUESTS} />
-    </div>
+  return (
+    <>
+      <PageHeader title="Approvals" description="Leave requests from your branch's employees." />
+
+      <BentoCard title="Awaiting your decision" subtitle={`${pending.length} request${pending.length === 1 ? "" : "s"}`}>
+        {pending.length === 0 ? (
+          <EmptyState symbol="task_alt" title="All caught up" description="New leave requests from your branch appear here." />
+        ) : (
+          <div className="w-full overflow-x-auto">
+            <table className="data-table w-full min-w-[720px] border-collapse text-left">
+              <thead>
+                <tr>
+                  <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Employee</th>
+                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Leave</th>
+                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Dates</th>
+                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Reason</th>
+                  <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Decision</th>
+                </tr>
+              </thead>
+              <tbody className="font-body-md text-body-md text-on-surface">
+                {pending.map((request) => (
+                  <tr key={request.id} className="border-b border-outline-variant/20 align-top last:border-0">
+                    <td className="py-3 pl-2 font-semibold">{request.employeeName ?? `Employee #${request.employeeId}`}</td>
+                    <td className="py-3 text-on-surface-variant">{request.leaveTypeName ?? "Leave"}</td>
+                    <td className="py-3 text-on-surface-variant">
+                      {formatDateRange(request.startDate, request.endDate)}
+                      <span className="block text-[11px] text-outline">{days(request.startDate, request.endDate)} day(s)</span>
+                    </td>
+                    <td className="max-w-xs py-3 text-on-surface-variant">{request.reason?.trim() || "—"}</td>
+                    <td className="py-3 pr-2">
+                      <div className="flex justify-end">
+                        <LeaveDecisionForm leaveRequestId={request.id} stage="manager" />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </BentoCard>
+    </>
   );
 }
