@@ -14,13 +14,6 @@ import {
 import { EMPLOYMENT_TYPES, type ActionState, type EmploymentType } from "@/types";
 import type { EmployeeEntryPayload } from "@/types/staff";
 
-/**
- * TRANSITIONAL: the current payroll engine still reads a monthly figure from the employee record.
- * Until the days-worked × daily-rate model replaces it (Phase 4), new staff get 30 days × KES 1,000
- * so their payslips are not zero. It is not asked for on the forms and is not an agreed salary.
- */
-const TRANSITIONAL_MONTHLY_PAY = 30000;
-
 function text(formData: FormData, name: string): string | undefined {
   const value = String(formData.get(name) ?? "").trim();
   return value === "" ? undefined : value;
@@ -63,7 +56,6 @@ function readEmployee(formData: FormData): Parsed {
       agentId: agent ? Number(agent) : undefined,
       position: text(formData, "position"),
       employmentType: employmentType as EmploymentType,
-      basicSalary: TRANSITIONAL_MONTHLY_PAY,
       dateHired: text(formData, "dateHired"),
       // Pay goes out by M-Pesa for now, so the "bank" details are the M-Pesa number.
       bankName: mpesa ? "M-PESA" : undefined,
@@ -95,7 +87,11 @@ export async function addEmployeeAction(
   redirect(`/admin/employees/${employeeId}`);
 }
 
-/** Branch Manager / Agent: propose an employee. Nothing exists until an Admin approves. */
+/**
+ * Branch Manager / Agent: propose an employee. Nothing exists until an Admin approves.
+ *
+ * Lands on "My requests" with `?sent=1`, which shows a clear "request sent" confirmation above the list.
+ */
 export async function requestEmployeeAction(
   _previous: ActionState,
   formData: FormData,
@@ -113,7 +109,7 @@ export async function requestEmployeeAction(
 
   revalidatePath("/branch", "layout");
   revalidatePath("/agent", "layout");
-  redirect(session.role === "AGENT" ? "/agent/requests" : "/branch/requests");
+  redirect(session.role === "AGENT" ? "/agent/requests?sent=1" : "/branch/requests?sent=1");
 }
 
 /** Admin or Branch Manager: put an employee in one of the company-wide departments. */

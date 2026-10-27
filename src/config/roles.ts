@@ -143,7 +143,7 @@ export const PERMISSIONS = [
   "employee:document:read", "employee:document:write",
   "attendance:read", "attendance:read:branch", "attendance:read:self", "attendance:write",
   "biometric:read", "biometric:enroll", "biometric:device:manage",
-  "dayswork:read",
+  "dayswork:read", "dayswork:lock",
   "damage:read", "damage:record",
   "shift:read", "shift:read:branch", "shift:read:self", "shift:write", "shift:assign",
   "leave:read", "leave:read:branch", "leave:read:self",
@@ -177,6 +177,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "employee:read", "employee:write", "employee:document:read", "employee:document:write",
     "attendance:read", "attendance:write",
     "biometric:read", "biometric:enroll", "biometric:device:manage",
+    "dayswork:read", "damage:read",
     "shift:read", "shift:write", "shift:assign",
     "leave:read", "leave:approve:hr", "leave:type:manage",
     "loan:read", "loan:approve", "loan:repayment:read",
@@ -194,6 +195,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "employee:read", "employee:write", "employee:document:read", "employee:document:write",
     "attendance:read", "attendance:write",
     "biometric:read", "biometric:enroll", "biometric:device:manage",
+    "dayswork:read", "damage:read",
     "shift:read", "shift:write", "shift:assign",
     "leave:read", "leave:approve:hr", "leave:type:manage",
     "loan:read", "loan:approve", "loan:repayment:read",
@@ -266,7 +268,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "payroll:read", "payslip:read",
     "agentsummary:read", "invoice:read",
     "loan:read", "loan:repayment:read",
-    "agentadvance:read",
+    "agentadvance:read", "damage:read",
     "report:read", "audit:read",
     "notification:read:self",
   ],
@@ -283,13 +285,14 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   /**
    * Back Office: runs the clock-in/out desktop application and the biometric devices, records
    * how many days each employee reports to work (payroll's input), and records damages.
+   * All of that happens in the desktop application, not on the web.
    */
   BACK_OFFICE: [
     "branch:read",
     "employee:read",
     "attendance:read", "attendance:write",
     "biometric:read", "biometric:enroll", "biometric:device:manage",
-    "dayswork:read",
+    "dayswork:read", "dayswork:lock",
     "damage:read", "damage:record",
     "report:read",
     "notification:read:self",

@@ -7,6 +7,8 @@ import type { Role } from "@/config/roles";
  * the Accounts Office (the Finance Officer role). HR Manager, Auditor and Employee keep working
  * menus below so accounts created before this change still function, but nothing links to them.
  *
+ * The Back Office does its work in the desktop clock-in application, so its web menu stays minimal.
+ *
  * The Stitch shell is a 96px icon rail, not a 256px sidebar, so there is no
  * room for section headings — the tree is flat and the rail scrolls when a
  * role owns more routes than fit. Icons are Material Symbols ligatures
@@ -35,6 +37,7 @@ const ADMIN_NAV: readonly NavItem[] = [
   { title: "Approvals", href: "/admin/employee-requests", icon: "fact_check" },
   { title: "Leave", href: "/admin/leave", icon: "event_available" },
   { title: "Attendance", href: "/admin/attendance", icon: "schedule" },
+  { title: "Days Worked", href: "/admin/days-worked", icon: "date_range" },
   { title: "Branches", href: "/admin/branches", icon: "account_balance" },
   { title: "Departments", href: "/admin/departments", icon: "workspaces" },
   { title: "Agents", href: "/admin/agents", icon: "handshake" },
@@ -42,6 +45,7 @@ const ADMIN_NAV: readonly NavItem[] = [
   { title: "Users", href: "/admin/users", icon: "manage_accounts" },
   { title: "Devices", href: "/admin/devices", icon: "fingerprint" },
   { title: "Audit", href: "/admin/audit", icon: "policy" },
+  { title: "Pay Rates", href: "/admin/pay-settings", icon: "request_quote" },
   { title: "Settings", href: "/admin/settings", icon: "settings" },
 ];
 
@@ -77,6 +81,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
 
   PAYROLL_OFFICER: [
     { title: "Dashboard", href: "/payroll/dashboard", icon: "dashboard" },
+    { title: "Readiness", href: "/payroll/readiness", icon: "task_alt" },
     { title: "Runs", href: "/payroll/runs", icon: "payments" },
     { title: "Payslips", href: "/payroll/payslips", icon: "receipt_long" },
     { title: "Loans", href: "/payroll/loans", icon: "savings" },

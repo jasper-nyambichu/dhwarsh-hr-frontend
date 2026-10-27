@@ -13,7 +13,12 @@ export type CompanyDepartment = {
 /** `GET /agents/options` — enough to pick an agent on a form. */
 export type AgentOption = { id: number; name: string };
 
-/** The body of `POST /employees` and `POST /employee-requests` (`EmployeeRequest`). */
+/**
+ * The body of `POST /employees` and `POST /employee-requests` (`EmployeeRequest`).
+ *
+ * There is no salary: pay is worked out from the days the Back Office locks and the daily rate the
+ * Admin sets, so the forms no longer ask for one.
+ */
 export type EmployeeEntryPayload = {
   fullName: string;
   nationalId?: string;
@@ -26,7 +31,6 @@ export type EmployeeEntryPayload = {
   agentId?: number;
   position?: string;
   employmentType: EmploymentType;
-  basicSalary: number;
   dateHired?: string;
   bankName?: string;
   bankAccountNumber?: string;
