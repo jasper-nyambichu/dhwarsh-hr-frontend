@@ -151,6 +151,8 @@ export const PERMISSIONS = [
   "loan:read", "loan:read:self", "loan:request", "loan:approve", "loan:repayment:read",
   "agent:read", "agent:read:self", "agent:write",
   "agentadvance:read", "agentadvance:read:self", "agentadvance:request", "agentadvance:approve",
+  "paymentrequest:read", "paymentrequest:request", "paymentrequest:approve", "paymentrequest:release",
+  "employeepayment:record",
   "payroll:read", "payroll:run", "payroll:approve",
   "payslip:read", "payslip:read:self",
   "agentsummary:read", "agentsummary:read:self",
@@ -168,7 +170,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   /**
    * Admin — the top role. Everything Super Admin could do (company, settings, users, history
    * log, branches, departments, devices) plus day-to-day running: adding employees directly,
-   * approving requests from Branch Managers and Agents, approving loans and advances.
+   * approving requests from Branch Managers and Agents, approving loans, advances and payment requests.
    */
   ADMIN: [
     "company:read", "company:write", "company:settings",
@@ -183,6 +185,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "loan:read", "loan:approve", "loan:repayment:read",
     "agent:read", "agent:write",
     "agentadvance:read", "agentadvance:approve",
+    "paymentrequest:read", "paymentrequest:approve",
     "payroll:read", "payroll:approve", "payslip:read", "agentsummary:read", "invoice:read",
     "report:read", "audit:read", "user:manage", "settings:manage",
     "notification:read:self",
@@ -201,6 +204,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "loan:read", "loan:approve", "loan:repayment:read",
     "agent:read", "agent:write",
     "agentadvance:read", "agentadvance:approve",
+    "paymentrequest:read", "paymentrequest:approve",
     "payroll:read", "payroll:approve", "payslip:read", "agentsummary:read", "invoice:read",
     "report:read", "audit:read", "user:manage", "settings:manage",
     "notification:read:self",
@@ -226,6 +230,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "employee:read", "attendance:read", "dayswork:read", "damage:read",
     "loan:read", "loan:approve", "loan:repayment:read",
     "agent:read", "agentadvance:read", "agentadvance:approve",
+    "paymentrequest:read",
     "payroll:read", "payroll:run",
     "payslip:read", "agentsummary:read", "invoice:read",
     "report:read",
@@ -241,12 +246,13 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "report:read:branch",
     "notification:read:self",
   ],
-  /** Supplies and pays outsourced staff (employees.agent_id). */
+  /** Supplies and pays outsourced staff (employees.agent_id): asks for loans, advances and money, records M-Pesa payments. */
   AGENT: [
     "agent:read:self",
     "employee:request",
     "loan:request",
     "agentadvance:read:self", "agentadvance:request",
+    "paymentrequest:request", "employeepayment:record",
     "agentsummary:read:self", "invoice:read:self",
     "report:read:self",
     "notification:read:self",
@@ -262,13 +268,14 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "report:read:self",
     "notification:read:self",
   ],
-  /** Accounts Office: money out — disbursement, statutory remittance, agent invoices. */
+  /** Accounts Office: money out — releases approved payment requests, disbursement, statutory remittance, agent invoices. */
   FINANCE_OFFICER: [
     "branch:read", "company:read",
     "payroll:read", "payslip:read",
     "agentsummary:read", "invoice:read",
     "loan:read", "loan:repayment:read",
     "agentadvance:read", "damage:read",
+    "paymentrequest:read", "paymentrequest:release",
     "report:read", "audit:read",
     "notification:read:self",
   ],

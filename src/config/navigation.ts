@@ -35,6 +35,7 @@ const ADMIN_NAV: readonly NavItem[] = [
   { title: "Dashboard", href: "/admin/dashboard", icon: "dashboard" },
   { title: "Employees", href: "/admin/employees", icon: "group" },
   { title: "Approvals", href: "/admin/employee-requests", icon: "fact_check" },
+  { title: "Money Requests", href: "/admin/money-requests", icon: "price_check" },
   { title: "Leave", href: "/admin/leave", icon: "event_available" },
   { title: "Attendance", href: "/admin/attendance", icon: "schedule" },
   { title: "Days Worked", href: "/admin/days-worked", icon: "date_range" },
@@ -68,7 +69,9 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Requests", href: "/agent/requests", icon: "pending_actions" },
     { title: "Summaries", href: "/agent/summaries", icon: "summarize" },
     { title: "Invoices", href: "/agent/invoices", icon: "receipt_long" },
+    { title: "Loans", href: "/agent/loans", icon: "savings" },
     { title: "Advances", href: "/agent/advances", icon: "account_balance_wallet" },
+    { title: "Payments", href: "/agent/payments", icon: "payments" },
     { title: "Profile", href: "/agent/profile", icon: "account_circle" },
   ],
 
@@ -93,6 +96,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
   // The Accounts Office: payments out, statutory remittance, agent invoices, the history log.
   FINANCE_OFFICER: [
     { title: "Dashboard", href: "/finance/dashboard", icon: "dashboard" },
+    { title: "Releases", href: "/finance/releases", icon: "outbox" },
     { title: "Disbursements", href: "/finance/disbursements", icon: "payments" },
     { title: "Invoices", href: "/finance/invoices", icon: "receipt_long" },
     { title: "Statutory", href: "/finance/statutory", icon: "account_balance" },
