@@ -42,15 +42,21 @@ export type PayslipResponse = {
   employeeId: number;
   employeeName: string | null;
   employeeNumber: string | null;
+    /** Whole days locked by the Back Office for this pay period. 0 on payslips made before the days × rate model. */
+  daysWorked: number;
+  /** The daily rate in force for the run (KES per day). */
+  dailyRate: number | null;
+  /** Days worked × daily rate. */
   basicSalary: number;
   houseAllowance: number | null;
   transportAllowance: number | null;
   overtimePay: number | null;
   bonus: number | null;
   otherAllowances: number | null;
-  /** Already taken out of grossPay (approved unpaid leave). */
+  /** Retired: an unworked day is simply not paid. Only older payslips carry a value. */
   unpaidLeaveDeduction: number | null;
   grossPay: number;
+  /** SHIF and NSSF are set by the Admin and ADDED to pay; they are not taken out of netPay. */
   shifDeduction: number | null;
   nssfDeduction: number | null;
   housingLevyDeduction: number | null;
@@ -58,7 +64,11 @@ export type PayslipResponse = {
   /** Employer-borne levy: recorded for remittance, NOT deducted from netPay. */
   nitaDeduction: number | null;
   loanDeduction: number | null;
+  /** Approved damages deducted in this run. */
+  damageDeduction: number | null;
   otherDeductions: number | null;
+  /** grossPay + SHIF + NSSF. */
+  totalEmployeeSalary: number | null;
   netPay: number;
 };
 

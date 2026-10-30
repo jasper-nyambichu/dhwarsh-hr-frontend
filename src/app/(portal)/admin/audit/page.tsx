@@ -1,4 +1,4 @@
-import { requireRole } from "@/app/lib/dal";
+import { requirePermission } from "@/app/lib/dal";
 import { AuditLogView } from "@/components/features/audit/audit-log-view";
 
 export default async function AdminAuditPage({
@@ -6,6 +6,6 @@ export default async function AdminAuditPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requireRole(["SUPER_ADMIN"]);
+  await requirePermission("audit:read");
   return <AuditLogView searchParams={searchParams} basePath="/admin/audit" detailBasePath="/admin/audit" />;
 }
