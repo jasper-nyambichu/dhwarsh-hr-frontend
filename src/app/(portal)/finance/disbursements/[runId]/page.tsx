@@ -1,203 +1,139 @@
-// src/app/(portal)/finance/disbursements/[runId]/page.tsx
 import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { Icon } from "@/components/ui/icon";
+import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
+import { MetricCard } from "@/components/shared/metric-card";
+import { PageHeader } from "@/components/shared/page-header";
+import { getFinanceRun } from "@/lib/api/finance";
+import { getRunAgentSummaries } from "@/lib/api/payroll";
+import { agentStatutory, directStatutory, runPeriod } from "@/lib/finance-format";
+import { formatNumber, humanizeEnum } from "@/lib/format";
+import { formatKes } from "@/lib/money-format";
+import { RUN_STATUS_CHIP } from "@/lib/payroll-format";
 
-/**
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — swap for `await api.get<BatchDetail>(`/finance/disbursements/${runId}`)`.
- * ─────────────────────────────────────────────────────────────────────────
- */
-const BATCH = {
-  id: "BATCH-8924-OCT",
-  status: "Processing" as const,
-  description: "October 2023 Mid-Month Payroll Disbursements",
-  totalAmount: "4,250,000",
-  succeeded: 142,
-  attempted: 145,
-  failed: 3,
-  payments: [
-    { id: "1", name: "David Kamau", title: "Operations Manager", account: "**** **** **34 5678", amount: "125,000.00", status: "Succeeded" as const, avatarUrl: "/avatars/david-kamau.jpg" },
-    { id: "2", name: "Grace Wanjiru", title: "Marketing Executive", account: "**** **** **12 9087", amount: "85,500.00", status: "Failed" as const, failReason: "Invalid Account No.", avatarUrl: "/avatars/grace.jpg" },
-    { id: "3", name: "James Omondi", title: "Software Engineer", account: "**** **** **88 1122", amount: "180,000.00", status: "Succeeded" as const, initials: "JO" },
-  ],
-};
-
-export default async function DisbursementBatchDetailPage({ params }: { params: Promise<{ runId: string }> }) {
-  await requirePermission("payroll:read");
-  const { runId } = await params;
-  const batch = BATCH; // TODO: fetch by `runId` once the endpoint exists
-
+function Row({ label, amount, strong = false }: { label: string; amount: number; strong?: boolean }) {
   return (
-    <div className="flex flex-1 flex-col gap-gutter">
-      <div className="mb-2 flex items-center gap-4">
-        <Link
-          href="/finance/disbursements"
-          className="flex size-10 items-center justify-center rounded-full bg-white text-primary shadow-[0_2px_8px_rgba(11,42,69,.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(11,42,69,.10)]"
-        >
-          <Icon name="chevron_left" />
-        </Link>
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-xl font-bold text-on-surface">Batch {batch.id}</h1>
-            <span className="rounded-full bg-surface-container-high px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-on-surface-variant">
-              {batch.status}
-            </span>
-          </div>
-          <p className="mt-1 text-xs text-on-surface-variant">{batch.description}</p>
-        </div>
-        <div className="ml-auto flex gap-3">
-          <button className="flex items-center gap-2 rounded-lg border border-outline-variant bg-white px-4 py-2 text-sm font-medium text-primary shadow-[0_2px_8px_rgba(11,42,69,.06)] transition-colors hover:bg-surface-container">
-            <Icon name="download" className="text-[18px]" />
-            Export Report
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
-        <SummaryTile label="Total Amount" icon="account_balance_wallet" iconBg="bg-primary-fixed" iconColor="text-primary-container">
-          <span className="text-sm font-normal text-on-surface-variant">KES</span> {batch.totalAmount}
-        </SummaryTile>
-        <SummaryTile label="Succeeded" icon="check_circle" iconBg="bg-tertiary-fixed" iconColor="text-tertiary">
-          {batch.succeeded} <span className="text-sm font-normal text-on-surface-variant">/ {batch.attempted}</span>
-        </SummaryTile>
-        <SummaryTile label="Failed" icon="error" iconBg="bg-error-container" iconColor="text-error" valueClass="text-error">
-          {batch.failed} <span className="text-sm font-normal text-on-surface-variant">Transactions</span>
-        </SummaryTile>
-      </div>
-
-      <div className="flex flex-col overflow-hidden rounded-2xl bg-white shadow-[0_2px_8px_rgba(11,42,69,.06)]">
-        <div className="flex items-center justify-between border-b border-surface-variant p-6">
-          <h2 className="text-xl font-semibold text-on-surface">Payment Status</h2>
-          <div className="flex gap-2">
-            <div className="relative">
-              <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-[20px] text-outline" />
-              <input
-                type="text"
-                placeholder="Search employee..."
-                className="w-64 rounded-lg border border-surface-variant bg-surface-bright py-2 pl-10 pr-4 text-sm focus:border-primary-container focus:outline-none focus:ring-2 focus:ring-primary-fixed/50"
-              />
-            </div>
-            <button className="rounded-lg border border-surface-variant p-2 text-on-surface-variant transition-colors hover:bg-surface-container">
-              <Icon name="filter_list" />
-            </button>
-          </div>
-        </div>
-
-        <div className="w-full overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-surface-variant bg-surface-bright text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">
-                <th className="px-6 py-4">Employee</th>
-                <th className="px-6 py-4">Account Number</th>
-                <th className="px-6 py-4 text-right">Amount (KES)</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4 text-right">Action</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white text-sm text-on-surface">
-              {batch.payments.map((p) => (
-                <tr
-                  key={p.id}
-                  className={`border-b border-surface-variant transition-colors hover:bg-background ${p.status === "Failed" ? "bg-error-container/10" : ""}`}
-                >
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      {p.avatarUrl ? (
-                        <div className="size-8 overflow-hidden rounded-full bg-surface-container">
-                          <img src={p.avatarUrl} alt={p.name} className="size-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="flex size-8 items-center justify-center rounded-full bg-secondary-fixed text-xs font-bold text-secondary">
-                          {p.initials}
-                        </div>
-                      )}
-                      <div>
-                        <p className="font-medium text-on-surface">{p.name}</p>
-                        <p className="text-[10px] text-on-surface-variant">{p.title}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className={`px-6 py-4 font-mono ${p.status === "Failed" ? "text-error" : "text-on-surface-variant"}`}>{p.account}</td>
-                  <td className="px-6 py-4 text-right font-medium">{p.amount}</td>
-                  <td className="px-6 py-4">
-                    {p.status === "Succeeded" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-tertiary-fixed-dim/20 px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-tertiary">
-                        <Icon name="check" className="text-[14px]" />
-                        Succeeded
-                      </span>
-                    ) : (
-                      <>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-error-container px-2.5 py-1 text-[10px] font-medium uppercase tracking-wide text-error">
-                          <Icon name="close" className="text-[14px]" />
-                          Failed
-                        </span>
-                        {p.failReason && <p className="mt-1 max-w-[150px] truncate text-[10px] text-error">{p.failReason}</p>}
-                      </>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {p.status === "Succeeded" ? (
-                      <button className="text-outline transition-colors hover:text-primary">
-                        <Icon name="more_vert" className="text-[20px]" />
-                      </button>
-                    ) : (
-                      <button className="ml-auto flex items-center justify-end gap-1 text-sm font-medium text-primary-container transition-colors hover:text-primary">
-                        <Icon name="refresh" className="text-[16px]" />
-                        Retry
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-surface-variant bg-surface-bright p-4">
-          <span className="text-sm text-on-surface-variant">Showing 1 to 3 of 145 entries</span>
-          <div className="flex gap-1">
-            <button className="flex size-8 items-center justify-center rounded border border-surface-variant text-outline hover:bg-surface-container disabled:opacity-50" disabled>
-              <Icon name="chevron_left" className="text-[18px]" />
-            </button>
-            <button className="flex size-8 items-center justify-center rounded bg-primary-container text-sm font-medium text-white">1</button>
-            <button className="flex size-8 items-center justify-center rounded border border-surface-variant text-sm font-medium text-on-surface-variant hover:bg-surface-container">2</button>
-            <button className="flex size-8 items-center justify-center rounded border border-surface-variant text-sm font-medium text-on-surface-variant hover:bg-surface-container">3</button>
-            <span className="flex size-8 items-center justify-center text-on-surface-variant">...</span>
-            <button className="flex size-8 items-center justify-center rounded border border-surface-variant text-outline hover:bg-surface-container">
-              <Icon name="chevron_right" className="text-[18px]" />
-            </button>
-          </div>
-        </div>
-      </div>
+    <div className="flex items-center justify-between gap-4 border-b border-outline-variant/20 py-2 text-sm last:border-0">
+      <span className={strong ? "font-semibold text-on-surface" : "text-on-surface-variant"}>{label}</span>
+      <span className={`tabular-nums ${strong ? "font-bold text-on-surface" : "text-on-surface"}`}>{formatKes(amount)}</span>
     </div>
   );
 }
 
-function SummaryTile({
-  label,
-  icon,
-  iconBg,
-  iconColor,
-  valueClass = "text-on-surface",
-  children,
-}: {
-  label: string;
-  icon: string;
-  iconBg: string;
-  iconColor: string;
-  valueClass?: string;
-  children: React.ReactNode;
-}) {
+/** One payroll run's cash requirement, line by line, with each agent's payment voucher. */
+export default async function FinanceRunDetailPage({ params }: { params: Promise<{ runId: string }> }) {
+  await requirePermission("payroll:read");
+
+  const { runId: rawRunId } = await params;
+  const runId = Number(rawRunId);
+  if (!Number.isInteger(runId) || runId <= 0) notFound();
+
+  let run: Awaited<ReturnType<typeof getFinanceRun>>;
+  let agents: Awaited<ReturnType<typeof getRunAgentSummaries>>;
+  try {
+    [run, agents] = await Promise.all([getFinanceRun(runId), getRunAgentSummaries(runId)]);
+  } catch (error) {
+    if (error instanceof ApiError && error.isNotFound) notFound();
+    return (
+      <DataUnavailable
+        title="Payroll run"
+        subject="This run's cash figures"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
+
   return (
-    <div className="group relative overflow-hidden rounded-2xl bg-white p-6 shadow-[0_2px_8px_rgba(11,42,69,.06)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(11,42,69,.10)]">
-      <div className="mb-4 flex items-start justify-between">
-        <span className="text-sm font-semibold uppercase tracking-wider text-on-surface-variant">{label}</span>
-        <div className={`flex size-10 items-center justify-center rounded-full ${iconBg} ${iconColor}`}>
-          <Icon name={icon} />
-        </div>
+    <>
+      <PageHeader
+        title={
+          <>
+            <Link href="/finance/disbursements" className="mr-2 text-sm font-medium text-primary hover:underline">
+              ← Disbursements
+            </Link>
+            {runPeriod(run)}
+          </>
+        }
+        pill={
+          <span className={`inline-flex rounded px-2 py-0.5 text-[11px] font-bold ${RUN_STATUS_CHIP[run.status] ?? ""}`}>
+            {humanizeEnum(run.status)}
+          </span>
+        }
+        description="Direct staff are paid their net salary and the company remits their statutory amounts. Agent-supplied staff are paid through one amount to the agent."
+      />
+
+      <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
+        <MetricCard label="Total cash needed" value={formatKes(run.totalCashRequirement)} icon="payments" tone="primary" />
+        <MetricCard label="Direct staff net pay" value={formatKes(run.directNetPay)} icon="groups" tone="primary" hint={`${formatNumber(run.directEmployees)} employees`} />
+        <MetricCard label="Agent payments" value={formatKes(run.agentPayable)} icon="handshake" tone="tertiary" hint={`${formatNumber(run.agentCount)} agents`} />
       </div>
-      <div className={`flex items-baseline gap-1 text-2xl font-bold ${valueClass}`}>{children}</div>
-    </div>
+
+      <div className="mt-gutter grid grid-cols-1 gap-gutter lg:grid-cols-2">
+        <BentoCard title="Direct employees" subtitle="Paid by the company">
+          <Row label="Net pay to employees" amount={run.directNetPay} />
+          <Row label="PAYE to remit" amount={run.directPaye} />
+          <Row label="NSSF to remit" amount={run.directNssf} />
+          <Row label="SHIF to remit" amount={run.directShif} />
+          <Row label="Housing Levy to remit" amount={run.directHousingLevy} />
+          <Row label="NITA (employer levy)" amount={run.directNita} />
+          <Row label="Statutory total" amount={directStatutory(run)} strong />
+          <p className="mt-3 text-xs text-on-surface-variant">
+            Loan instalments withheld from this staff&apos;s pay: {formatKes(run.directLoanRecoveries)}. They reduce
+            what is paid out and are not a separate payment.
+          </p>
+        </BentoCard>
+
+        <BentoCard title="Agent payments" subtitle="One payment to each agent">
+          <Row label="Total payable to agents" amount={run.agentPayable} strong />
+          <Row label="of which VAT" amount={run.agentVat} />
+          <Row label="PAYE inside the payments" amount={run.agentPaye} />
+          <Row label="NSSF inside the payments" amount={run.agentNssf} />
+          <Row label="SHIF inside the payments" amount={run.agentShif} />
+          <Row label="Housing Levy inside the payments" amount={run.agentHousingLevy} />
+          <p className="mt-3 text-xs text-on-surface-variant">
+            The agents remit {formatKes(agentStatutory(run))} of statutory amounts themselves, so the company does not
+            remit them a second time.
+          </p>
+        </BentoCard>
+      </div>
+
+      <BentoCard className="mt-gutter" title="Each agent" subtitle="Final amount payable and payment documents">
+        {agents.length === 0 ? (
+          <EmptyState symbol="handshake" title="No agent payments in this run" />
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {agents.map((summary) => (
+              <li
+                key={summary.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant/50 p-3"
+              >
+                <div className="min-w-0">
+                  <p className="font-semibold text-on-surface">{summary.agentName ?? `Agent #${summary.agentId}`}</p>
+                  <p className="text-xs text-on-surface-variant">{formatNumber(summary.employeeCount)} employees</p>
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-lg font-bold tabular-nums text-on-surface">{formatKes(summary.finalAmountPayable)}</p>
+                  <Link href={`/finance/invoices/${summary.id}`} className="text-sm font-semibold text-primary hover:underline">
+                    Statement
+                  </Link>
+                  <a
+                    href={`/api/payroll/documents/${run.runId}/${summary.agentId}/voucher`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-semibold text-primary hover:underline"
+                  >
+                    Payment voucher (PDF)
+                  </a>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </BentoCard>
+    </>
   );
 }

@@ -1,268 +1,124 @@
 import Link from "next/link";
 
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { AlertSpotlight } from "@/components/shared/alert-spotlight";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DonutChart } from "@/components/shared/charts";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
 import { MetricCard } from "@/components/shared/metric-card";
-import { SegmentStrip } from "@/components/shared/segment-strip";
-import { Icon } from "@/components/ui/icon";
-import { formatMoneyCompact, formatNumber, initials } from "@/lib/format";
+import { PageHeader } from "@/components/shared/page-header";
+import { getLoans, getPaymentRequests } from "@/lib/api/agent-money";
+import { getFinanceRuns } from "@/lib/api/finance";
+import { directStatutory, runPeriod } from "@/lib/finance-format";
+import { humanizeEnum } from "@/lib/format";
+import { formatKes } from "@/lib/money-format";
+import { RUN_STATUS_CHIP } from "@/lib/payroll-format";
 
-/**
- * Finance Officer dashboard.
- *
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — no `/dashboard/finance` endpoint yet. Replace with
- * `await api.get<FinanceDashboard>("/dashboard/finance")` when it lands.
- * ─────────────────────────────────────────────────────────────────────────
- */
-
-const KPI = {
-  disbursedThisMonth: 22_100_000,
-  pendingInvoices: 14,
-  statutoryDue: 3_600_000,
-} as const;
-
-/** Two-series cash-out trend, KES millions, oldest first. */
-const CASH_OUT_TREND = {
-  months: ["Jun", "Jul", "Aug", "Sep", "Oct", "Nov"],
-  series2025: [15, 16, 15.5, 17, 16.5, 18],
-  series2026: [17, 18, 19, 20.5, 21, 22.1],
-} as const;
-
-const DISBURSEMENT_STATUS = [
-  { label: "Sent", value: 85, color: "var(--color-primary)" },
-  { label: "Queued", value: 10, color: "var(--color-secondary)" },
-  { label: "Failed", value: 5, color: "var(--color-error)" },
-] as const;
-
-const PENDING_DISBURSEMENTS = [
-  { id: 1, run: "Nov 2026 — Main", branch: "Nairobi HQ", employees: 145, amount: 12_450_000, method: "Bank Transfer", status: "Queued" as const },
-  { id: 2, run: "Nov 2026 — Temp", branch: "Mombasa", employees: 32, amount: 1_200_000, method: "Mobile Money", status: "Queued" as const },
-  { id: 3, run: "Oct 2026 — Bonus", branch: "All Branches", employees: 210, amount: 5_500_000, method: "Bank Transfer", status: "Failed" as const },
-];
-
-const DISBURSEMENT_CHIP: Record<(typeof PENDING_DISBURSEMENTS)[number]["status"], string> = {
-  Queued: "bg-blue-soft text-primary-container",
-  Failed: "bg-error/10 text-error",
-};
-
-const AGENT_INVOICES = [
-  { id: 1, name: "Sarah Mutuku", invoice: "Inv #4092", amount: 45_000 },
-  { id: 2, name: "John Ochieng", invoice: "Inv #4093", amount: 12_000 },
-  { id: 3, name: "Grace Wanjiku", invoice: "Inv #4094", amount: 89_000 },
-] as const;
-
-const STATUTORY_BREAKDOWN = [
-  { label: "PAYE", value: 55, color: "var(--color-primary)" },
-  { label: "NSSF", value: 15, color: "var(--color-secondary)" },
-  { label: "SHIF", value: 20, color: "var(--color-tertiary)" },
-  { label: "Housing Levy", value: 10, color: "var(--color-surface-variant)" },
-] as const;
-
+/** Accounts Office dashboard: this run's cash need, what is waiting to be released, and what is owed back. */
 export default async function FinanceDashboardPage() {
-  await requirePermission("invoice:read");
+  await requirePermission("payroll:read");
 
-  const trendMax = Math.max(...CASH_OUT_TREND.series2025, ...CASH_OUT_TREND.series2026);
-  const toPoints = (series: readonly number[]) =>
-    series
-      .map((v, i) => {
-        const x = (i / (series.length - 1)) * 100;
-        const y = 100 - (v / trendMax) * 100;
-        return `${x},${y}`;
-      })
-      .join(" ");
+  let runs: Awaited<ReturnType<typeof getFinanceRuns>>;
+  let toRelease: Awaited<ReturnType<typeof getPaymentRequests>>;
+  let loans: Awaited<ReturnType<typeof getLoans>>;
+  try {
+    [runs, toRelease, loans] = await Promise.all([getFinanceRuns(), getPaymentRequests("APPROVED"), getLoans()]);
+  } catch (error) {
+    return (
+      <DataUnavailable
+        title="Accounts Office"
+        subject="The finance dashboard"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
+
+  const latest = runs[0];
+  const awaiting = toRelease.reduce((sum, request) => sum + request.amount, 0);
+  const loansOutstanding = loans
+    .filter((loan) => loan.status === "APPROVED")
+    .reduce((sum, loan) => sum + (loan.outstandingBalance ?? 0), 0);
 
   return (
-    <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
-      {/* ───────────────────────────────── main column ─────────────────── */}
-      <div className="flex flex-col gap-gutter lg:col-span-8">
-        <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
-          <MetricCard
-            label="Disbursed This Month"
-            value={formatMoneyCompact(KPI.disbursedThisMonth)}
-            icon="payments"
-            tone="primary"
-          />
-          <MetricCard
-            label="Pending Invoices"
-            value={formatNumber(KPI.pendingInvoices)}
-            icon="receipt_long"
-          />
-          <MetricCard
-            label="Statutory Due"
-            value={formatMoneyCompact(KPI.statutoryDue)}
-            icon="account_balance"
-            tone="error"
-            accent
-          />
-        </div>
+    <>
+      <PageHeader title="Accounts Office" description="Cash needed for payroll, money waiting to be released, and what is still owed back." />
 
-        <div className="grid grid-cols-1 gap-gutter md:grid-cols-2">
-          <BentoCard
-            title="Cash Out Trend"
-            subtitle="2025 vs 2026"
-            className="flex min-h-64 flex-col"
-            bodyClassName="flex flex-1 flex-col"
-          >
-            <div className="flex min-h-0 flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2">
-              {/* `flex-1` rather than `h-full`: a percentage height needs a
-                  definite parent, and this column's height comes from the card,
-                  so `h-full` here resolves against nothing. */}
-              <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="min-h-0 w-full flex-1">
-                <polyline
-                  points={toPoints(CASH_OUT_TREND.series2025)}
-                  fill="none"
-                  stroke="var(--color-outline-variant)"
-                  strokeWidth="1.5"
-                  vectorEffect="non-scaling-stroke"
-                />
-                <polyline
-                  points={toPoints(CASH_OUT_TREND.series2026)}
-                  fill="none"
-                  stroke="var(--color-primary)"
-                  strokeWidth="1.5"
-                  vectorEffect="non-scaling-stroke"
-                />
-              </svg>
-              <div className="mt-2 flex justify-between font-body-md text-[10px] text-outline">
-                {CASH_OUT_TREND.months.map((m) => (
-                  <span key={m}>{m}</span>
-                ))}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-body-md text-[10px] text-on-surface-variant">
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 shrink-0 rounded-full bg-outline-variant" /> 2025
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="size-2 shrink-0 rounded-full bg-primary" /> 2026
-                </span>
-              </div>
-            </div>
-          </BentoCard>
-
-          <BentoCard title="Disbursement Status" className="flex min-h-64 flex-col" bodyClassName="flex flex-1 flex-col justify-center">
-            <DonutChart segments={DISBURSEMENT_STATUS} size={140} legend="value" centerLabel="Status" />
-          </BentoCard>
-        </div>
-
-        <BentoCard
-          title="Pending Disbursements"
-          action={
-            <Link href="/finance/disbursements" className="text-[10px] text-primary-container hover:underline">
-              View All
-            </Link>
-          }
-        >
-          <div className="w-full overflow-x-auto">
-            <table className="data-table w-full border-collapse text-left">
-              <thead>
-                <tr>
-                  <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Run</th>
-                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Branch</th>
-                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Employees</th>
-                  <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Amount</th>
-                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Method</th>
-                  <th className="pb-3 pr-2 font-table-header text-table-header uppercase text-outline">Status</th>
-                </tr>
-              </thead>
-              <tbody className="font-body-md text-body-md">
-                {PENDING_DISBURSEMENTS.map((row) => (
-                  <tr key={row.id} className="group transition-colors">
-                    <td className="py-3 pl-2 font-medium text-on-surface">
-                      <Link href={`/finance/disbursements/${row.id}`} className="group-hover:text-primary-container">
-                        {row.run}
-                      </Link>
-                    </td>
-                    <td className="py-3 text-on-surface-variant">{row.branch}</td>
-                    <td className="py-3 tabular-nums text-on-surface-variant">{formatNumber(row.employees)}</td>
-                    <td className="py-3 text-right font-semibold tabular-nums text-on-surface">
-                      {formatMoneyCompact(row.amount, { showCurrency: false })}
-                    </td>
-                    <td className="py-3 text-on-surface-variant">{row.method}</td>
-                    <td className="py-3 pr-2">
-                      <span className={`rounded px-2 py-0.5 text-[10px] font-medium ${DISBURSEMENT_CHIP[row.status]}`}>
-                        {row.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </BentoCard>
+      <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Latest run: cash needed"
+          value={latest ? formatKes(latest.totalCashRequirement) : "—"}
+          icon="payments"
+          tone="primary"
+          hint={latest ? runPeriod(latest) : "No runs yet"}
+        />
+        <MetricCard
+          label="Statutory to remit"
+          value={latest ? formatKes(directStatutory(latest)) : "—"}
+          icon="gavel"
+          tone="tertiary"
+          hint="Latest run, direct staff"
+        />
+        <MetricCard
+          label="Waiting to be released"
+          value={formatKes(awaiting)}
+          icon="outbox"
+          tone={toRelease.length > 0 ? "amber" : "primary"}
+          hint={`${toRelease.length} approved requests`}
+        />
+        <MetricCard label="Loans outstanding" value={formatKes(loansOutstanding)} icon="savings" tone="primary" />
       </div>
 
-      {/* ──────────────────────────────── side column ──────────────────── */}
-      <div className="flex flex-col gap-gutter lg:col-span-4">
-        <div className="flex flex-col gap-3">
-          <select className="w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-2 font-body-md text-body-md text-on-surface focus:border-primary-container focus:outline-none">
-            <option>Current Month (Nov 2026)</option>
-            <option>Last Month (Oct 2026)</option>
-          </select>
-          <button
-            type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-lg bg-on-primary-fixed-variant px-4 py-2 font-body-md text-body-md font-bold text-on-primary transition-colors hover:bg-primary"
-          >
-            <Icon name="download" className="text-[18px]" />
-            Download Report
-          </button>
-        </div>
+      <div className="mt-gutter grid grid-cols-1 gap-gutter lg:grid-cols-3">
+        <BentoCard title="Where the cash goes" subtitle={latest ? runPeriod(latest) : undefined}>
+          {latest ? (
+            <DonutChart
+              centerLabel="Total"
+              segments={[
+                { label: "Direct staff net pay", value: latest.directNetPay, color: "var(--color-primary)" },
+                { label: "Agent payments", value: latest.agentPayable, color: "var(--color-secondary)" },
+                { label: "Statutory (company)", value: directStatutory(latest), color: "var(--color-error)" },
+              ]}
+            />
+          ) : (
+            <EmptyState symbol="donut_large" title="No payroll runs yet" />
+          )}
+        </BentoCard>
 
-        <SegmentStrip
-          segments={[
-            { label: "Sent", value: formatNumber(388) },
-            { label: "Queued", value: formatNumber(42) },
-            { label: "Failed", value: formatNumber(3), tone: "warning" },
-          ]}
-        />
-
-        <AlertSpotlight
-          eyebrow="Action Required"
-          title="PAYE remittance is due in 4 days"
-          message="Prepare the filing before the statutory cutoff."
-          cta="Review Statutory"
-          href="/finance/statutory"
-        />
-
-        <BentoCard
-          title="Agent Invoices"
-          action={
-            <Link href="/finance/invoices" className="text-[10px] text-primary-container hover:underline">
-              View All
-            </Link>
-          }
-        >
-          <ul className="flex flex-col gap-3">
-            {AGENT_INVOICES.map((inv) => (
-              <li key={inv.id} className="flex items-center justify-between gap-3">
-                <span className="flex min-w-0 items-center gap-3">
-                  <span
-                    aria-hidden
-                    className="flex size-8 shrink-0 items-center justify-center rounded-full bg-secondary-container text-[10px] font-bold text-on-secondary-container"
+        <BentoCard className="lg:col-span-2" title="Recent runs" subtitle="Open one to see it line by line">
+          {runs.length === 0 ? (
+            <EmptyState symbol="payments" title="No payroll runs yet" />
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {runs.slice(0, 5).map((run) => (
+                <li key={run.runId}>
+                  <Link
+                    href={`/finance/disbursements/${run.runId}`}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-outline-variant/50 p-3 hover:bg-surface-container-low"
                   >
-                    {initials(inv.name)}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate font-body-md text-body-md font-medium text-on-surface">
-                      {inv.name}
-                    </span>
-                    <span className="block text-[10px] text-on-surface-variant">{inv.invoice}</span>
-                  </span>
-                </span>
-                <span className="shrink-0 font-body-md text-body-md font-bold text-primary">
-                  {formatMoneyCompact(inv.amount, { showCurrency: false })}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </BentoCard>
-
-        <BentoCard title="Statutory Breakdown">
-          <DonutChart segments={STATUTORY_BREAKDOWN} size={140} legend="value" />
+                    <div>
+                      <p className="font-semibold text-on-surface">{runPeriod(run)}</p>
+                      <span className={`mt-1 inline-flex rounded px-2 py-0.5 text-[11px] font-bold ${RUN_STATUS_CHIP[run.status] ?? ""}`}>
+                        {humanizeEnum(run.status)}
+                      </span>
+                    </div>
+                    <p className="text-lg font-bold tabular-nums text-on-surface">{formatKes(run.totalCashRequirement)}</p>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
         </BentoCard>
       </div>
-    </div>
+
+      {toRelease.length > 0 ? (
+        <p className="mt-gutter text-sm text-on-surface-variant">
+          {toRelease.length} approved payment request{toRelease.length === 1 ? " is" : "s are"} waiting.{" "}
+          <Link href="/finance/releases" className="font-semibold text-primary hover:underline">
+            Go to Releases
+          </Link>
+        </p>
+      ) : null}
+    </>
   );
 }

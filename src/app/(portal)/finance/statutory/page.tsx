@@ -1,115 +1,96 @@
-// src/app/(portal)/finance/statutory/page.tsx
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { Icon } from "@/components/ui/icon";
+import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
+import { MetricCard } from "@/components/shared/metric-card";
+import { PageHeader } from "@/components/shared/page-header";
+import { getFinanceRuns } from "@/lib/api/finance";
+import { agentStatutory, directStatutory, runPeriod } from "@/lib/finance-format";
+import { humanizeEnum } from "@/lib/format";
+import { formatKes } from "@/lib/money-format";
 
 /**
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — swap for real statutory obligations + filing history fetches.
- * ─────────────────────────────────────────────────────────────────────────
+ * What the company itself must remit to the authorities for direct staff, run by run.
+ * The statutory amounts inside agent payments are remitted by the agents, so they are shown
+ * for information only. The system does not record whether a remittance has been filed.
  */
-const OBLIGATIONS = [
-  { code: "PAYE", amount: "1,245,600", due: "Due: 9th Nov 2023", status: "Pending" as const, icon: "account_balance_wallet", iconBg: "bg-primary-fixed", iconColor: "text-primary" },
-  { code: "NSSF", amount: "340,200", due: "Due: 9th Nov 2023", status: "Filed" as const, icon: "savings", iconBg: "bg-tertiary-fixed", iconColor: "text-tertiary" },
-  { code: "SHIF", amount: "185,450", due: "Due: 9th Nov 2023", status: "Pending" as const, icon: "health_and_safety", iconBg: "bg-secondary-fixed", iconColor: "text-secondary" },
-  { code: "Housing Levy", amount: "275,000", due: "Due: 9th Nov 2023", status: "Pending" as const, icon: "real_estate_agent", iconBg: "bg-primary-fixed-dim/30", iconColor: "text-primary-container" },
-];
-
-const FILING_HISTORY = [
-  { id: "1", period: "Oct 2023", type: "NSSF", amount: "340,200.00", filedDate: "02 Nov 2023" },
-  { id: "2", period: "Sep 2023", type: "PAYE", amount: "1,210,500.00", filedDate: "08 Oct 2023" },
-  { id: "3", period: "Sep 2023", type: "Housing Levy", amount: "268,000.00", filedDate: "08 Oct 2023" },
-  { id: "4", period: "Sep 2023", type: "SHIF", amount: "180,100.00", filedDate: "08 Oct 2023" },
-];
-
-export default async function StatutoryPage() {
+export default async function FinanceStatutoryPage() {
   await requirePermission("payroll:read");
+
+  let runs: Awaited<ReturnType<typeof getFinanceRuns>>;
+  try {
+    runs = await getFinanceRuns();
+  } catch (error) {
+    return (
+      <DataUnavailable
+        title="Statutory remittances"
+        subject="The statutory figures"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
+
+  const latest = runs[0];
 
   return (
     <>
-      <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-1 text-xl font-bold text-primary">Statutory Remittances</h1>
-          <p className="text-xs text-on-surface-variant">Manage and track your monthly compliance obligations.</p>
-        </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-6 py-2 text-sm font-semibold text-on-primary shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
-          <Icon name="publish" className="text-[18px]" />
-          File Selected
-        </button>
-      </div>
+      <PageHeader
+        title="Statutory remittances"
+        description="The PAYE, NSSF, SHIF, Housing Levy and NITA the company remits for its direct staff, per payroll run."
+      />
 
-      <div className="mb-8 grid grid-cols-1 gap-gutter md:grid-cols-2 xl:grid-cols-4">
-        {OBLIGATIONS.map((ob) => (
-          <div
-            key={ob.code}
-            className="flex min-h-[160px] flex-col justify-between rounded-xl bg-surface-container-lowest p-6 shadow-[0_2px_8px_rgba(11,42,69,0.06)] transition-all hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(11,42,69,0.10)]"
-          >
-            <div className="mb-4 flex items-start justify-between">
-              <div className="text-sm font-medium text-secondary">{ob.code}</div>
-              <div className={`flex size-8 items-center justify-center rounded-full ${ob.iconBg} ${ob.iconColor}`}>
-                <Icon name={ob.icon} className="text-[18px]" />
-              </div>
-            </div>
-            <div>
-              <div className="mb-1 text-2xl font-bold text-on-surface">KES {ob.amount}</div>
-              <div className="mt-4 flex items-center justify-between">
-                <span className="text-xs text-on-surface-variant">{ob.due}</span>
-                <span
-                  className={`rounded-md px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide ${
-                    ob.status === "Filed" ? "bg-tertiary-fixed text-on-tertiary-fixed" : "bg-error-container text-on-error-container"
-                  }`}
-                >
-                  {ob.status}
-                </span>
-              </div>
-            </div>
+      {!latest ? (
+        <EmptyState symbol="account_balance" title="No payroll runs yet" description="Amounts to remit appear once Payroll runs a period." />
+      ) : (
+        <>
+          <p className="mb-3 text-sm text-on-surface-variant">Latest run: {runPeriod(latest)}</p>
+          <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 xl:grid-cols-5">
+            <MetricCard label="PAYE" value={formatKes(latest.directPaye)} icon="account_balance_wallet" tone="primary" />
+            <MetricCard label="NSSF" value={formatKes(latest.directNssf)} icon="savings" tone="primary" />
+            <MetricCard label="SHIF" value={formatKes(latest.directShif)} icon="health_and_safety" tone="primary" />
+            <MetricCard label="Housing Levy" value={formatKes(latest.directHousingLevy)} icon="real_estate_agent" tone="primary" />
+            <MetricCard label="NITA (employer)" value={formatKes(latest.directNita)} icon="school" tone="tertiary" />
           </div>
-        ))}
-      </div>
+          <p className="mt-3 text-xs text-on-surface-variant">
+            Agents remit a further {formatKes(agentStatutory(latest))} inside their own payments, so those amounts are not
+            remitted by the company.
+          </p>
 
-      <div className="rounded-xl bg-surface-container-lowest p-6 shadow-[0_2px_8px_rgba(11,42,69,0.06)]">
-        <div className="mb-6 flex items-center justify-between">
-          <h3 className="text-xl font-semibold text-on-surface">Filing History</h3>
-          <button className="flex items-center gap-1 text-sm font-medium text-primary transition-colors hover:text-primary-container">
-            <Icon name="download" className="text-[18px]" />
-            Export CSV
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] border-collapse text-left">
-            <thead>
-              <tr>
-                <th className="border-b border-inverse-on-surface px-4 pb-3 text-[10px] font-semibold uppercase text-outline">Period</th>
-                <th className="border-b border-inverse-on-surface px-4 pb-3 text-[10px] font-semibold uppercase text-outline">Obligation Type</th>
-                <th className="border-b border-inverse-on-surface px-4 pb-3 text-right text-[10px] font-semibold uppercase text-outline">Amount (KES)</th>
-                <th className="border-b border-inverse-on-surface px-4 pb-3 text-[10px] font-semibold uppercase text-outline">Filed Date</th>
-                <th className="border-b border-inverse-on-surface px-4 pb-3 text-[10px] font-semibold uppercase text-outline">Status</th>
-                <th className="border-b border-inverse-on-surface px-4 pb-3 text-right text-[10px] font-semibold uppercase text-outline">Action</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm text-on-surface">
-              {FILING_HISTORY.map((f) => (
-                <tr key={f.id} className="group transition-colors hover:bg-surface">
-                  <td className="border-b border-inverse-on-surface px-4 py-4">{f.period}</td>
-                  <td className="border-b border-inverse-on-surface px-4 py-4 font-medium">{f.type}</td>
-                  <td className="border-b border-inverse-on-surface px-4 py-4 text-right">{f.amount}</td>
-                  <td className="border-b border-inverse-on-surface px-4 py-4 text-on-surface-variant">{f.filedDate}</td>
-                  <td className="border-b border-inverse-on-surface px-4 py-4">
-                    <span className="inline-flex items-center gap-1.5 rounded-md bg-tertiary-fixed/30 px-2 py-1 text-[11px] font-medium text-tertiary">
-                      <div className="size-1.5 rounded-full bg-tertiary" />
-                      Filed
-                    </span>
-                  </td>
-                  <td className="border-b border-inverse-on-surface px-4 py-4 text-right">
-                    <button className="text-primary opacity-0 transition-opacity hover:text-primary-container group-hover:opacity-100">
-                      <Icon name="receipt" className="text-[20px]" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          <BentoCard className="mt-gutter" title="Every run" subtitle="Amounts the company remits, newest first">
+            <div className="w-full overflow-x-auto">
+              <table className="data-table w-full min-w-[760px] border-collapse text-left">
+                <thead>
+                  <tr>
+                    <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Period</th>
+                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">Run</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">PAYE</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">NSSF</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">SHIF</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Housing Levy</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">NITA</th>
+                    <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="font-body-md text-body-md text-on-surface">
+                  {runs.map((run) => (
+                    <tr key={run.runId} className="border-b border-outline-variant/20 last:border-0">
+                      <td className="py-3 pl-2 font-semibold">{runPeriod(run)}</td>
+                      <td className="py-3 text-on-surface-variant">{humanizeEnum(run.status)}</td>
+                      <td className="py-3 text-right tabular-nums">{formatKes(run.directPaye)}</td>
+                      <td className="py-3 text-right tabular-nums">{formatKes(run.directNssf)}</td>
+                      <td className="py-3 text-right tabular-nums">{formatKes(run.directShif)}</td>
+                      <td className="py-3 text-right tabular-nums">{formatKes(run.directHousingLevy)}</td>
+                      <td className="py-3 text-right tabular-nums">{formatKes(run.directNita)}</td>
+                      <td className="py-3 pr-2 text-right font-semibold tabular-nums">{formatKes(directStatutory(run))}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </BentoCard>
+        </>
+      )}
     </>
   );
 }

@@ -1,145 +1,120 @@
-// src/app/(portal)/finance/disbursements/page.tsx
 import Link from "next/link";
+
+import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { Icon } from "@/components/ui/icon";
+import { BentoCard } from "@/components/shared/bento-card";
+import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
+import { MetricCard } from "@/components/shared/metric-card";
+import { PageHeader } from "@/components/shared/page-header";
+import { getFinanceRuns } from "@/lib/api/finance";
+import { directStatutory, runPeriod } from "@/lib/finance-format";
+import { formatNumber, humanizeEnum } from "@/lib/format";
+import { formatKes } from "@/lib/money-format";
+import { RUN_STATUS_CHIP } from "@/lib/payroll-format";
 
-/**
- * ─────────────────────────────────────────────────────────────────────────
- * DATA IS PLACEHOLDER — swap for `await api.get<DisbursementBatch[]>("/finance/disbursements")`.
- * ─────────────────────────────────────────────────────────────────────────
- */
-interface DisbursementBatch {
-  id: string;
-  batchId: string;
-  payrollRun: string;
-  branch: string;
-  employees: number;
-  totalAmount: string;
-  method: "Bank Transfer" | "Mobile Money";
-  status: "Completed" | "Processing" | "Failed";
-}
-
-const BATCHES: DisbursementBatch[] = [
-  { id: "1", batchId: "#DB-2608-001", payrollRun: "Aug 2026", branch: "Nairobi CBD", employees: 142, totalAmount: "12,450,000.00", method: "Bank Transfer", status: "Completed" },
-  { id: "2", batchId: "#DB-2608-002", payrollRun: "Aug 2026", branch: "Mombasa Hub", employees: 85, totalAmount: "7,210,500.00", method: "Mobile Money", status: "Processing" },
-  { id: "3", batchId: "#DB-2608-003", payrollRun: "Aug 2026", branch: "Kisumu Branch", employees: 45, totalAmount: "3,850,200.00", method: "Bank Transfer", status: "Failed" },
-  { id: "4", batchId: "#DB-2607-001", payrollRun: "Jul 2026", branch: "Nairobi CBD", employees: 140, totalAmount: "12,100,000.00", method: "Bank Transfer", status: "Completed" },
-  { id: "5", batchId: "#DB-2607-002", payrollRun: "Jul 2026", branch: "Mombasa Hub", employees: 82, totalAmount: "6,950,000.00", method: "Mobile Money", status: "Completed" },
-  { id: "6", batchId: "#DB-2607-003", payrollRun: "Jul 2026", branch: "Kisumu Branch", employees: 45, totalAmount: "3,850,200.00", method: "Bank Transfer", status: "Completed" },
-];
-
-function statusBadge(status: DisbursementBatch["status"]) {
-  switch (status) {
-    case "Completed":
-      return "bg-tertiary-fixed text-on-tertiary-fixed-variant";
-    case "Processing":
-      return "bg-primary-fixed text-on-primary-fixed-variant";
-    case "Failed":
-      return "bg-error-container text-on-error-container";
-  }
-}
-
-export default async function DisbursementsPage() {
+/** Money out: what each payroll run costs in cash, split into direct staff, agents and statutory. */
+export default async function FinanceDisbursementsPage() {
   await requirePermission("payroll:read");
 
+  let runs: Awaited<ReturnType<typeof getFinanceRuns>>;
+  try {
+    runs = await getFinanceRuns();
+  } catch (error) {
+    return (
+      <DataUnavailable
+        title="Disbursements"
+        subject="The payroll cash figures"
+        reason={error instanceof ApiError ? error.message : undefined}
+      />
+    );
+  }
+
+  const latest = runs[0];
+
   return (
-    <div className="flex flex-1 flex-col gap-gutter">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="mb-1 text-xl font-bold text-on-background">Disbursements</h1>
-          <p className="text-xs text-on-surface-variant">Manage and track bulk salary payments across all branches.</p>
-        </div>
-        <button className="flex items-center gap-2 rounded-lg bg-[#0B2A45] px-6 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:bg-primary-container hover:shadow-md">
-          <Icon name="add" className="text-[18px]" />
-          New Batch
-        </button>
-      </div>
+    <>
+      <PageHeader
+        title="Disbursements"
+        description="What each payroll run costs in cash: direct staff pay, agent payments and the statutory amounts the company remits."
+      />
 
-      <div className="flex flex-1 flex-col overflow-hidden rounded-2xl bg-white shadow-[0_2px_8px_rgba(11,42,69,.06)]">
-        <div className="flex items-center justify-between border-b border-surface-container bg-surface-bright/50 p-6">
-          <div className="flex flex-wrap gap-3 sm:gap-4">
-            <select className="rounded-md border border-[#E9EFF5] px-3 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
-              <option>All Statuses</option>
-              <option>Processing</option>
-              <option>Completed</option>
-              <option>Failed</option>
-            </select>
-            <select className="rounded-md border border-[#E9EFF5] px-3 py-1.5 text-sm focus:border-primary focus:ring-1 focus:ring-primary">
-              <option>Recent First</option>
-              <option>Oldest First</option>
-              <option>Amount High-Low</option>
-            </select>
+      {!latest ? (
+        <EmptyState symbol="payments" title="No payroll runs yet" description="Cash requirements appear once Payroll runs a period." />
+      ) : (
+        <>
+          <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
+            <MetricCard label="Latest run: cash needed" value={formatKes(latest.totalCashRequirement)} icon="payments" tone="primary" hint={runPeriod(latest)} />
+            <MetricCard label="Direct staff net pay" value={formatKes(latest.directNetPay)} icon="groups" tone="primary" hint={`${formatNumber(latest.directEmployees)} employees`} />
+            <MetricCard label="Agent payments" value={formatKes(latest.agentPayable)} icon="handshake" tone="tertiary" hint={`${formatNumber(latest.agentCount)} agents`} />
           </div>
-          <button className="flex items-center gap-1 rounded-md px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-[#E6F0F8]">
-            <Icon name="download" className="text-[18px]" />
-            Export CSV
-          </button>
-        </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="border-b border-[#E9EFF5] bg-surface-bright/20">
-                <th className="px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Batch ID</th>
-                <th className="px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Payroll Run</th>
-                <th className="px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Branch</th>
-                <th className="px-6 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Employees</th>
-                <th className="px-6 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Total Amount (KES)</th>
-                <th className="px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Payment Method</th>
-                <th className="px-6 py-4 text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Status</th>
-                <th className="px-6 py-4 text-right text-[10px] font-semibold uppercase tracking-wider text-on-surface-variant">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="text-sm text-on-background">
-              {BATCHES.map((b) => (
-                <tr key={b.id} className="group border-b border-[#E9EFF5] transition-colors hover:bg-background">
-                  <td className="px-6 py-4 font-medium text-primary">
-                    <Link href={`/finance/disbursements/${b.id}`} className="hover:underline">
-                      {b.batchId}
-                    </Link>
-                  </td>
-                  <td className="px-6 py-4">{b.payrollRun}</td>
-                  <td className="px-6 py-4">{b.branch}</td>
-                  <td className="px-6 py-4 text-right">{b.employees}</td>
-                  <td className="px-6 py-4 text-right font-medium">{b.totalAmount}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-2 text-on-surface-variant">
-                      <Icon name={b.method === "Bank Transfer" ? "account_balance" : "smartphone"} className="text-[16px]" />
-                      {b.method}
+          <BentoCard className="mt-gutter" title="All payroll runs" subtitle="Newest period first">
+            {/* Phones: one card per run */}
+            <ul className="flex flex-col gap-3 md:hidden">
+              {runs.map((run) => (
+                <li key={run.runId}>
+                  <Link
+                    href={`/finance/disbursements/${run.runId}`}
+                    className="block rounded-lg border border-outline-variant/50 p-3 hover:bg-surface-container-low"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-on-surface">{runPeriod(run)}</p>
+                        <span className={`mt-1 inline-flex rounded px-2 py-0.5 text-[11px] font-bold ${RUN_STATUS_CHIP[run.status] ?? ""}`}>
+                          {humanizeEnum(run.status)}
+                        </span>
+                      </div>
+                      <p className="text-lg font-bold tabular-nums text-on-surface">{formatKes(run.totalCashRequirement)}</p>
                     </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${statusBadge(b.status)}`}>
-                      {b.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button className="rounded p-1.5 text-primary opacity-0 transition-opacity hover:bg-secondary-container group-hover:opacity-100">
-                      <Icon name="more_vert" className="text-[18px]" />
-                    </button>
-                  </td>
-                </tr>
+                    <p className="mt-2 text-xs text-on-surface-variant">
+                      Staff {formatKes(run.directNetPay)} · Agents {formatKes(run.agentPayable)} · Statutory {formatKes(directStatutory(run))}
+                    </p>
+                  </Link>
+                </li>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </ul>
 
-        <div className="mt-auto flex items-center justify-between border-t border-surface-container bg-surface-bright/50 p-4">
-          <span className="text-xs text-on-surface-variant">Showing 1-6 of 42 batches</span>
-          <div className="flex gap-1">
-            <button className="cursor-not-allowed p-1 text-outline-variant">
-              <Icon name="chevron_left" />
-            </button>
-            <button className="flex size-8 items-center justify-center rounded-md bg-primary-container text-sm font-medium text-white">1</button>
-            <button className="flex size-8 items-center justify-center rounded-md text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container">2</button>
-            <button className="flex size-8 items-center justify-center rounded-md text-sm font-medium text-on-surface-variant transition-colors hover:bg-surface-container">3</button>
-            <span className="flex size-8 items-center justify-center text-sm text-outline-variant">...</span>
-            <button className="rounded p-1 text-primary transition-colors hover:bg-secondary-container">
-              <Icon name="chevron_right" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+            {/* Tablets and desktops: a table */}
+            <div className="hidden w-full overflow-x-auto md:block">
+              <table className="data-table w-full min-w-[820px] border-collapse text-left">
+                <thead>
+                  <tr>
+                    <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Period</th>
+                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">Status</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Direct staff net</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Agent payments</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Statutory to remit</th>
+                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Total cash</th>
+                    <th className="pb-3 pr-2" />
+                  </tr>
+                </thead>
+                <tbody className="font-body-md text-body-md text-on-surface">
+                  {runs.map((run) => (
+                    <tr key={run.runId} className="border-b border-outline-variant/20 last:border-0">
+                      <td className="py-3 pl-2 font-semibold">{runPeriod(run)}</td>
+                      <td className="py-3">
+                        <span className={`inline-flex rounded px-2 py-0.5 text-[11px] font-bold ${RUN_STATUS_CHIP[run.status] ?? ""}`}>
+                          {humanizeEnum(run.status)}
+                        </span>
+                      </td>
+                      <td className="py-3 text-right tabular-nums">{formatKes(run.directNetPay)}</td>
+                      <td className="py-3 text-right tabular-nums">{formatKes(run.agentPayable)}</td>
+                      <td className="py-3 text-right tabular-nums">{formatKes(directStatutory(run))}</td>
+                      <td className="py-3 text-right font-semibold tabular-nums">{formatKes(run.totalCashRequirement)}</td>
+                      <td className="py-3 pr-2 text-right">
+                        <Link href={`/finance/disbursements/${run.runId}`} className="text-sm font-semibold text-primary hover:underline">
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </BentoCard>
+        </>
+      )}
+    </>
   );
 }
