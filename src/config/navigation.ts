@@ -48,6 +48,7 @@ const ADMIN_NAV: readonly NavItem[] = [
   { title: "Audit", href: "/admin/audit", icon: "policy" },
   { title: "Pay Rates", href: "/admin/pay-settings", icon: "request_quote" },
   { title: "Settings", href: "/admin/settings", icon: "settings" },
+    { title: "Payslips", href: "/admin/payslips", icon: "receipt_long" },
 ];
 
 export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {

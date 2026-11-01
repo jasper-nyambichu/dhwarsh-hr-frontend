@@ -7,9 +7,10 @@ import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
-import { getMyAgentSummaries } from "@/lib/api/agent-payroll";
+import { getMyAgentSummaries, getAgentRunPayslips } from "@/lib/api/agent-payroll";
 import { formatDateRange, formatMoney, formatNumber, formatPercent } from "@/lib/format";
 import type { AgentPayrollSummaryResponse } from "@/types/agent-portal";
+import type { PayslipResponse } from "@/types/payroll";
 
 /**
  * One payroll run's statement, laid out exactly as proposal section 6:
@@ -65,6 +66,13 @@ export default async function AgentSummaryDetailPage({ params }: { params: Promi
   if (!s) notFound();
 
   const period = formatDateRange(s.periodStart, s.periodEnd);
+
+       let payslips: PayslipResponse[] = [];
+     try {
+       payslips = await getAgentRunPayslips(s.payrollRunId, s.agentId);
+     } catch {
+       payslips = [];
+     }
 
   return (
     <>
@@ -141,6 +149,30 @@ export default async function AgentSummaryDetailPage({ params }: { params: Promi
             </div>
           </div>
         </BentoCard>
+
+                   <BentoCard title="Employee statements" subtitle="The statement each employee receives">
+             {payslips.length === 0 ? (
+               <p className="text-sm text-on-surface-variant">No employee statements for this run.</p>
+             ) : (
+               <ul className="flex flex-col gap-2">
+                 {payslips.map((payslip) => (
+                   <li key={payslip.id}>
+                     <Link
+                       href={`/agent/payslips/${payslip.id}`}
+                       className="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-outline-variant/50 px-3 py-2 hover:bg-surface-container-low"
+                     >
+                       <span className="min-w-0 truncate font-semibold text-on-surface">
+                         {payslip.employeeName ?? `Employee #${payslip.employeeId}`}
+                       </span>
+                       <span className="shrink-0 font-mono text-sm tabular-nums text-on-surface">
+                         {formatMoney(payslip.netPay)}
+                       </span>
+                     </Link>
+                   </li>
+                 ))}
+               </ul>
+             )}
+           </BentoCard>
       </div>
     </>
   );

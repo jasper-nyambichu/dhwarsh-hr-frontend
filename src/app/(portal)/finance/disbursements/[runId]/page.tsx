@@ -10,7 +10,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { getFinanceRun } from "@/lib/api/finance";
 import { getRunAgentSummaries } from "@/lib/api/payroll";
-import { agentStatutory, directStatutory, runPeriod } from "@/lib/finance-format";
+import { agentPaidInSalary, agentStatutory, directPaidInSalary, directStatutory, runPeriod } from "@/lib/finance-format";
 import { formatNumber, humanizeEnum } from "@/lib/format";
 import { formatKes } from "@/lib/money-format";
 import { RUN_STATUS_CHIP } from "@/lib/payroll-format";
@@ -73,14 +73,13 @@ export default async function FinanceRunDetailPage({ params }: { params: Promise
       </div>
 
       <div className="mt-gutter grid grid-cols-1 gap-gutter lg:grid-cols-2">
-        <BentoCard title="Direct employees" subtitle="Paid by the company">
-          <Row label="Net pay to employees" amount={run.directNetPay} />
+                <BentoCard title="Direct employees" subtitle="Paid by the company">
+          <Row label="Net pay to employees (salary after loans and damages)" amount={run.directNetPay} strong />
+          <Row label="of which SHIF and NSSF paid in salary" amount={directPaidInSalary(run)} />
           <Row label="PAYE to remit" amount={run.directPaye} />
-          <Row label="NSSF to remit" amount={run.directNssf} />
-          <Row label="SHIF to remit" amount={run.directShif} />
           <Row label="Housing Levy to remit" amount={run.directHousingLevy} />
           <Row label="NITA (employer levy)" amount={run.directNita} />
-          <Row label="Statutory total" amount={directStatutory(run)} strong />
+          <Row label="Statutory to remit" amount={directStatutory(run)} strong />
           <p className="mt-3 text-xs text-on-surface-variant">
             Loan instalments withheld from this staff&apos;s pay: {formatKes(run.directLoanRecoveries)}. They reduce
             what is paid out and are not a separate payment.
@@ -90,13 +89,12 @@ export default async function FinanceRunDetailPage({ params }: { params: Promise
         <BentoCard title="Agent payments" subtitle="One payment to each agent">
           <Row label="Total payable to agents" amount={run.agentPayable} strong />
           <Row label="of which VAT" amount={run.agentVat} />
+          <Row label="SHIF and NSSF paid to employees in salary" amount={agentPaidInSalary(run)} />
           <Row label="PAYE inside the payments" amount={run.agentPaye} />
-          <Row label="NSSF inside the payments" amount={run.agentNssf} />
-          <Row label="SHIF inside the payments" amount={run.agentShif} />
           <Row label="Housing Levy inside the payments" amount={run.agentHousingLevy} />
           <p className="mt-3 text-xs text-on-surface-variant">
-            The agents remit {formatKes(agentStatutory(run))} of statutory amounts themselves, so the company does not
-            remit them a second time.
+            The agents remit {formatKes(agentStatutory(run))} of tax themselves, so the company does not remit it a
+            second time.
           </p>
         </BentoCard>
       </div>

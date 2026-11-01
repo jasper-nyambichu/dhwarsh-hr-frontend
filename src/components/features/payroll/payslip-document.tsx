@@ -6,13 +6,14 @@ import { formatDateRange, formatMoney, formatMonthYear } from "@/lib/format";
 import type { PayslipResponse } from "@/types/payroll";
 
 /**
- * The payslip as a printable document. Shared by the employee view (/me/payslips/[id])
- * and the payroll view (/payroll/payslips/[id]) so the two can never drift apart.
+ * The employee statement. One document shared by every role that sees it (Payroll, Admin, the Agent
+ * and the employee), so the figures can never differ between them.
  *
- * Every figure is the backend's. The pay model is: days worked × daily rate, with SHIF and NSSF
- * (set by the Admin) ADDED to give the total employee salary. Loan instalments and approved
- * damages are then deducted. SHIF and NSSF are therefore shown as additions, not deductions,
- * and NITA is an employer levy that is never part of the employee's pay.
+ *   Pay for the days worked  (days × daily rate)
+ * + SHIF + NSSF              (set by the Admin; the firm pays no pension, so the employee gets them)
+ * = Total employee salary
+ * − Loan instalment, approved damages and any switched-on tax
+ * = Net pay
  */
 
 type Line = { label: string; amount: number | null };
@@ -44,8 +45,11 @@ export function PayslipDocument({
   backHref: string;
   backLabel: string;
 }) {
+  // Payslips made before the days × rate model have no days worked; SHIF and NSSF were deducted on those.
+  const legacy = payslip.daysWorked === 0;
+
   const payLabel =
-    payslip.daysWorked > 0 && payslip.dailyRate
+    !legacy && payslip.dailyRate
       ? `Pay for ${payslip.daysWorked} ${payslip.daysWorked === 1 ? "day" : "days"} × ${formatMoney(payslip.dailyRate)}`
       : "Basic pay";
 
@@ -64,12 +68,15 @@ export function PayslipDocument({
     earnings.push({ label: "Less: Unpaid Leave", amount: -(payslip.unpaidLeaveDeduction ?? 0) });
   }
 
-  const additions: Line[] = [
+  const statutory: Line[] = [
     { label: "SHIF", amount: payslip.shifDeduction },
     { label: "NSSF", amount: payslip.nssfDeduction },
   ].filter(positive);
 
+  const additions: Line[] = legacy ? [] : statutory;
+
   const deductions: Line[] = [
+    ...(legacy ? statutory : []),
     { label: "PAYE", amount: payslip.payeDeduction },
     { label: "Affordable Housing Levy", amount: payslip.housingLevyDeduction },
     { label: "Loan Repayment", amount: payslip.loanDeduction },
@@ -77,7 +84,8 @@ export function PayslipDocument({
     { label: "Other Deductions", amount: payslip.otherDeductions },
   ].filter(positive);
 
-  const totalDeductions = payslip.grossPay - payslip.netPay;
+  const totalSalary = payslip.totalEmployeeSalary ?? payslip.grossPay;
+  const totalDeductions = totalSalary - payslip.netPay;
 
   return (
     <div className="bg-surface-container-lowest/50 print:bg-white">
@@ -119,13 +127,13 @@ export function PayslipDocument({
             <span className="w-32 text-xs font-medium uppercase tracking-wider text-on-surface-variant">Employee No</span>
             <span className="text-on-surface">{payslip.employeeNumber ?? "—"}</span>
           </div>
-          {payslip.daysWorked > 0 ? (
+          {!legacy ? (
             <div className="flex">
               <span className="w-32 text-xs font-medium uppercase tracking-wider text-on-surface-variant">Days worked</span>
               <span className="text-on-surface">{payslip.daysWorked}</span>
             </div>
           ) : null}
-          {payslip.dailyRate ? (
+          {!legacy && payslip.dailyRate ? (
             <div className="flex">
               <span className="w-32 text-xs font-medium uppercase tracking-wider text-on-surface-variant">Daily rate</span>
               <span className="text-on-surface">{formatMoney(payslip.dailyRate)}</span>
@@ -141,26 +149,23 @@ export function PayslipDocument({
             </h3>
             <LineList lines={earnings} />
             <div className="mt-6 flex items-center justify-between border-t border-[#E9EFF5] pt-4">
-              <span className="text-xs font-bold uppercase tracking-wider text-on-surface">Gross Pay</span>
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface">Pay for days worked</span>
               <span className="text-base font-bold text-tertiary-container">{formatMoney(payslip.grossPay)}</span>
             </div>
 
             {additions.length > 0 ? (
               <>
                 <h4 className="mb-3 mt-6 text-xs font-bold uppercase tracking-wider text-on-surface-variant">
-                  Added to pay
+                  Added to salary
                 </h4>
                 <LineList lines={additions} />
-                <div className="mt-4 flex items-center justify-between border-t border-[#E9EFF5] pt-4">
-                  <span className="text-xs font-bold uppercase tracking-wider text-on-surface">
-                    Total Employee Salary
-                  </span>
-                  <span className="text-base font-bold text-on-surface">
-                    {formatMoney(payslip.totalEmployeeSalary ?? payslip.grossPay)}
-                  </span>
-                </div>
               </>
             ) : null}
+
+            <div className="mt-4 flex items-center justify-between border-t border-[#E9EFF5] pt-4">
+              <span className="text-xs font-bold uppercase tracking-wider text-on-surface">Total Employee Salary</span>
+              <span className="text-base font-bold text-on-surface">{formatMoney(totalSalary)}</span>
+            </div>
           </div>
 
           <div>
@@ -179,7 +184,7 @@ export function PayslipDocument({
         <div className="flex items-center justify-between gap-4 rounded-xl border border-primary/20 bg-primary/5 p-6">
           <div>
             <h3 className="text-lg font-bold text-primary">Net Pay</h3>
-            <p className="mt-1 text-sm text-on-surface-variant">Gross pay less the deductions above</p>
+            <p className="mt-1 text-sm text-on-surface-variant">Total employee salary less the deductions above</p>
           </div>
           <div className="font-display-greeting text-3xl text-[#0B2A45]">{formatMoney(payslip.netPay)}</div>
         </div>
