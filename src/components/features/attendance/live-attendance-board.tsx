@@ -94,6 +94,209 @@ async function fetchSnapshot(
   return (await response.json()) as AttendanceLiveSnapshot;
 }
 
+/** The polled snapshot. Off on a past date: those figures are final, and today's must not replace them. */
+export function useLiveAttendance(
+  initialSnapshot: AttendanceLiveSnapshot,
+  branchId: number | undefined,
+  live = true,
+) {
+  return useQuery({
+    queryKey: live
+      ? queryKeys.attendance.live(branchId)
+      : [...queryKeys.attendance.live(branchId), initialSnapshot.summary.date],
+    queryFn: ({ signal }) => fetchSnapshot(branchId, signal),
+    initialData: initialSnapshot,
+    // Age is measured from when the server assembled the snapshot, so the
+    // query is already ~0s old on mount and the first interval tick is what
+    // refreshes it. Both clocks are the same machine in dev.
+    initialDataUpdatedAt: Date.parse(initialSnapshot.fetchedAt),
+    // Overrides the client's 30s default. A 15s interval against 30s-stale data
+    // gives an inconsistent cadence, and the subtitle promises 15s — a figure
+    // the board must actually keep. The cost is one refetch on mount, which is
+    // the "confirm this is live" fetch the screen wants anyway.
+    staleTime: live ? 0 : Infinity,
+    enabled: live,
+    refetchInterval: live ? POLL_INTERVAL_MS : false,
+    // `refetchIntervalInBackground` is left at its default (false): a hidden
+    // tab stops polling, which matters when a dashboard is left open all day.
+  });
+}
+
+/** The clock-in / clock-out ticker. */
+export function LiveActivityCard({
+  initialSnapshot,
+  branchId,
+  recordsHref,
+}: {
+  initialSnapshot: AttendanceLiveSnapshot;
+  branchId?: number;
+  /** Where "Full log" points. Left out when the page already shows the records. */
+  recordsHref?: string;
+}) {
+  const { data, isError, error, isFetching, refetch } = useLiveAttendance(initialSnapshot, branchId);
+  const { activity, fetchedAt } = data;
+
+  // Which rows are newer than the page load. Derived from the initial snapshot
+  // rather than from the wall clock, so the server and client render the same
+  // markup and there is no hydration mismatch.
+  const initialKeys = useMemo(
+    () => new Set(initialSnapshot.activity.map(activityKey)),
+    [initialSnapshot],
+  );
+
+  const feed = activity.slice(0, FEED_LIMIT);
+
+  return (
+    <BentoCard
+      title={
+        <span className="flex items-center gap-2">
+          <span className="relative flex size-2" aria-hidden>
+            <span
+              className={cn(
+                "absolute inline-flex size-full rounded-full bg-green-main",
+                isFetching ? "animate-ping motion-reduce:animate-none" : "",
+              )}
+            />
+            <span className="relative inline-flex size-2 rounded-full bg-green-main" />
+          </span>
+          Live Activity
+        </span>
+      }
+      subtitle={`Updated ${formatTime(fetchedAt)} · refreshes every 15s · newest first`}
+      action={
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-live=""
+            onClick={() => void refetch()}
+            disabled={isFetching}
+            className="flex items-center gap-1.5 rounded-md border border-outline-variant px-3 py-1.5 font-body-md text-body-md text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:opacity-60"
+          >
+            <Icon
+              name="refresh"
+              className={cn(
+                "text-[18px]",
+                isFetching && "animate-spin motion-reduce:animate-none",
+              )}
+            />
+            Refresh
+          </button>
+
+          {recordsHref ? (
+          <Link
+            href={recordsHref}
+            className="flex items-center gap-1 rounded-md px-3 py-1.5 font-body-md text-body-md font-semibold text-primary transition-colors hover:bg-surface-container-low"
+          >
+            Full log
+            <Icon name="arrow_forward" className="text-[18px]" />
+          </Link>
+          ) : null}
+        </div>
+      }
+    >
+      {isError ? (
+        <p
+          role="status"
+          className="mb-3 flex items-start gap-2 rounded-lg bg-amber-main/10 px-3 py-2 text-[11px] text-amber-main"
+        >
+          <Icon name="cloud_off" className="text-[16px]" />
+          {error instanceof Error
+            ? error.message
+            : "Unable to refresh attendance right now."}{" "}
+          Displaying the last values received at {formatTime(fetchedAt)}.
+        </p>
+      ) : null}
+
+      {feed.length === 0 ? (
+        // Suppressed while the refresh is failing: "no clock events today" is
+        // a claim about the world, and a failed poll is not evidence for it.
+        isError ? null : (
+          <div className="rounded-card border border-dashed border-outline-variant px-4 py-12 text-center">
+            <Icon
+              name="fingerprint"
+              className="text-[40px] text-outline-variant"
+            />
+            <p className="mt-2 font-body-md text-body-md text-on-surface-variant">
+              No clock events yet today.
+            </p>
+            <p className="mt-1 text-[11px] text-outline">
+              A scan appears here within about 15 seconds of the employee
+              fingerprinting at the terminal.
+            </p>
+          </div>
+        )
+      ) : (
+        <ul className="-mx-2 flex flex-col">
+          {feed.map((item) => {
+            const isNew = !initialKeys.has(activityKey(item));
+
+            return (
+              <li key={activityKey(item)}>
+                <div
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-2 py-2.5",
+                    isNew && "bg-tertiary-container/10",
+                  )}
+                >
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
+                      item.type === "CLOCK_IN"
+                        ? "bg-primary-container text-on-primary"
+                        : "bg-surface-container-high text-on-surface-variant",
+                    )}
+                  >
+                    {initials(item.employeeName)}
+                  </span>
+
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="truncate font-medium text-on-surface">
+                        {item.employeeName ?? "Unknown employee"}
+                      </span>
+                      {isNew ? (
+                        <span className="shrink-0 rounded bg-tertiary-container/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-tertiary">
+                          New
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="mt-0.5 flex items-center gap-2 text-[10px] text-outline">
+                      <span>{item.employeeNumber ?? "—"}</span>
+                      <span aria-hidden>·</span>
+                      <span className="truncate">
+                        {item.branchName ?? "Unassigned branch"}
+                      </span>
+                    </span>
+                  </span>
+
+                  <span
+                    className="hidden shrink-0 text-outline sm:block"
+                    title={`Captured via ${item.source.toLowerCase()}`}
+                  >
+                    <Icon name={SOURCE_ICON[item.source]} className="text-[18px]" />
+                    <span className="sr-only">
+                      Captured via {item.source.toLowerCase()}
+                    </span>
+                  </span>
+
+                  <span className="shrink-0 tabular-nums text-body-md text-on-surface">
+                    {formatTime(item.occurredAt)}
+                  </span>
+
+                  <span className="shrink-0">
+                    <StatusBadge status={item.type} />
+                  </span>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </BentoCard>
+  );
+}
+
 export function LiveAttendanceBoard({
   initialSnapshot,
   branchId,
@@ -105,35 +308,7 @@ export function LiveAttendanceBoard({
   /** Where the feed's "View all" points, carrying the current filters. */
   recordsHref: string;
 }) {
-  const { data, isError, error, isFetching, refetch } = useQuery({
-    queryKey: queryKeys.attendance.live(branchId),
-    queryFn: ({ signal }) => fetchSnapshot(branchId, signal),
-    initialData: initialSnapshot,
-    // Age is measured from when the server assembled the snapshot, so the
-    // query is already ~0s old on mount and the first interval tick is what
-    // refreshes it. Both clocks are the same machine in dev.
-    initialDataUpdatedAt: Date.parse(initialSnapshot.fetchedAt),
-    // Overrides the client's 30s default. A 15s interval against 30s-stale data
-    // gives an inconsistent cadence, and the subtitle promises 15s — a figure
-    // the board must actually keep. The cost is one refetch on mount, which is
-    // the "confirm this is live" fetch the screen wants anyway.
-    staleTime: 0,
-    refetchInterval: POLL_INTERVAL_MS,
-    // `refetchIntervalInBackground` is left at its default (false): a hidden
-    // tab stops polling, which matters when a dashboard is left open all day.
-  });
-
-  const { summary, activity, fetchedAt } = data;
-
-  // Which rows are newer than the page load. Derived from the initial snapshot
-  // rather than from the wall clock, so the server and client render the same
-  // markup and there is no hydration mismatch.
-  const initialKeys = useMemo(
-    () => new Set(initialSnapshot.activity.map(activityKey)),
-    [initialSnapshot],
-  );
-
-  const feed = activity.slice(0, FEED_LIMIT);
+  const { summary } = useLiveAttendance(initialSnapshot, branchId).data;
 
   return (
     <div className="flex flex-col gap-gutter">
@@ -196,152 +371,7 @@ export function LiveAttendanceBoard({
         ]}
       />
 
-      {/* ────────────────────────────── live feed ───────────────────────── */}
-      <BentoCard
-        title={
-          <span className="flex items-center gap-2">
-            <span className="relative flex size-2" aria-hidden>
-              <span
-                className={cn(
-                  "absolute inline-flex size-full rounded-full bg-green-main",
-                  isFetching ? "animate-ping motion-reduce:animate-none" : "",
-                )}
-              />
-              <span className="relative inline-flex size-2 rounded-full bg-green-main" />
-            </span>
-            Live Activity
-          </span>
-        }
-        subtitle={`Updated ${formatTime(fetchedAt)} · refreshes every 15s · newest first`}
-        action={
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              data-live=""
-              onClick={() => void refetch()}
-              disabled={isFetching}
-              className="flex items-center gap-1.5 rounded-md border border-outline-variant px-3 py-1.5 font-body-md text-body-md text-on-surface-variant transition-colors hover:bg-surface-container-low disabled:opacity-60"
-            >
-              <Icon
-                name="refresh"
-                className={cn(
-                  "text-[18px]",
-                  isFetching && "animate-spin motion-reduce:animate-none",
-                )}
-              />
-              Refresh
-            </button>
-
-            <Link
-              href={recordsHref}
-              className="flex items-center gap-1 rounded-md px-3 py-1.5 font-body-md text-body-md font-semibold text-primary transition-colors hover:bg-surface-container-low"
-            >
-              Full log
-              <Icon name="arrow_forward" className="text-[18px]" />
-            </Link>
-          </div>
-        }
-      >
-        {isError ? (
-          <p
-            role="status"
-            className="mb-3 flex items-start gap-2 rounded-lg bg-amber-main/10 px-3 py-2 text-[11px] text-amber-main"
-          >
-            <Icon name="cloud_off" className="text-[16px]" />
-            {error instanceof Error
-              ? error.message
-              : "Unable to refresh attendance right now."}{" "}
-            Displaying the last values received at {formatTime(fetchedAt)}.
-          </p>
-        ) : null}
-
-        {feed.length === 0 ? (
-          // Suppressed while the refresh is failing: "no clock events today" is
-          // a claim about the world, and a failed poll is not evidence for it.
-          isError ? null : (
-            <div className="rounded-card border border-dashed border-outline-variant px-4 py-12 text-center">
-              <Icon
-                name="fingerprint"
-                className="text-[40px] text-outline-variant"
-              />
-              <p className="mt-2 font-body-md text-body-md text-on-surface-variant">
-                No clock events yet today.
-              </p>
-              <p className="mt-1 text-[11px] text-outline">
-                A scan appears here within about 15 seconds of the employee
-                fingerprinting at the terminal.
-              </p>
-            </div>
-          )
-        ) : (
-          <ul className="-mx-2 flex flex-col">
-            {feed.map((item) => {
-              const isNew = !initialKeys.has(activityKey(item));
-
-              return (
-                <li key={activityKey(item)}>
-                  <div
-                    className={cn(
-                      "flex items-center gap-3 rounded-lg px-2 py-2.5",
-                      isNew && "bg-tertiary-container/10",
-                    )}
-                  >
-                    <span
-                      aria-hidden
-                      className={cn(
-                        "flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-bold",
-                        item.type === "CLOCK_IN"
-                          ? "bg-primary-container text-on-primary"
-                          : "bg-surface-container-high text-on-surface-variant",
-                      )}
-                    >
-                      {initials(item.employeeName)}
-                    </span>
-
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate font-medium text-on-surface">
-                          {item.employeeName ?? "Unknown employee"}
-                        </span>
-                        {isNew ? (
-                          <span className="shrink-0 rounded bg-tertiary-container/15 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-tertiary">
-                            New
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="mt-0.5 flex items-center gap-2 text-[10px] text-outline">
-                        <span>{item.employeeNumber ?? "—"}</span>
-                        <span aria-hidden>·</span>
-                        <span className="truncate">
-                          {item.branchName ?? "Unassigned branch"}
-                        </span>
-                      </span>
-                    </span>
-
-                    <span
-                      className="hidden shrink-0 text-outline sm:block"
-                      title={`Captured via ${item.source.toLowerCase()}`}
-                    >
-                      <Icon name={SOURCE_ICON[item.source]} className="text-[18px]" />
-                      <span className="sr-only">
-                        Captured via {item.source.toLowerCase()}
-                      </span>
-                    </span>
-
-                    <span className="shrink-0 tabular-nums text-body-md text-on-surface">
-                      {formatTime(item.occurredAt)}
-                    </span>
-
-                    <span className="shrink-0">
-                      <StatusBadge status={item.type} />
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </BentoCard>
+      <LiveActivityCard initialSnapshot={initialSnapshot} branchId={branchId} recordsHref={recordsHref} />
     </div>
   );
 }

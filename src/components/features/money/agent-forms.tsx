@@ -10,6 +10,7 @@ import {
   submitPaymentRequestAction,
 } from "@/app/actions/agent-money";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage } from "@/components/shared/form-field";
 import { formatKes } from "@/lib/money-format";
 import type { ActionState } from "@/types";
@@ -89,7 +90,12 @@ export function LoanRequestForm({ employees }: { employees: EmployeeOption[] }) 
 
   return (
     <BentoCard title="Request a loan" subtitle="For one of your employees. The Administrator reviews it and sets the interest.">
-      <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+      <ConfirmForm
+        ref={formRef}
+        action={formAction}
+        confirm={{ title: "Send this loan request?", message: "The Administrator will review it and set the interest.", confirmLabel: "Send", icon: "send" }}
+        className="flex flex-col gap-4"
+      >
         <Field id={`${id}-employee`} label="Employee" error={errors.employeeId?.[0]}>
           <select id={`${id}-employee`} name="employeeId" required defaultValue="" className={INPUT}>
             <option value="" disabled>
@@ -145,7 +151,7 @@ export function LoanRequestForm({ employees }: { employees: EmployeeOption[] }) 
         {employees.length === 0 ? (
           <p className="text-xs text-on-surface-variant">You have no active employees to request a loan for yet.</p>
         ) : null}
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }
@@ -163,7 +169,12 @@ export function AdvanceRequestForm() {
 
   return (
     <BentoCard title="Request an advance" subtitle="Recovered from your next payroll once the Administrator approves it.">
-      <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+      <ConfirmForm
+        ref={formRef}
+        action={formAction}
+        confirm={{ title: "Send this advance request?", message: "The Administrator will review it.", confirmLabel: "Send", icon: "send" }}
+        className="flex flex-col gap-4"
+      >
         <Field id={`${id}-amount`} label="Amount (KES)" error={errors.amount?.[0]}>
           <input
             id={`${id}-amount`}
@@ -183,7 +194,7 @@ export function AdvanceRequestForm() {
           <FormMessage state={state} successText="Advance request sent. You'll be notified when the Administrator decides." />
         </div>
         <SubmitButton pending={pending} label="Send advance request" pendingLabel="Sending…" />
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }
@@ -201,7 +212,12 @@ export function PaymentRequestForm() {
 
   return (
     <BentoCard title="Request money" subtitle="Ask for the money you need to pay your employees.">
-      <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+      <ConfirmForm
+        ref={formRef}
+        action={formAction}
+        confirm={{ title: "Send this request?", message: "The Administrator will review it.", confirmLabel: "Send", icon: "send" }}
+        className="flex flex-col gap-4"
+      >
         <Field id={`${id}-amount`} label="Amount (KES)" error={errors.amount?.[0]}>
           <input
             id={`${id}-amount`}
@@ -226,7 +242,7 @@ export function PaymentRequestForm() {
           <FormMessage state={state} successText="Request sent to the Administrator for approval." />
         </div>
         <SubmitButton pending={pending} label="Send request" pendingLabel="Sending…" />
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }
@@ -262,7 +278,12 @@ export function PaymentRecordForm({
       title="Record an M-Pesa payment"
       subtitle="After you pay an employee, record it here with the M-Pesa transaction code."
     >
-      <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+      <ConfirmForm
+        ref={formRef}
+        action={formAction}
+        confirm={{ title: "Record this payment?", message: "Check the amount and the M-Pesa transaction code before saving.", confirmLabel: "Record", icon: "payments" }}
+        className="flex flex-col gap-4"
+      >
         <Field
           id={`${id}-request`}
           label="Paid from"
@@ -346,7 +367,7 @@ export function PaymentRecordForm({
           <FormMessage state={state} successText="Payment recorded." />
         </div>
         <SubmitButton pending={pending} label="Record payment" pendingLabel="Saving…" />
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }
@@ -356,10 +377,15 @@ export function CancelPaymentRequestButton({ paymentRequestId }: { paymentReques
   const [state, formAction, pending] = useActionState<ActionState, FormData>(cancelPaymentRequestAction, IDLE);
 
   return (
-    <form
+    <ConfirmForm
       action={formAction}
-      onSubmit={(event) => {
-        if (!window.confirm("Cancel this request? The Administrator will no longer see it.")) event.preventDefault();
+      confirm={{
+        title: "Cancel this request?",
+        message: "The Administrator will no longer see it.",
+        confirmLabel: "Cancel request",
+        cancelLabel: "Keep request",
+        icon: "cancel",
+        danger: true,
       }}
       className="flex flex-col gap-1"
     >
@@ -372,6 +398,6 @@ export function CancelPaymentRequestButton({ paymentRequestId }: { paymentReques
         {pending ? "Cancelling…" : "Cancel request"}
       </button>
       {state.status === "error" ? <p className="text-xs text-error">{state.message}</p> : null}
-    </form>
+    </ConfirmForm>
   );
 }

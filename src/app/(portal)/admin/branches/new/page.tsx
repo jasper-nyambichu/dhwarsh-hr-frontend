@@ -12,8 +12,10 @@ export default async function NewBranchPage() {
   await requirePermission("branch:write");
 
   let managers: { id: number; name: string }[];
+  let nextCode: string;
   try {
     const [users, branches] = await Promise.all([getUsers(), getBranches()]);
+    nextCode = String(branches.length + 1).padStart(3, "0");
     const taken = new Set(branches.map((branch) => branch.managerId).filter((id): id is number => id !== null));
     managers = users
       .filter((user) => user.role === "BRANCH_MANAGER" && user.active && !taken.has(user.id))
@@ -31,7 +33,7 @@ export default async function NewBranchPage() {
   return (
     <>
       <PageHeader title="Add Branch" description="Create a new location. You can assign a manager now or later." />
-      <BranchForm mode="create" managers={managers} />
+      <BranchForm mode="create" managers={managers} nextCode={nextCode} />
     </>
   );
 }

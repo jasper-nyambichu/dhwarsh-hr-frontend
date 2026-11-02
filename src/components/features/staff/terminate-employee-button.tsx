@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { terminateStaffAction } from "@/app/actions/staff";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
@@ -15,10 +16,15 @@ export function TerminateEmployeeButton({ employeeId, name }: { employeeId: numb
 
   return (
     <BentoCard title="End employment">
-      <form
+      <ConfirmForm
         action={formAction}
-        onSubmit={(event) => {
-          if (!window.confirm(`End ${name}'s employment? This cannot be undone from here.`)) event.preventDefault();
+        confirm={{
+          title: "End this employment?",
+          message: "This cannot be undone from here.",
+          subject: name,
+          confirmLabel: "Terminate",
+          icon: "person_off",
+          danger: true,
         }}
         className="flex flex-col gap-3"
       >
@@ -31,7 +37,7 @@ export function TerminateEmployeeButton({ employeeId, name }: { employeeId: numb
         >
           {pending ? "Working…" : "Terminate Employee"}
         </button>
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }

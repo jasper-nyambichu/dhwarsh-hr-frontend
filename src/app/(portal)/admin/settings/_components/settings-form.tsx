@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { saveSettingsAction } from "@/app/actions/company";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage, TextField } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
@@ -34,7 +35,10 @@ export function SettingsForm({
   const weekend = new Set(initial.weekendDays.split(",").map((day) => day.trim().toUpperCase()));
 
   return (
-    <form action={formAction}>
+    <ConfirmForm
+      action={formAction}
+      confirm={{ title: "Save the company rules?", message: "Agent payments will use the VAT rate saved here.", confirmLabel: "Save", icon: "save" }}
+    >
       <BentoCard
         title="Company Rules"
         subtitle={saved ? "Agent payments use the VAT rate saved here." : "Defaults shown — save to make them the live rules."}
@@ -109,6 +113,6 @@ export function SettingsForm({
           </div>
         ) : null}
       </BentoCard>
-    </form>
+    </ConfirmForm>
   );
 }

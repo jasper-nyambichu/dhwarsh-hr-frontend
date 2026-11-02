@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission, requireRole } from "@/app/lib/dal";
-import { terminateEmployee } from "@/lib/api/employee";
+import { deleteEmployee, moveEmployeeBranch, terminateEmployee } from "@/lib/api/employee";
 import {
   assignEmployeeDepartment,
   createEmployeeDirect,
@@ -141,6 +141,50 @@ export async function assignDepartmentAction(
 
   revalidatePath("/admin/employees", "layout");
   revalidatePath("/branch/team", "layout");
+  return { status: "success", data: undefined };
+}
+
+/** Admin: delete an employee. Their code goes and the others close up; money records are kept. */
+export async function deleteStaffAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("employee:write");
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown employee." };
+
+  try {
+    await deleteEmployee(id);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/agent", "layout");
+  revalidatePath("/branch", "layout");
+  redirect("/admin/employees");
+}
+
+/** Admin: move an employee to another branch. */
+export async function moveStaffBranchAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("employee:write");
+
+  const id = Number(formData.get("employeeId"));
+  const branchId = Number(formData.get("branchId"));
+  if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown employee." };
+  if (!Number.isInteger(branchId) || branchId <= 0) return { status: "error", message: "Choose a branch." };
+
+  try {
+    await moveEmployeeBranch(id, branchId);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin", "layout");
   return { status: "success", data: undefined };
 }
 

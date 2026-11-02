@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState, useState } from "react";
 
 import { createAgentAction, updateAgentAction } from "@/app/actions/agent";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage, SelectField, TextField } from "@/components/shared/form-field";
 import type { ActionState, AgentResponse, ChargeType } from "@/types";
@@ -23,7 +24,11 @@ export function AgentForm({ initial }: { initial?: AgentResponse }) {
   const initialFee = initial?.chargeType === "PERCENTAGE_OF_GROSS" ? initial.chargePercentage : initial?.chargeAmount;
 
   return (
-    <form action={formAction} className="mx-auto flex w-full max-w-3xl flex-col gap-gutter">
+    <ConfirmForm
+      action={formAction}
+      confirm={initial ? { title: "Save these changes?", message: "The agent's details will be updated.", confirmLabel: "Save", icon: "save" } : { title: "Register this agent?", message: "The agent will be added with the details you entered.", confirmLabel: "Register", icon: "handshake" }}
+      className="mx-auto flex w-full max-w-3xl flex-col gap-gutter"
+    >
       {initial ? <input type="hidden" name="id" value={initial.id} /> : null}
 
       <BentoCard title="Company details">
@@ -100,6 +105,6 @@ export function AgentForm({ initial }: { initial?: AgentResponse }) {
           {pending ? "Saving…" : initial ? "Save Changes" : "Register Agent"}
         </button>
       </div>
-    </form>
+    </ConfirmForm>
   );
 }

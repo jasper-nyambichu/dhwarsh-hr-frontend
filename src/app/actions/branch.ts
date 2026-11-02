@@ -9,6 +9,7 @@ import {
   activateBranch,
   createBranch,
   deactivateBranch,
+  deleteBranch,
   updateBranch,
   type BranchInput,
 } from "@/lib/api/branch";
@@ -23,13 +24,10 @@ type Parsed = { ok: true; input: BranchInput } | { ok: false; state: ActionState
 
 function readBranch(formData: FormData): Parsed {
   const name = text(formData, "name");
-  const code = text(formData, "code");
   const email = text(formData, "email");
   const fieldErrors: Record<string, string[]> = {};
 
   if (!name) fieldErrors.name = ["Required"];
-  if (!code) fieldErrors.code = ["Required"];
-  else if (!/^[A-Za-z0-9-]{2,20}$/.test(code)) fieldErrors.code = ["2–20 letters, numbers or dashes"];
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fieldErrors.email = ["Not a valid email"];
 
   if (Object.keys(fieldErrors).length > 0) {
@@ -42,7 +40,6 @@ function readBranch(formData: FormData): Parsed {
     ok: true,
     input: {
       name: name!,
-      code: code!,
       address: text(formData, "address"),
       phone: text(formData, "phone"),
       email,
@@ -93,6 +90,26 @@ export async function updateBranchAction(
   revalidatePath("/admin/branches");
   revalidatePath(`/admin/branches/${id}`);
   return { status: "success", data: undefined };
+}
+
+/** Admin: delete a branch. The backend refuses while it still has employees or active terminals. */
+export async function deleteBranchAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("branch:write");
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown branch." };
+
+  try {
+    await deleteBranch(id);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin", "layout");
+  redirect("/admin/branches");
 }
 
 /** Admin: activate or deactivate a branch. */

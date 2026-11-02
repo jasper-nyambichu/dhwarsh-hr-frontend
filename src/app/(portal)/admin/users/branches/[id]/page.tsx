@@ -16,7 +16,7 @@ import type { BranchResponse, UserSummaryResponse } from "@/types";
 
 /** One branch's accounts: its Branch Managers and its Back Office officers. */
 export default async function UserBranchPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("user:manage");
+  const session = await requirePermission("user:manage");
 
   const branchId = Number((await params).id);
   if (!Number.isInteger(branchId) || branchId <= 0) notFound();
@@ -63,7 +63,7 @@ export default async function UserBranchPage({ params }: { params: Promise<{ id:
             <ul className="flex flex-col divide-y divide-outline-variant/30">
               {managers.map((user) => (
                 <li key={user.id} className="py-3 first:pt-0 last:pb-0">
-                  <UserRow user={user} />
+                  <UserRow user={user} canDelete={user.id !== session.userId} />
                 </li>
               ))}
             </ul>
@@ -77,7 +77,7 @@ export default async function UserBranchPage({ params }: { params: Promise<{ id:
             <ul className="flex flex-col divide-y divide-outline-variant/30">
               {backOffice.map((user) => (
                 <li key={user.id} className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0">
-                  <UserRow user={user} />
+                  <UserRow user={user} canDelete={user.id !== session.userId} />
                   <AssignBranchForm userId={user.id} currentBranchId={user.branchId} branches={branchOptions} />
                 </li>
               ))}

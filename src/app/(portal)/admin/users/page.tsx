@@ -36,7 +36,7 @@ function People({ label, icon, users }: { label: string; icon: string; users: Us
  * retired roles are all deactivated and are left out.
  */
 export default async function SystemUsersPage() {
-  await requirePermission("user:manage");
+  const session = await requirePermission("user:manage");
 
   let users: UserSummaryResponse[];
   let branches: BranchResponse[];
@@ -77,7 +77,7 @@ export default async function SystemUsersPage() {
             <ul className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {needsBranch.map((user) => (
                 <li key={user.id} className="flex min-w-0 flex-col gap-3 rounded-lg border border-amber-main/40 p-3">
-                  <UserRow user={user} />
+                  <UserRow user={user} canDelete={user.id !== session.userId} />
                   <AssignBranchForm userId={user.id} currentBranchId={null} branches={branchOptions} />
                 </li>
               ))}
@@ -123,7 +123,7 @@ export default async function SystemUsersPage() {
             <ul className="grid grid-cols-1 gap-x-8 gap-y-4 lg:grid-cols-2">
               {[...companyWide, ...managersWithoutBranch].map((user) => (
                 <li key={user.id} className="min-w-0">
-                  <UserRow user={user} showRole />
+                  <UserRow user={user} showRole canDelete={user.id !== session.userId} />
                 </li>
               ))}
             </ul>

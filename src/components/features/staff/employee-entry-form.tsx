@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { addEmployeeAction, requestEmployeeAction } from "@/app/actions/staff";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage, SelectField, TextField } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
@@ -41,7 +42,13 @@ export function EmployeeEntryForm({
   const errors = state.status === "error" ? state.fieldErrors : undefined;
 
   return (
-    <form action={formAction} className="mx-auto flex w-full max-w-3xl flex-col gap-gutter">
+    <ConfirmForm
+      action={formAction}
+      confirm={mode === "direct"
+        ? { title: "Add this employee?", message: "They will be added to the branch you chose.", confirmLabel: "Add employee", icon: "person_add" }
+        : { title: "Submit for approval?", message: "The employee is only created once this is approved.", confirmLabel: "Submit", icon: "send" }}
+      className="mx-auto flex w-full max-w-3xl flex-col gap-gutter"
+    >
       <BentoCard title="Personal details">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField className="sm:col-span-2" label="Full name" name="fullName" required error={errors?.fullName?.[0]} />
@@ -160,6 +167,6 @@ export function EmployeeEntryForm({
           {pending ? "Saving…" : mode === "direct" ? "Add Employee" : "Submit for Approval"}
         </button>
       </div>
-    </form>
+    </ConfirmForm>
   );
 }

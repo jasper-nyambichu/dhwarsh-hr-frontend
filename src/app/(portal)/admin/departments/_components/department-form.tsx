@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { createDepartmentAction, updateDepartmentAction } from "@/app/actions/department";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage, TextField } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
@@ -24,7 +25,11 @@ export function DepartmentForm({
   const errors = state.status === "error" ? state.fieldErrors : undefined;
 
   return (
-    <form action={formAction} className="mx-auto flex w-full max-w-2xl flex-col gap-gutter">
+    <ConfirmForm
+      action={formAction}
+      confirm={mode === "create" ? { title: "Create this department?", message: "It will be available across the company.", confirmLabel: "Create", icon: "account_tree" } : { title: "Save these changes?", message: "The department's details will be updated.", confirmLabel: "Save", icon: "save" }}
+      className="mx-auto flex w-full max-w-2xl flex-col gap-gutter"
+    >
       {initial ? <input type="hidden" name="id" value={initial.id} /> : null}
 
       <BentoCard title="Department details" subtitle="Available to every branch">
@@ -47,6 +52,6 @@ export function DepartmentForm({
           {pending ? "Saving…" : mode === "create" ? "Create Department" : "Save Changes"}
         </button>
       </div>
-    </form>
+    </ConfirmForm>
   );
 }

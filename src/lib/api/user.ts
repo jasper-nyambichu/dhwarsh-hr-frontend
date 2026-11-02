@@ -27,6 +27,11 @@ export function getUsers(signal?: AbortSignal): Promise<UserSummaryResponse[]> {
   return api.get<UserSummaryResponse[]>("/users", { signal });
 }
 
+/** Deletes an account. Refused for your own account and for the last active Admin. */
+export function deleteUser(userId: number): Promise<void> {
+  return api.delete<void>(`/users/${userId}`);
+}
+
 /** Which branch a Back Office officer works at. Their access stays company-wide. */
 export function assignUserBranch(userId: number, branchId: number): Promise<UserSummaryResponse> {
   return api.put<UserSummaryResponse>(`/users/${userId}/branch`, { branchId });

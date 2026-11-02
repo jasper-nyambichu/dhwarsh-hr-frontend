@@ -13,7 +13,6 @@ import type { BranchResponse } from "@/types";
 /** Payload for create and update — the backend has one `BranchRequest`. */
 export type BranchInput = {
   name: string;
-  code: string;
   address?: string;
   phone?: string;
   email?: string;
@@ -42,7 +41,7 @@ export function getMyBranch(signal?: AbortSignal): Promise<BranchResponse> {
   return api.get<BranchResponse>("/branches/my-branch", { signal });
 }
 
-/** Creates a branch. SUPER_ADMIN and ADMIN. The code is stored upper-case. */
+/** Creates a branch. SUPER_ADMIN and ADMIN. The backend gives it the next index code. */
 export function createBranch(payload: BranchInput): Promise<BranchResponse> {
   return api.post<BranchResponse>("/branches", payload);
 }
@@ -57,6 +56,14 @@ export function updateBranch(id: number, payload: BranchInput): Promise<BranchRe
  */
 export function deactivateBranch(id: number): Promise<void> {
   return api.put<void>(`/branches/${id}/deactivate`);
+}
+
+/**
+ * Deletes a branch and closes up the remaining codes. Refused while it still has employees or
+ * active terminals.
+ */
+export function deleteBranch(id: number): Promise<void> {
+  return api.delete<void>(`/branches/${id}`);
 }
 
 /** Reactivates a branch. */

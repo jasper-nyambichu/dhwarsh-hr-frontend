@@ -11,6 +11,7 @@ import {
   rejectPaymentRequestAction,
   releasePaymentRequestAction,
 } from "@/app/actions/money-decisions";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
@@ -39,7 +40,11 @@ function RejectBox({ idName, id, action }: { idName: string; id: number; action:
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-center rounded-lg border border-outline-variant px-5 text-sm font-medium text-on-surface-variant hover:bg-surface-container-low">
         Reject…
       </summary>
-      <form action={formAction} className="mt-2 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3">
+      <ConfirmForm
+        action={formAction}
+        confirm={{ title: "Reject this request?", message: "Your reason goes with it, so they know what to change.", confirmLabel: "Reject", icon: "cancel", danger: true }}
+        className="mt-2 flex flex-col gap-2 rounded-lg bg-surface-container-low p-3"
+      >
         <input type="hidden" name={idName} value={id} />
         <label htmlFor={reasonId} className="text-xs font-medium text-on-surface">
           Why is it being rejected?
@@ -54,22 +59,26 @@ function RejectBox({ idName, id, action }: { idName: string; id: number; action:
         >
           {pending ? "Rejecting…" : "Reject"}
         </button>
-      </form>
+      </ConfirmForm>
     </details>
   );
 }
 
-function ApproveButton({ idName, id, action, label }: { idName: string; id: number; action: Action; label: string }) {
+function ApproveButton({ idName, id, action, label, message }: { idName: string; id: number; action: Action; label: string; message: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, IDLE);
 
   return (
-    <form action={formAction} className="flex flex-col gap-1">
+    <ConfirmForm
+      action={formAction}
+      confirm={{ title: `${label}?`, message, confirmLabel: "Approve", icon: "check_circle" }}
+      className="flex flex-col gap-1"
+    >
       <input type="hidden" name={idName} value={id} />
       <button type="submit" disabled={pending} className={`${PRIMARY} w-full`}>
         {pending ? "Saving…" : label}
       </button>
       {state.status === "error" ? <p className="text-xs text-error">{state.message}</p> : null}
-    </form>
+    </ConfirmForm>
   );
 }
 
@@ -77,7 +86,7 @@ function ApproveButton({ idName, id, action, label }: { idName: string; id: numb
 export function AdvanceDecisionBar({ advanceId }: { advanceId: number }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
-      <ApproveButton idName="advanceId" id={advanceId} action={approveAdvanceAction} label="Approve advance" />
+      <ApproveButton idName="advanceId" id={advanceId} action={approveAdvanceAction} label="Approve advance" message="The advance will be marked as approved." />
       <RejectBox idName="advanceId" id={advanceId} action={rejectAdvanceAction} />
     </div>
   );
@@ -92,6 +101,7 @@ export function PaymentDecisionBar({ paymentRequestId }: { paymentRequestId: num
         id={paymentRequestId}
         action={approvePaymentRequestAction}
         label="Approve request"
+        message="It will then be ready for you to release."
       />
       <RejectBox idName="paymentRequestId" id={paymentRequestId} action={rejectPaymentRequestAction} />
     </div>
@@ -107,7 +117,11 @@ export function LoanDecisionBar({ loanId }: { loanId: number }) {
 
   return (
     <div className="flex flex-col gap-3">
-      <form action={approveAction} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <ConfirmForm
+        action={approveAction}
+        confirm={{ title: "Approve this loan?", message: "It will be approved with the interest you entered.", confirmLabel: "Approve", icon: "check_circle" }}
+        className="flex flex-col gap-2 sm:flex-row sm:items-end"
+      >
         <input type="hidden" name="loanId" value={loanId} />
         <div className="flex flex-1 flex-col gap-1">
           <label htmlFor={interestId} className="text-xs font-medium text-on-surface">
@@ -129,13 +143,11 @@ export function LoanDecisionBar({ loanId }: { loanId: number }) {
         <button type="submit" disabled={approving} className={PRIMARY}>
           {approving ? "Saving…" : "Approve loan"}
         </button>
-      </form>
+      </ConfirmForm>
 
-      <form
+      <ConfirmForm
         action={rejectAction}
-        onSubmit={(event) => {
-          if (!window.confirm("Reject this loan request?")) event.preventDefault();
-        }}
+        confirm={{ title: "Reject this loan request?", message: "The loan will not be given.", confirmLabel: "Reject", icon: "cancel", danger: true }}
       >
         <input type="hidden" name="loanId" value={loanId} />
         <button
@@ -145,7 +157,7 @@ export function LoanDecisionBar({ loanId }: { loanId: number }) {
         >
           {rejecting ? "Rejecting…" : "Reject loan"}
         </button>
-      </form>
+      </ConfirmForm>
 
       {approveState.status === "error" && !interestError ? <p className="text-xs text-error">{approveState.message}</p> : null}
       {rejectState.status === "error" ? <p className="text-xs text-error">{rejectState.message}</p> : null}
@@ -160,10 +172,13 @@ export function ReleaseForm({ paymentRequestId }: { paymentRequestId: number }) 
   const error = fieldError(state, "reference");
 
   return (
-    <form
+    <ConfirmForm
       action={formAction}
-      onSubmit={(event) => {
-        if (!window.confirm("Confirm the money has been sent? This marks the request as released.")) event.preventDefault();
+      confirm={{
+        title: "Has the money been sent?",
+        message: "This marks the request as released.",
+        confirmLabel: "Mark as released",
+        icon: "payments",
       }}
       className="flex flex-col gap-2 sm:flex-row sm:items-end"
     >
@@ -189,6 +204,6 @@ export function ReleaseForm({ paymentRequestId }: { paymentRequestId: number }) 
       <button type="submit" disabled={pending} className={PRIMARY}>
         {pending ? "Saving…" : "Mark as released"}
       </button>
-    </form>
+    </ConfirmForm>
   );
 }

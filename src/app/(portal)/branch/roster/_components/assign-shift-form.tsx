@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 
 import { assignRosterShiftAction } from "@/app/actions/roster";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage, SelectField } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
@@ -23,7 +24,16 @@ export function AssignShiftForm({
 
   return (
     <BentoCard title="Assign a shift">
-      <form action={formAction} className="flex flex-col gap-4">
+      <ConfirmForm
+        action={formAction}
+        confirm={{
+          title: "Assign this shift?",
+          message: target === "branch" ? "Everyone in the branch will be put on this shift." : "This employee will be put on this shift.",
+          confirmLabel: "Assign",
+          icon: "schedule",
+        }}
+        className="flex flex-col gap-4"
+      >
         <SelectField label="Shift" name="shiftId" required defaultValue="" error={errors?.shiftId?.[0]}>
           <option value="" disabled>Select a shift…</option>
           {shifts.map((shift) => (
@@ -61,7 +71,7 @@ export function AssignShiftForm({
           {pending ? "Assigning…" : "Assign Shift"}
         </button>
         {shifts.length === 0 ? <p className="text-xs text-on-surface-variant">No shifts exist yet. An Admin defines them.</p> : null}
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }

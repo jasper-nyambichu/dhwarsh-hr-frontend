@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { deleteDepartmentAction } from "@/app/actions/department";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { Icon } from "@/components/ui/icon";
 import type { ActionState } from "@/types";
 
@@ -13,10 +14,14 @@ export function DeleteDepartmentButton({ id, name }: { id: number; name: string 
   });
 
   return (
-    <form
+    <ConfirmForm
       action={formAction}
-      onSubmit={(event) => {
-        if (!window.confirm(`Delete the ${name} department?`)) event.preventDefault();
+      confirm={{
+        title: "Delete this department?",
+        message: "This is refused while employees are still assigned to it.",
+        subject: name,
+        confirmLabel: "Delete",
+        danger: true,
       }}
       className="inline-flex flex-col items-end"
     >
@@ -32,6 +37,6 @@ export function DeleteDepartmentButton({ id, name }: { id: number; name: string 
       {state.status === "error" ? (
         <span role="alert" className="mt-1 max-w-[220px] text-right text-[11px] text-error">{state.message}</span>
       ) : null}
-    </form>
+    </ConfirmForm>
   );
 }

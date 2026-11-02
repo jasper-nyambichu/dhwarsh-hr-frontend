@@ -2,7 +2,9 @@ import { redirect } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { deactivateDeviceAction } from "@/app/actions/device";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -167,6 +169,17 @@ export default async function BiometricDevicesPage({
                           <p className="break-all font-mono text-sm font-semibold text-on-surface">{device.deviceSerial}</p>
                           <p className="break-words text-xs text-on-surface-variant">{device.branchName ?? "No branch"}</p>
                         </div>
+                        {device.status === "ACTIVE" ? (
+                          <ConfirmDeleteButton
+                            compact
+                            action={deactivateDeviceAction}
+                            id={device.id}
+                            name={device.deviceSerial}
+                            label="Deactivate"
+                            title="Deactivate this terminal?"
+                            confirmText="It will stop recording clock-ins."
+                          />
+                        ) : null}
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/30 pt-2 text-xs">
                         <span className="inline-flex items-center gap-1.5 font-medium text-on-surface-variant">

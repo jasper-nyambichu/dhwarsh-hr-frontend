@@ -4,6 +4,7 @@ import { useActionState, useEffect, useRef } from "react";
 
 import { grantOffDayAction, removeOffDayAction } from "@/app/actions/off-day";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage, SelectField, TextField } from "@/components/shared/form-field";
 import { Icon } from "@/components/ui/icon";
 import type { ActionState } from "@/types";
@@ -20,7 +21,12 @@ export function OffDayForm({ employees }: { employees: { id: number; name: strin
 
   return (
     <BentoCard title="Give an off day" subtitle="For one day, use the same date twice.">
-      <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+      <ConfirmForm
+        ref={formRef}
+        action={formAction}
+        confirm={{ title: "Save this off day?", message: "The employee will not be expected at work on these dates.", confirmLabel: "Save", icon: "event_available" }}
+        className="flex flex-col gap-4"
+      >
         <SelectField label="Employee" name="employeeId" required defaultValue="" error={errors?.employeeId?.[0]}>
           <option value="" disabled>Choose an employee</option>
           {employees.map((employee) => (
@@ -40,7 +46,7 @@ export function OffDayForm({ employees }: { employees: { id: number; name: strin
         >
           {pending ? "Saving…" : "Save Off Day"}
         </button>
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }
@@ -49,7 +55,11 @@ export function RemoveOffDayButton({ id }: { id: number }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(removeOffDayAction, { status: "idle" });
 
   return (
-    <form action={formAction} className="flex shrink-0 flex-col items-end gap-1">
+    <ConfirmForm
+      action={formAction}
+      confirm={{ title: "Remove this off day?", message: "The employee will be expected at work on those dates again.", confirmLabel: "Remove", danger: true }}
+      className="flex shrink-0 flex-col items-end gap-1"
+    >
       <input type="hidden" name="id" value={id} />
       <button
         type="submit"
@@ -61,6 +71,6 @@ export function RemoveOffDayButton({ id }: { id: number }) {
         <Icon name="delete" className="text-[18px]" />
       </button>
       {state.status === "error" ? <span role="alert" className="max-w-40 text-right text-[11px] text-error">{state.message}</span> : null}
-    </form>
+    </ConfirmForm>
   );
 }

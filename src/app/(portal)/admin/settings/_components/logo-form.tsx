@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 
 import { removeCompanyLogoAction, uploadCompanyLogoAction } from "@/app/actions/company";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage } from "@/components/shared/form-field";
 import { Icon } from "@/components/ui/icon";
 import type { ActionState } from "@/types";
@@ -33,7 +34,16 @@ export function LogoForm({ hasLogo, version }: { hasLogo: boolean; version: stri
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col gap-3">
-          <form action={uploadAction} className="flex flex-col gap-3">
+          <ConfirmForm
+            action={uploadAction}
+            confirm={{
+              title: hasLogo ? "Replace the logo?" : "Upload this logo?",
+              message: "It will appear on payslips, employee lists, invoices and agent statements.",
+              confirmLabel: hasLogo ? "Replace" : "Upload",
+              icon: "image",
+            }}
+            className="flex flex-col gap-3"
+          >
             <label className="flex flex-col gap-1 text-sm font-medium text-on-surface">
               Choose a logo
               <input
@@ -56,15 +66,19 @@ export function LogoForm({ hasLogo, version }: { hasLogo: boolean; version: stri
             >
               {uploading ? "Uploading…" : hasLogo ? "Replace Logo" : "Upload Logo"}
             </button>
-          </form>
+          </ConfirmForm>
 
           {hasLogo ? (
-            <form action={removeAction} className="flex flex-col gap-2">
+            <ConfirmForm
+              action={removeAction}
+              confirm={{ title: "Remove the logo?", message: "It will no longer appear on payslips, employee lists, invoices and agent statements.", confirmLabel: "Remove", danger: true }}
+              className="flex flex-col gap-2"
+            >
               <FormMessage state={removeState} successText="Logo removed." />
               <button type="submit" disabled={removing} className="self-start text-sm font-medium text-error hover:underline disabled:opacity-60">
                 {removing ? "Removing…" : "Remove logo"}
               </button>
-            </form>
+            </ConfirmForm>
           ) : null}
         </div>
       </div>

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { saveCompanyAction } from "@/app/actions/company";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage, TextField } from "@/components/shared/form-field";
 import type { ActionState, CompanyResponse } from "@/types";
 
@@ -21,7 +22,12 @@ export function CompanyForm({
   const errors = state.status === "error" ? state.fieldErrors : undefined;
 
   return (
-    <form action={formAction}>
+    <ConfirmForm
+      action={formAction}
+      confirm={initial
+        ? { title: "Save the company profile?", message: "The company's details will be updated.", confirmLabel: "Save", icon: "save" }
+        : { title: "Create the company profile?", message: "The company will be set up with the details you entered.", confirmLabel: "Create", icon: "save" }}
+    >
       <BentoCard title="Company Profile" subtitle={initial ? undefined : "Not set up yet — fill this in first."}>
         <fieldset disabled={readOnly || pending} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField className="sm:col-span-2" label="Registered name" name="name" required defaultValue={initial?.name} error={errors?.name?.[0]} />
@@ -52,6 +58,6 @@ export function CompanyForm({
           </div>
         ) : null}
       </BentoCard>
-    </form>
+    </ConfirmForm>
   );
 }

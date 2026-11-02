@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { unlockDaysWorkedAction } from "@/app/actions/days-worked";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
@@ -21,12 +22,13 @@ export function DaysWorkedUnlockForm({
   });
 
   return (
-    <form
+    <ConfirmForm
       action={formAction}
-      onSubmit={(event) => {
-        if (!window.confirm("Unlock this period? The Back Office will be able to change the days and lock them again.")) {
-          event.preventDefault();
-        }
+      confirm={{
+        title: "Unlock this period?",
+        message: "The Back Office will be able to change the days and lock them again.",
+        confirmLabel: "Unlock",
+        icon: "lock_open",
       }}
       className="flex flex-col gap-2 sm:items-end"
     >
@@ -43,6 +45,6 @@ export function DaysWorkedUnlockForm({
       <div aria-live="polite">
         <FormMessage state={state} successText="Period unlocked." />
       </div>
-    </form>
+    </ConfirmForm>
   );
 }

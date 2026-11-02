@@ -3,6 +3,7 @@
 import { useActionState, useId, useState } from "react";
 
 import { savePaySettingsAction } from "@/app/actions/pay-settings";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
@@ -235,7 +236,11 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
-      <form action={formAction} className="flex min-w-0 flex-col gap-4">
+      <ConfirmForm
+        action={formAction}
+        confirm={{ title: "Save these pay rates?", message: "The next agent payment calculation will use them.", confirmLabel: "Save", icon: "payments" }}
+        className="flex min-w-0 flex-col gap-4"
+      >
         <BentoCard title="Daily rate" subtitle="What one day worked pays. Pay = days worked × this rate.">
           <div className="flex max-w-sm flex-col gap-2">
             <label htmlFor={rateId} className="text-sm font-medium text-on-surface">
@@ -329,7 +334,7 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
         >
           {pending ? "Saving…" : "Save pay rates"}
         </button>
-      </form>
+      </ConfirmForm>
 
       <div className="min-w-0 lg:sticky lg:top-4">
         <BentoCard title="Payment formula" subtitle="An example for one employee. It updates as you type; the server does the real calculation.">

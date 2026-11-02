@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { assignDepartmentAction } from "@/app/actions/staff";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage, SelectField } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
@@ -24,7 +25,11 @@ export function AssignDepartmentForm({
 
   return (
     <BentoCard title="Department">
-      <form action={formAction} className="flex flex-col gap-3">
+      <ConfirmForm
+        action={formAction}
+        confirm={{ title: "Save this department?", message: "The employee will be assigned to the department you chose.", confirmLabel: "Save", icon: "account_tree" }}
+        className="flex flex-col gap-3"
+      >
         <input type="hidden" name="employeeId" value={employeeId} />
         <SelectField
           label="Assign to"
@@ -49,7 +54,7 @@ export function AssignDepartmentForm({
         {departments.length === 0 ? (
           <p className="text-xs text-on-surface-variant">No departments exist yet. An Admin creates them under Departments.</p>
         ) : null}
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }

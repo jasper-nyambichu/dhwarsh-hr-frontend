@@ -88,6 +88,15 @@ export function getMyEmployeeProfile(
 }
 
 /** Terminates an employee. SUPER_ADMIN, ADMIN and HR_MANAGER. */
+/** Removes an employee from every list and closes up the codes. Their money records are kept. */
+export function deleteEmployee(id: number): Promise<void> {
+  return api.delete<void>(`/employees/${id}`);
+}
+
+export function moveEmployeeBranch(id: number, branchId: number): Promise<EmployeeResponse> {
+  return api.put<EmployeeResponse>(`/employees/${id}/branch`, { branchId });
+}
+
 export function terminateEmployee(id: number): Promise<void> {
   return api.put<void>(`/employees/${id}/terminate`);
 }

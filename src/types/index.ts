@@ -580,6 +580,8 @@ export type AttendanceDashboardSummary = {
   currentlyIn: number;
   clockedOut: number;
   notYetIn: number;
+  /** On an off day and did not scan. Not counted in the expected figure. */
+  offToday: number;
   attendanceRatePercent: number;
   devicesTotal: number;
   devicesOnline: number;
@@ -595,6 +597,7 @@ export type AttendanceBranchSummary = {
   currentlyIn: number;
   clockedOut: number;
   notYetIn: number;
+  offToday: number;
   attendanceRatePercent: number;
   lastActivityAt: string | null;
   deviceStatus: BranchDeviceStatus;

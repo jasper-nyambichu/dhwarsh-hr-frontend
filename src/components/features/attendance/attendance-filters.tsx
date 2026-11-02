@@ -34,6 +34,8 @@ export function AttendanceFilters({
   date,
   filter,
   basePath = "/admin/attendance",
+  showBranch = true,
+  clearable = false,
   className,
 }: {
   branches: readonly AttendanceBranchSummary[];
@@ -45,12 +47,16 @@ export function AttendanceFilters({
   filter?: string;
   /** Where a filter change navigates to. Defaults to the admin board. */
   basePath?: string;
+  /** Off where branches are chosen some other way. */
+  showBranch?: boolean;
+  /** Offers Clear even with no other filter, such as when looking at a past date. */
+  clearable?: boolean;
   className?: string;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
-  const hasFilter = Boolean(branchId) || Boolean(filter);
+  const hasFilter = Boolean(branchId) || Boolean(filter) || clearable;
 
   function navigate(next: { branchId?: number; date?: string }) {
     const params = new URLSearchParams();
@@ -79,6 +85,7 @@ export function AttendanceFilters({
         className,
       )}
     >
+      {showBranch ? (
       <label className="relative flex items-center">
         <span className="sr-only">Filter by branch</span>
         <Icon
@@ -106,6 +113,7 @@ export function AttendanceFilters({
           className="pointer-events-none absolute right-2 text-[18px] text-outline"
         />
       </label>
+      ) : null}
 
       <label className="relative flex items-center">
         <span className="sr-only">Attendance date</span>

@@ -6,6 +6,7 @@ import {
   approveEmployeeRequestAction,
   rejectEmployeeRequestAction,
 } from "@/app/actions/employee-request";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { Icon } from "@/components/ui/icon";
 import { refreshNotifications } from "@/lib/notification-events";
 import { cn } from "@/lib/utils";
@@ -46,7 +47,10 @@ export function RequestReviewPanel({
   return (
     <div className="flex flex-col gap-3">
       {/* Approve */}
-      <form action={approveAction}>
+      <ConfirmForm
+        action={approveAction}
+        confirm={{ title: "Approve this employee?", message: "This creates the employee's record.", subject: fullName, confirmLabel: "Approve", icon: "check_circle" }}
+      >
         <input type="hidden" name="id" value={requestId} />
         <button
           type="submit"
@@ -62,7 +66,7 @@ export function RequestReviewPanel({
         {approveState.status === "error" && (
           <p className="mt-1.5 text-[11px] text-error">{approveState.message}</p>
         )}
-      </form>
+      </ConfirmForm>
 
       {/* Reject toggle */}
       {!showReject ? (
@@ -79,7 +83,11 @@ export function RequestReviewPanel({
           Reject request
         </button>
       ) : (
-        <form action={rejectAction} className="flex flex-col gap-2">
+        <ConfirmForm
+          action={rejectAction}
+          confirm={{ title: "Reject this request?", message: "The employee will not be created.", subject: fullName, confirmLabel: "Reject", icon: "cancel", danger: true }}
+          className="flex flex-col gap-2"
+        >
           <input type="hidden" name="id" value={requestId} />
           <label className="font-table-header text-table-header uppercase text-outline">
             Reason for rejection
@@ -116,7 +124,7 @@ export function RequestReviewPanel({
               {rejectPending ? "Rejecting…" : "Confirm rejection"}
             </button>
           </div>
-        </form>
+        </ConfirmForm>
       )}
     </div>
   );

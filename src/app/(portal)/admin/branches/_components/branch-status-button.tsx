@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { setBranchStatusAction } from "@/app/actions/branch";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
@@ -21,10 +22,14 @@ export function BranchStatusButton({ id, status }: { id: number; status: string 
           ? "An inactive branch can't receive new departments. Reactivate it to use it again."
           : "A branch can only be deactivated once it has no active employees."}
       </p>
-      <form
+      <ConfirmForm
         action={formAction}
-        onSubmit={(event) => {
-          if (!activating && !window.confirm("Deactivate this branch?")) event.preventDefault();
+        confirm={activating ? undefined : {
+          title: "Deactivate this branch?",
+          message: "An inactive branch can't receive new departments.",
+          confirmLabel: "Deactivate",
+          icon: "domain_disabled",
+          danger: true,
         }}
         className="flex flex-col gap-3"
       >
@@ -42,7 +47,7 @@ export function BranchStatusButton({ id, status }: { id: number; status: string 
         >
           {pending ? "Working…" : activating ? "Activate Branch" : "Deactivate Branch"}
         </button>
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }

@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { calculateAgentPaymentsAction } from "@/app/actions/pay-settings";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage, TextField } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
@@ -22,12 +23,13 @@ export function AgentPaymentForm() {
       title="Calculate agent payments"
       subtitle="Uses the days the Back Office locked for exactly this period. Each agent's amount then waits under Money Requests for you to release."
     >
-      <form
+      <ConfirmForm
         action={formAction}
-        onSubmit={(event) => {
-          if (!window.confirm("Calculate agent payments for this period? Loans, damages and advances will be deducted, and the period cannot be paid again.")) {
-            event.preventDefault();
-          }
+        confirm={{
+          title: "Calculate agent payments?",
+          message: "Loans, damages and advances will be deducted, and this period cannot be paid again.",
+          confirmLabel: "Calculate",
+          icon: "calculate",
         }}
         className="flex flex-col gap-4"
       >
@@ -47,7 +49,7 @@ export function AgentPaymentForm() {
         >
           {pending ? "Calculating…" : "Calculate payments"}
         </button>
-      </form>
+      </ConfirmForm>
     </BentoCard>
   );
 }

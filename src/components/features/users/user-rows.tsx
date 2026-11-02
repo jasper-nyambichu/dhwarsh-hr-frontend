@@ -2,14 +2,16 @@
 
 import { useActionState } from "react";
 
-import { assignUserBranchAction } from "@/app/actions/user";
+import { assignUserBranchAction, deleteUserAction } from "@/app/actions/user";
+import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { ROLE_LABEL } from "@/config/roles";
 import { initials } from "@/lib/format";
 import type { ActionState, UserSummaryResponse } from "@/types";
 
 /** One account: who they are, their login and whether it works. */
-export function UserRow({ user, showRole = false }: { user: UserSummaryResponse; showRole?: boolean }) {
+export function UserRow({ user, showRole = false, canDelete = false }: { user: UserSummaryResponse; showRole?: boolean; canDelete?: boolean }) {
   return (
     <div className="flex min-w-0 items-center gap-3">
       <span aria-hidden className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-container text-xs font-bold text-on-primary">
@@ -25,6 +27,16 @@ export function UserRow({ user, showRole = false }: { user: UserSummaryResponse;
       <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${user.active ? "bg-tertiary-container/10 text-tertiary-container" : "bg-error/10 text-error"}`}>
         {user.active ? "Active" : "Inactive"}
       </span>
+      {canDelete ? (
+        <ConfirmDeleteButton
+          compact
+          action={deleteUserAction}
+          id={user.id}
+          name={user.displayName ?? user.username}
+          title="Delete this account?"
+          confirmText="They will be signed out and unable to log in."
+        />
+      ) : null}
     </div>
   );
 }
@@ -42,7 +54,11 @@ export function AssignBranchForm({
   const [state, formAction, pending] = useActionState<ActionState, FormData>(assignUserBranchAction, { status: "idle" });
 
   return (
-    <form action={formAction} className="flex flex-col gap-1">
+    <ConfirmForm
+      action={formAction}
+      confirm={{ title: "Save this branch?", message: "The officer will be assigned to the branch you chose.", confirmLabel: "Save", icon: "domain" }}
+      className="flex flex-col gap-1"
+    >
       <input type="hidden" name="userId" value={userId} />
       <div className="flex min-w-0 gap-2">
         <FilterSelect
@@ -61,6 +77,6 @@ export function AssignBranchForm({
         </button>
       </div>
       {state.status === "error" ? <span role="alert" className="text-xs text-error">{state.message}</span> : null}
-    </form>
+    </ConfirmForm>
   );
 }

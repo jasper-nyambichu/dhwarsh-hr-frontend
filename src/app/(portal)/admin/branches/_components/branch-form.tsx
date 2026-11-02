@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 
 import { createBranchAction, updateBranchAction } from "@/app/actions/branch";
+import { ConfirmForm } from "@/components/shared/confirm-form";
 import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage, SelectField, TextField } from "@/components/shared/form-field";
 import type { ActionState, BranchResponse } from "@/types";
@@ -13,10 +14,13 @@ export function BranchForm({
   mode,
   initial,
   managers,
+  nextCode,
 }: {
   mode: "create" | "edit";
   initial?: BranchResponse;
   managers: { id: number; name: string }[];
+  /** What a new branch will be numbered. */
+  nextCode?: string;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     mode === "create" ? createBranchAction : updateBranchAction,
@@ -25,7 +29,11 @@ export function BranchForm({
   const errors = state.status === "error" ? state.fieldErrors : undefined;
 
   return (
-    <form action={formAction} className="mx-auto flex w-full max-w-2xl flex-col gap-gutter">
+    <ConfirmForm
+      action={formAction}
+      confirm={mode === "create" ? { title: "Create this branch?", message: "Its branch code is generated automatically.", confirmLabel: "Create", icon: "add_business" } : { title: "Save these changes?", message: "The branch's details will be updated.", confirmLabel: "Save", icon: "save" }}
+      className="mx-auto flex w-full max-w-2xl flex-col gap-gutter"
+    >
       {initial ? <input type="hidden" name="id" value={initial.id} /> : null}
 
       <BentoCard title="Branch details">
@@ -34,11 +42,9 @@ export function BranchForm({
           <TextField
             label="Branch code"
             name="code"
-            required
-            defaultValue={initial?.code}
-            error={errors?.code?.[0]}
-            hint="Used in employee numbers, e.g. EMP-NKR-0001. Saved in capitals."
-            placeholder="e.g. NKR"
+            disabled
+            defaultValue={initial?.code ?? nextCode}
+            hint="Given automatically, in order."
           />
           <TextField label="Phone" name="phone" type="tel" defaultValue={initial?.phone ?? undefined} error={errors?.phone?.[0]} />
           <TextField label="Email" name="email" type="email" defaultValue={initial?.email ?? undefined} error={errors?.email?.[0]} />
@@ -77,6 +83,6 @@ export function BranchForm({
           {pending ? "Saving…" : mode === "create" ? "Create Branch" : "Save Changes"}
         </button>
       </div>
-    </form>
+    </ConfirmForm>
   );
 }

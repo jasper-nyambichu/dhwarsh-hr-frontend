@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { deleteBranchAction } from "@/app/actions/branch";
 import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { DonutChart } from "@/components/shared/charts";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -132,7 +134,7 @@ export default async function BranchesPage({
                       <th className="pb-3 font-table-header text-table-header uppercase text-outline">Contact</th>
                       <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Employees</th>
                       <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Status</th>
-                      {canWrite ? <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Edit</th> : null}
+                      {canWrite ? <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Actions</th> : null}
                     </tr>
                   </thead>
                   <tbody className="font-body-md text-body-md">
@@ -167,13 +169,23 @@ export default async function BranchesPage({
                           </td>
                           {canWrite ? (
                             <td className="py-3 pr-2 text-right">
-                              <Link
-                                href={`/admin/branches/${branch.id}/edit`}
-                                aria-label={`Edit ${branch.name}`}
-                                className="inline-flex text-on-surface-variant hover:text-primary"
-                              >
-                                <Icon name="edit" className="text-[18px]" />
-                              </Link>
+                              <div className="flex items-start justify-end gap-1">
+                                <Link
+                                  href={`/admin/branches/${branch.id}/edit`}
+                                  aria-label={`Edit ${branch.name}`}
+                                  className="flex size-9 items-center justify-center rounded-lg text-on-surface-variant hover:text-primary"
+                                >
+                                  <Icon name="edit" className="text-[18px]" />
+                                </Link>
+                                <ConfirmDeleteButton
+                                  compact
+                                  action={deleteBranchAction}
+                                  id={branch.id}
+                                  name={branch.name}
+                                  title="Delete this branch?"
+                                  confirmText="The other branch codes will close up to stay in order."
+                                />
+                              </div>
                             </td>
                           ) : null}
                         </tr>
