@@ -16,7 +16,7 @@ import { formatDate } from "@/lib/format";
 import { formatKes } from "@/lib/money-format";
 
 /**
- * The agent's money flow: ask for money, see where each request stands, and — once the Accounts Office
+ * The agent's money flow: ask for money, see where each request stands, and — once the Administrator
  * has released it — record every M-Pesa payment made to an employee.
  */
 export default async function AgentPaymentsPage() {
@@ -60,7 +60,7 @@ export default async function AgentPaymentsPage() {
     <>
       <PageHeader
         title="Payments"
-        description="Ask for money to pay your employees. When the Accounts Office releases it, record each M-Pesa payment here."
+        description="Ask for money to pay your employees. When the Administrator releases it, record each M-Pesa payment here."
       />
 
       <div className="grid gap-6 xl:grid-cols-2 xl:items-start">
@@ -73,7 +73,7 @@ export default async function AgentPaymentsPage() {
             <EmptyState
               symbol="lock_clock"
               title="Nothing to pay out yet"
-              description="When the Accounts Office releases a request, you can record the payments you make from it here."
+              description="When the Administrator releases a request, you can record the payments you make from it here."
             />
           </BentoCard>
         )}

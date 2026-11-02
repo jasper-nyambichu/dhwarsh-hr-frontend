@@ -16,7 +16,7 @@ type Values = {
   weekendDays: string;
 };
 
-/** Payroll rules. Super Admin edits; ADMIN sees them read-only. */
+/** Company rules. Admin edits. */
 export function SettingsForm({
   initial,
   saved,
@@ -36,8 +36,8 @@ export function SettingsForm({
   return (
     <form action={formAction}>
       <BentoCard
-        title="Payroll Rules"
-        subtitle={saved ? "Payroll is calculated against these." : "Defaults shown — save to make them the live rules."}
+        title="Company Rules"
+        subtitle={saved ? "Agent payments use the VAT rate saved here." : "Defaults shown — save to make them the live rules."}
       >
         <fieldset disabled={readOnly || pending} className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <TextField
@@ -96,14 +96,14 @@ export function SettingsForm({
 
         {!readOnly ? (
           <div className="mt-5 flex flex-col gap-3">
-            <FormMessage state={state} successText="Payroll rules saved." />
+            <FormMessage state={state} successText="Company rules saved." />
             <div className="flex justify-end">
               <button
                 type="submit"
                 disabled={pending}
                 className="rounded-lg bg-primary px-6 py-2.5 font-body-md text-body-md font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {pending ? "Saving…" : "Save Payroll Rules"}
+                {pending ? "Saving…" : "Save Company Rules"}
               </button>
             </div>
           </div>

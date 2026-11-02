@@ -12,6 +12,17 @@ import type { ContributionMode, PaySettingsResponse } from "@/types/pay-model";
 const INPUT =
   "min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-base text-on-surface focus:outline-none focus:ring-1 focus:ring-primary md:text-sm";
 
+/** Fixed by law and by `StatutoryDeductionCalculator` on the server. */
+const NITA_PER_EMPLOYEE = 50;
+const PAYE_BANDS: readonly (readonly [number, number])[] = [
+  [24000, 0.1],
+  [8333, 0.25],
+  [467667, 0.3],
+  [300000, 0.325],
+  [Number.POSITIVE_INFINITY, 0.35],
+];
+const PERSONAL_RELIEF = 2400;
+
 function kes(amount: number): string {
   const formatted = new Intl.NumberFormat("en-KE", {
     minimumFractionDigits: 2,
@@ -20,11 +31,28 @@ function kes(amount: number): string {
   return `KES ${formatted}`;
 }
 
-/** Mirrors the server: a percentage of pay, or a flat amount; nothing on a payslip with no pay. */
-function contribution(pay: number, mode: ContributionMode, raw: string): number {
+function amount(raw: string): number {
   const value = Number(raw);
-  if (!Number.isFinite(value) || value < 0 || pay <= 0) return 0;
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+/** Mirrors the server: a percentage of pay, or a flat amount; nothing when there is no pay. */
+function contribution(pay: number, mode: ContributionMode, raw: string): number {
+  if (pay <= 0) return 0;
+  const value = amount(raw);
   return mode === "FIXED" ? value : (pay * value) / 100;
+}
+
+/** Mirrors the server: progressive bands on pay after NSSF, less personal relief. */
+function paye(pay: number, nssf: number): number {
+  let remaining = Math.max(pay - nssf, 0);
+  let tax = 0;
+  for (const [width, rate] of PAYE_BANDS) {
+    const slice = Math.min(remaining, width);
+    tax += slice * rate;
+    remaining -= slice;
+  }
+  return Math.max(tax - PERSONAL_RELIEF, 0);
 }
 
 function ModeToggle({
@@ -68,52 +96,45 @@ function ModeToggle({
   );
 }
 
-function ContributionField({
-  label,
-  modeName,
-  valueName,
-  mode,
+function SuffixInput({
+  id,
+  name,
   value,
-  onMode,
-  onValue,
+  onChange,
+  suffix,
+  min,
+  max,
   error,
 }: {
-  label: string;
-  modeName: string;
-  valueName: string;
-  mode: ContributionMode;
+  id: string;
+  name: string;
   value: string;
-  onMode: (mode: ContributionMode) => void;
-  onValue: (value: string) => void;
+  onChange: (value: string) => void;
+  suffix: string;
+  min: string;
+  max?: string;
   error?: string;
 }) {
-  const id = useId();
-
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <label htmlFor={id} className="text-sm font-medium text-on-surface">
-          {label}
-        </label>
-        <ModeToggle name={modeName} label={`${label} calculation`} mode={mode} onChange={onMode} />
-      </div>
+    <>
       <div className="relative">
         <input
           id={id}
-          name={valueName}
+          name={name}
           type="number"
           inputMode="decimal"
-          min="0"
+          min={min}
+          max={max}
           step="0.01"
           required
           value={value}
-          onChange={(event) => onValue(event.target.value)}
+          onChange={(event) => onChange(event.target.value)}
           aria-invalid={error ? true : undefined}
           aria-describedby={error ? `${id}-error` : undefined}
           className={`${INPUT} pr-16 ${error ? "border-error" : ""}`}
         />
         <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-on-surface-variant">
-          {mode === "PERCENT" ? "%" : "KES"}
+          {suffix}
         </span>
       </div>
       {error ? (
@@ -121,37 +142,7 @@ function ContributionField({
           {error}
         </p>
       ) : null}
-    </div>
-  );
-}
-
-function SwitchRow({
-  name,
-  label,
-  description,
-  checked,
-  onChange,
-}: {
-  name: string;
-  label: string;
-  description: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-}) {
-  return (
-    <label className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-outline-variant/60 p-3 hover:bg-surface-container-low">
-      <input
-        type="checkbox"
-        name={name}
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="mt-0.5 size-5 shrink-0 accent-primary"
-      />
-      <span className="flex flex-col">
-        <span className="text-sm font-medium text-on-surface">{label}</span>
-        <span className="text-xs text-on-surface-variant">{description}</span>
-      </span>
-    </label>
+    </>
   );
 }
 
@@ -179,10 +170,31 @@ function PreviewRow({
   );
 }
 
+function ExampleInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  const id = useId();
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <label htmlFor={id} className="text-xs text-on-surface-variant">
+        {label}
+      </label>
+      <input
+        id={id}
+        type="number"
+        inputMode="decimal"
+        min="0"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={INPUT}
+      />
+    </div>
+  );
+}
+
 /**
- * The Admin's pay settings: pay = days worked × the daily rate, with SHIF and NSSF added on top.
- * The example payslip beside the form recalculates as the Admin types, using the same arithmetic
- * as the payroll engine (the engine remains the authority; this is a preview).
+ * The Admin's pay rates. An agent is paid:
+ * (days worked × daily rate) + PAYE + NSSF + NITA + VAT + agent fee − loans − damages − advances.
+ * The example beside the form recalculates as the Admin types, using the same arithmetic as
+ * `AgentSettlementCalculator` (the server remains the authority; this is a preview).
  */
 export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(savePaySettingsAction, {
@@ -190,160 +202,124 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
   });
 
   const [dailyRate, setDailyRate] = useState(String(initial.dailyRate));
-  const [shifMode, setShifMode] = useState<ContributionMode>(initial.shifMode);
-  const [shifValue, setShifValue] = useState(String(initial.shifValue));
   const [nssfMode, setNssfMode] = useState<ContributionMode>(initial.nssfMode);
   const [nssfValue, setNssfValue] = useState(String(initial.nssfValue));
-  const [applyHousingLevy, setApplyHousingLevy] = useState(initial.applyHousingLevy);
-  const [applyPaye, setApplyPaye] = useState(initial.applyPaye);
-  const [applyNita, setApplyNita] = useState(initial.applyNita);
+  const [vatRate, setVatRate] = useState(String(initial.vatRate));
   const [ceiling, setCeiling] = useState(String(initial.deductionCeilingPercent));
+
   const [exampleDays, setExampleDays] = useState("30");
+  const [exampleFee, setExampleFee] = useState("500");
+  const [exampleLoans, setExampleLoans] = useState("0");
+  const [exampleDamages, setExampleDamages] = useState("0");
+  const [exampleAdvance, setExampleAdvance] = useState("0");
 
   const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
 
-  const rate = Number(dailyRate);
-  const days = Number(exampleDays);
-  const pay = Number.isFinite(rate) && Number.isFinite(days) && rate > 0 && days > 0 ? rate * days : 0;
-  const shif = contribution(pay, shifMode, shifValue);
+  const days = amount(exampleDays);
+  const rate = amount(dailyRate);
+  const pay = rate * days;
   const nssf = contribution(pay, nssfMode, nssfValue);
-  const total = pay + shif + nssf;
-  const ceilingPercent = Number(ceiling);
-  const ceilingAmount = Number.isFinite(ceilingPercent) ? (pay * ceilingPercent) / 100 : 0;
+  const tax = paye(pay, nssf);
+  const nita = days > 0 ? NITA_PER_EMPLOYEE : 0;
+  const fee = amount(exampleFee);
+  const subtotal = pay + tax + nssf + nita + fee;
+  const vat = (subtotal * amount(vatRate)) / 100;
+  const beforeAdvance = Math.max(subtotal + vat - amount(exampleLoans) - amount(exampleDamages), 0);
+  const advance = Math.min(amount(exampleAdvance), beforeAdvance);
+  const payable = beforeAdvance - advance;
 
   const rateId = useId();
+  const nssfId = useId();
+  const vatId = useId();
   const ceilingId = useId();
-  const daysId = useId();
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start">
+    <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
       <form action={formAction} className="flex min-w-0 flex-col gap-4">
-        <input type="hidden" name="vatRate" value={initial.vatRate} />
-
-        <BentoCard title="Daily rate" subtitle="What one day worked pays. Pay for a period = days worked × this rate.">
+        <BentoCard title="Daily rate" subtitle="What one day worked pays. Pay = days worked × this rate.">
           <div className="flex max-w-sm flex-col gap-2">
             <label htmlFor={rateId} className="text-sm font-medium text-on-surface">
               Daily rate
             </label>
-            <div className="relative">
-              <input
-                id={rateId}
-                name="dailyRate"
-                type="number"
-                inputMode="decimal"
-                min="0.01"
-                step="0.01"
-                required
-                value={dailyRate}
-                onChange={(event) => setDailyRate(event.target.value)}
-                aria-invalid={errors.dailyRate ? true : undefined}
-                className={`${INPUT} pr-16 ${errors.dailyRate ? "border-error" : ""}`}
-              />
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-on-surface-variant">
-                KES
-              </span>
-            </div>
-            {errors.dailyRate?.[0] ? <p className="text-xs text-error">{errors.dailyRate[0]}</p> : null}
+            <SuffixInput
+              id={rateId}
+              name="dailyRate"
+              value={dailyRate}
+              onChange={setDailyRate}
+              suffix="KES"
+              min="0.01"
+              error={errors.dailyRate?.[0]}
+            />
           </div>
         </BentoCard>
 
-        <BentoCard
-          title="SHIF and NSSF"
-          subtitle="Added on top of the pay: total employee salary = pay + SHIF + NSSF. Each can be a percentage of pay or a fixed amount."
-        >
-          <div className="flex flex-col gap-6">
-            <ContributionField
-              label="SHIF"
-              modeName="shifMode"
-              valueName="shifValue"
-              mode={shifMode}
-              value={shifValue}
-              onMode={setShifMode}
-              onValue={setShifValue}
-              error={errors.shifValue?.[0] ?? errors.shifMode?.[0]}
-            />
-            <ContributionField
-              label="NSSF"
-              modeName="nssfMode"
-              valueName="nssfValue"
-              mode={nssfMode}
+        <BentoCard title="NSSF" subtitle="Added for each employee, as a percentage of their pay or a fixed amount.">
+          <div className="flex max-w-sm flex-col gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <label htmlFor={nssfId} className="text-sm font-medium text-on-surface">
+                NSSF
+              </label>
+              <ModeToggle name="nssfMode" label="NSSF calculation" mode={nssfMode} onChange={setNssfMode} />
+            </div>
+            <SuffixInput
+              id={nssfId}
+              name="nssfValue"
               value={nssfValue}
-              onMode={setNssfMode}
-              onValue={setNssfValue}
+              onChange={setNssfValue}
+              suffix={nssfMode === "PERCENT" ? "%" : "KES"}
+              min="0"
               error={errors.nssfValue?.[0] ?? errors.nssfMode?.[0]}
             />
           </div>
         </BentoCard>
 
-        <BentoCard
-          title="Other statutory items"
-          subtitle="The owner's formula leaves these out, so they are off. Check with your accountant before turning any on."
-        >
-          <div className="flex flex-col gap-3">
-            <SwitchRow
-              name="applyHousingLevy"
-              label="Housing Levy"
-              description="Taken from the employee's pay when on."
-              checked={applyHousingLevy}
-              onChange={setApplyHousingLevy}
-            />
-            <SwitchRow
-              name="applyPaye"
-              label="PAYE"
-              description="Income tax, taken from the employee's pay when on."
-              checked={applyPaye}
-              onChange={setApplyPaye}
-            />
-            <SwitchRow
-              name="applyNita"
-              label="NITA"
-              description="An employer levy: recorded for remittance, never taken from the employee."
-              checked={applyNita}
-              onChange={setApplyNita}
+        <BentoCard title="VAT" subtitle="Charged on every agent's pay, PAYE, NSSF, NITA and agent fee, before loans, damages and advances come off.">
+          <div className="flex max-w-sm flex-col gap-2">
+            <label htmlFor={vatId} className="text-sm font-medium text-on-surface">
+              VAT rate
+            </label>
+            <SuffixInput
+              id={vatId}
+              name="vatRate"
+              value={vatRate}
+              onChange={setVatRate}
+              suffix="%"
+              min="0"
+              max="100"
+              error={errors.vatRate?.[0]}
             />
           </div>
         </BentoCard>
 
         <BentoCard
           title="Deduction limit"
-          subtitle="The most that loan instalments, damages and any tax or levy may take off one payslip, as a share of gross pay."
+          subtitle="The most that loans and damages may take from one employee's pay, as a share of that pay."
         >
           <div className="flex max-w-sm flex-col gap-2">
             <label htmlFor={ceilingId} className="text-sm font-medium text-on-surface">
-              Maximum deductions per payslip
+              Maximum deductions per employee
             </label>
-            <div className="relative">
-              <input
-                id={ceilingId}
-                name="deductionCeilingPercent"
-                type="number"
-                inputMode="decimal"
-                min="1"
-                max="100"
-                step="0.01"
-                required
-                value={ceiling}
-                onChange={(event) => setCeiling(event.target.value)}
-                aria-invalid={errors.deductionCeilingPercent ? true : undefined}
-                className={`${INPUT} pr-12 ${errors.deductionCeilingPercent ? "border-error" : ""}`}
-              />
-              <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-on-surface-variant">
-                %
-              </span>
-            </div>
-            {errors.deductionCeilingPercent?.[0] ? (
-              <p className="text-xs text-error">{errors.deductionCeilingPercent[0]}</p>
-            ) : (
+            <SuffixInput
+              id={ceilingId}
+              name="deductionCeilingPercent"
+              value={ceiling}
+              onChange={setCeiling}
+              suffix="%"
+              min="1"
+              max="100"
+              error={errors.deductionCeilingPercent?.[0]}
+            />
+            {errors.deductionCeilingPercent?.[0] ? null : (
               <p className="text-xs text-on-surface-variant">
                 Kenyan law limits wage deductions to two thirds of wages (66.67%). Loans are taken first, then damages;
-                a damage that does not fit waits for the next run.
+                a damage that does not fit waits for the next period.
               </p>
             )}
           </div>
         </BentoCard>
 
         <div aria-live="polite">
-          <FormMessage state={state} successText="Pay settings saved. New payroll runs will use them." />
+          <FormMessage state={state} successText="Pay rates saved. New agent payments will use them." />
         </div>
 
         <button
@@ -351,56 +327,36 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
           disabled={pending}
           className="min-h-11 w-full rounded-lg bg-primary px-6 py-2 font-body-md text-body-md font-semibold text-on-primary transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:self-start"
         >
-          {pending ? "Saving…" : "Save pay settings"}
+          {pending ? "Saving…" : "Save pay rates"}
         </button>
       </form>
 
       <div className="min-w-0 lg:sticky lg:top-4">
-        <BentoCard title="Example payslip" subtitle="Updates as you type. The payroll engine does the real calculation.">
-          <div className="mb-3 flex items-center gap-3">
-            <label htmlFor={daysId} className="text-sm text-on-surface-variant">
-              Days worked
-            </label>
-            <input
-              id={daysId}
-              type="number"
-              inputMode="numeric"
-              min="0"
-              max="31"
-              step="1"
-              value={exampleDays}
-              onChange={(event) => setExampleDays(event.target.value)}
-              className={`${INPUT} w-24`}
-            />
+        <BentoCard title="Payment formula" subtitle="An example for one employee. It updates as you type; the server does the real calculation.">
+          <p className="mb-4 rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant">
+            (Days worked × daily rate) + PAYE + NSSF + NITA + VAT + agent fee − loans − damages − advances
+          </p>
+
+          <div className="mb-3 grid grid-cols-2 gap-3">
+            <ExampleInput label="Days worked" value={exampleDays} onChange={setExampleDays} />
+            <ExampleInput label="Agent fee" value={exampleFee} onChange={setExampleFee} />
+            <ExampleInput label="Loans" value={exampleLoans} onChange={setExampleLoans} />
+            <ExampleInput label="Damages" value={exampleDamages} onChange={setExampleDamages} />
+            <ExampleInput label="Advance" value={exampleAdvance} onChange={setExampleAdvance} />
           </div>
 
           <dl>
-            <PreviewRow
-              label={`${Number.isFinite(days) && days > 0 ? days : 0} days × ${kes(Number.isFinite(rate) && rate > 0 ? rate : 0)}`}
-              value={kes(pay)}
-              hint="Pay for the days worked — what the employee receives"
-            />
-            <PreviewRow
-              label={`SHIF (${shifMode === "PERCENT" ? `${shifValue || 0}%` : "fixed"})`}
-              value={`+ ${kes(shif)}`}
-            />
-            <PreviewRow
-              label={`NSSF (${nssfMode === "PERCENT" ? `${nssfValue || 0}%` : "fixed"})`}
-              value={`+ ${kes(nssf)}`}
-            />
-            <PreviewRow strong label="Total employee salary" value={kes(total)} hint="Pay + SHIF + NSSF — the figure agents are billed on" />
+            <PreviewRow label={`${days} days × ${kes(rate)}`} value={kes(pay)} />
+            <PreviewRow label="PAYE" value={`+ ${kes(tax)}`} />
+            <PreviewRow label={`NSSF (${nssfMode === "PERCENT" ? `${nssfValue || 0}%` : "fixed"})`} value={`+ ${kes(nssf)}`} />
+            <PreviewRow label="NITA" value={`+ ${kes(nita)}`} />
+            <PreviewRow label="Agent fee" value={`+ ${kes(fee)}`} />
+            <PreviewRow label={`VAT (${vatRate || 0}%)`} value={`+ ${kes(vat)}`} />
+            <PreviewRow label="Loans" value={`− ${kes(amount(exampleLoans))}`} />
+            <PreviewRow label="Damages" value={`− ${kes(amount(exampleDamages))}`} />
+            <PreviewRow label="Advance" value={`− ${kes(advance)}`} hint="Anything that does not fit carries to the next payment" />
+            <PreviewRow strong label="Paid to the agent" value={kes(payable)} />
           </dl>
-
-          <div className="mt-4 rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant">
-            <p>
-              Loans and damages together can take at most <strong className="text-on-surface">{kes(ceilingAmount)}</strong>{" "}
-              from this payslip.
-            </p>
-            <p className="mt-1">
-              Housing Levy {applyHousingLevy ? "on" : "off"} · PAYE {applyPaye ? "on" : "off"} · NITA{" "}
-              {applyNita ? "on" : "off"}
-            </p>
-          </div>
         </BentoCard>
       </div>
     </div>

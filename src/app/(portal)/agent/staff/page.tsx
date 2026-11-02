@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { requirePermission } from "@/app/lib/dal";
+import { EmployeeExportButtons } from "@/components/features/employee/employee-export-buttons";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -50,6 +51,7 @@ export default async function DeployedStaffPage() {
         description={`${activeCount} active of ${staff.length} staff placed through your agency.`}
         actions={
           <div className="flex flex-wrap gap-3">
+            <EmployeeExportButtons />
             <Link href="/agent/requests" className="flex items-center gap-2 rounded-lg border border-primary px-4 py-2 font-body-md text-body-md font-semibold text-primary transition-colors hover:bg-primary-fixed">
               My Requests
             </Link>

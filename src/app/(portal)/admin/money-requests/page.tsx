@@ -6,6 +6,7 @@ import {
   AdvanceDecisionBar,
   LoanDecisionBar,
   PaymentDecisionBar,
+  ReleaseForm,
 } from "@/components/features/money/decision-forms";
 import { AdvanceList, LoanList } from "@/components/features/money/money-lists";
 import { MoneyStatusChip } from "@/components/features/money/money-status-chip";
@@ -61,9 +62,10 @@ export default async function MoneyRequestsPage({
   }
 
   const pendingPayments = payments.filter((request) => request.status === "PENDING");
-  const decidedPayments = payments.filter((request) => request.status !== "PENDING").slice(0, 8);
+  const toRelease = payments.filter((request) => request.status === "APPROVED");
+  const decidedPayments = payments.filter((request) => request.status !== "PENDING" && request.status !== "APPROVED").slice(0, 8);
 
-  // Only advances an agent asked for need a decision; the Payroll Officer's own entries are already approved.
+  // Only advances an agent asked for need a decision; any others are already approved.
   const pendingAdvances = advances.filter((advance) => advance.status === "PENDING");
   const decidedAdvances = advances.filter((advance) => advance.requestedByAgent && advance.status !== "PENDING").slice(0, 8);
 
@@ -71,7 +73,7 @@ export default async function MoneyRequestsPage({
   const decidedLoans = loans.filter((loan) => loan.status !== "PENDING").slice(0, 8);
 
   const counts: Record<TabKey, number> = {
-    payments: pendingPayments.length,
+    payments: pendingPayments.length + toRelease.length,
     advances: pendingAdvances.length,
     loans: pendingLoans.length,
   };
@@ -130,6 +132,26 @@ export default async function MoneyRequestsPage({
                       </p>
                     </div>
                     <PaymentDecisionBar paymentRequestId={request.id} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </BentoCard>
+
+          <BentoCard title="Ready to release" subtitle="Send the money, then record how you sent it. The agent is told straight away.">
+            {toRelease.length === 0 ? (
+              <EmptyState symbol="task_alt" title="Nothing to release" description="Calculated agent payments and approved requests appear here." />
+            ) : (
+              <ul className="grid gap-4 lg:grid-cols-2">
+                {toRelease.map((request) => (
+                  <li key={request.id} className="flex flex-col gap-3 rounded-lg border border-outline-variant/50 p-4">
+                    <div>
+                      <p className="text-xs text-outline">{request.agentName ?? `Agent #${request.agentId}`} · #{request.id}</p>
+                      <p className="text-xl font-bold tabular-nums text-on-surface">{formatKes(request.amount)}</p>
+                      <p className="mt-1 text-sm text-on-surface-variant">{request.purpose}</p>
+                      <p className="mt-1 text-xs text-outline">Approved {day(request.decidedAt)}</p>
+                    </div>
+                    <ReleaseForm paymentRequestId={request.id} />
                   </li>
                 ))}
               </ul>

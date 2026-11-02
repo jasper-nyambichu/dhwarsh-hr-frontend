@@ -19,7 +19,7 @@ const STYLE: Record<string, { label: string; chip: string }> = {
 /** One consistent status pill for loans, advances and payment requests. */
 export function MoneyStatusChip({ status, awaitingRelease = false }: { status: string; awaitingRelease?: boolean }) {
   const base = STYLE[status] ?? { label: humanizeEnum(status), chip: NEUTRAL };
-  // For a payment request, "approved" really means "now waiting for the Accounts Office".
+  // For a payment request, "approved" really means "now waiting to be released".
   const label = awaitingRelease && status === "APPROVED" ? "Approved · awaiting release" : base.label;
 
   return (

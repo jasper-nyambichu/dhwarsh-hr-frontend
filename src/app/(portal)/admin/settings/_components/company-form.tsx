@@ -7,7 +7,7 @@ import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage, TextField } from "@/components/shared/form-field";
 import type { ActionState, CompanyResponse } from "@/types";
 
-/** Company profile. Super Admin edits; everyone else with access sees it read-only. */
+/** Company profile. Admin edits; everyone else with access sees it read-only. */
 export function CompanyForm({
   initial,
   readOnly,
@@ -22,10 +22,7 @@ export function CompanyForm({
 
   return (
     <form action={formAction}>
-      {/* The backend replaces every field on save — carry the logo through untouched. */}
-      <input type="hidden" name="logoUrl" value={initial?.logoUrl ?? ""} />
-
-      <BentoCard title="Company Profile" subtitle={initial ? undefined : "Not set up yet — fill this in first. Payroll needs it."}>
+      <BentoCard title="Company Profile" subtitle={initial ? undefined : "Not set up yet — fill this in first."}>
         <fieldset disabled={readOnly || pending} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField className="sm:col-span-2" label="Registered name" name="name" required defaultValue={initial?.name} error={errors?.name?.[0]} />
           <TextField label="KRA PIN" name="kraPin" defaultValue={initial?.kraPin ?? undefined} />

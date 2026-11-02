@@ -50,9 +50,11 @@ export function RequestDetails({
         title="Employment"
         subtitle="Role, placement and terms"
         action={
-          <span className="rounded-full bg-primary-fixed/50 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
-            {humanizeEnum(d.employmentType)}
-          </span>
+          d.employmentType ? (
+            <span className="rounded-full bg-primary-fixed/50 px-2.5 py-0.5 text-[11px] font-semibold text-primary">
+              {humanizeEnum(d.employmentType)}
+            </span>
+          ) : undefined
         }
       >
         <Field label="Job title" value={d.position} />

@@ -1,4 +1,4 @@
-/** How SHIF or NSSF is worked out: a percentage of pay, or a flat amount per payslip. */
+/** How NSSF is worked out: a percentage of pay, or a flat amount per employee. */
 export const CONTRIBUTION_MODES = ["PERCENT", "FIXED"] as const;
 export type ContributionMode = (typeof CONTRIBUTION_MODES)[number];
 
@@ -19,11 +19,11 @@ export type PaySettingsResponse = {
   shifValue: number;
   nssfMode: ContributionMode;
   nssfValue: number;
-  /** The owner's formula leaves these out, so they are off until an Admin turns them on. */
+  /** Saved values from the old pay model. The agent payment formula does not read these switches. */
   applyHousingLevy: boolean;
   applyPaye: boolean;
   applyNita: boolean;
-  /** Most that loans, damages and any tax/levy may take off one payslip, as % of gross pay. */
+  /** Most that loans and damages may take from one employee's pay, as a percentage of it. */
   deductionCeilingPercent: number;
 };
 
@@ -32,24 +32,8 @@ export type PaySettingsPayload = Pick<
   PaySettingsResponse,
   | "vatRate"
   | "dailyRate"
-  | "shifMode"
-  | "shifValue"
   | "nssfMode"
   | "nssfValue"
-  | "applyHousingLevy"
-  | "applyPaye"
-  | "applyNita"
   | "deductionCeilingPercent"
 >;
 
-/**
- * The four fields `PayslipResponse` gained in Phase 4. Add them to your payslip type in
- * `types/payroll.ts` (for example `type Payslip = ExistingPayslip & PayslipPayModelFields`).
- */
-export type PayslipPayModelFields = {
-  daysWorked: number;
-  dailyRate: number;
-  damageDeduction: number | null;
-  /** Gross pay + SHIF + NSSF. */
-  totalEmployeeSalary: number;
-};

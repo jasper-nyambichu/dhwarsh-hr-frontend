@@ -12,7 +12,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
 import { getDepartments } from "@/lib/api/department";
 import { getEmployee } from "@/lib/api/employee";
-import { formatDate, humanizeEnum } from "@/lib/format";
+import { formatMoney, formatDate, humanizeEnum } from "@/lib/format";
 
 function Row({ label, value }: { label: string; value: string | null | undefined }) {
   return (
@@ -69,6 +69,7 @@ export default async function AdminEmployeeDetailPage({ params }: { params: Prom
               <div>
                 <Row label="Position" value={employee.position} />
                 <Row label="Employment type" value={humanizeEnum(employee.employmentType)} />
+                <Row label="Basic salary" value={employee.basicSalary === null ? null : formatMoney(employee.basicSalary)} />
                 <Row label="Date hired" value={employee.dateHired ? formatDate(employee.dateHired) : null} />
                 <Row label="Agent" value={employee.agentName ?? "Paid directly"} />
                 <Row label="M-Pesa number" value={employee.bankAccountNumber} />

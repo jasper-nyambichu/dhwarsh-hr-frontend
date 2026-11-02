@@ -5,6 +5,7 @@ import { requirePermission } from "@/app/lib/dal";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
+import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
 import {
@@ -22,15 +23,8 @@ import type { AttendanceDeviceItem, AttendanceSyncFailure } from "@/types";
  * computed server-side against a 5-minute freshness window, so liveness is a
  * measurement rather than a stored flag.
  *
- * Three columns the placeholder showed have no column behind them and are gone:
- * device **name** (`biometric_devices` has only a serial), **IP address** and
- * **firmware version** (neither is stored). Device identity here is the serial,
- * which is what the terminal itself sends.
- *
- * The status vocabulary also shrank from three to two: the backend has no
- * `SYNCING` state — a terminal is `ACTIVE` or `INACTIVE`, and separately it is
- * inside or outside the freshness window. A "syncing" bucket would have been a
- * third thing that never occurs.
+ * Device identity is the serial, which is what the terminal itself sends:
+ * `biometric_devices` stores no name, IP address or firmware version.
  *
  * Search is a plain GET form rather than a client-side filter: it works without
  * JavaScript, the query lands in the URL so a filtered fleet is shareable, and
@@ -45,13 +39,11 @@ function fleetState(device: AttendanceDeviceItem): FleetState {
   return device.online ? "online" : "stale";
 }
 
-const STATE_META: Record<FleetState, { label: string; dot: string; bar: string }> = {
-  online: { label: "Online", dot: "bg-emerald-500", bar: "bg-emerald-500" },
-  stale: { label: "Not reporting", dot: "bg-red-500", bar: "bg-red-500" },
-  inactive: { label: "Deactivated", dot: "bg-slate-400", bar: "bg-slate-400" },
+const STATE_META: Record<FleetState, { label: string; dot: string }> = {
+  online: { label: "Online", dot: "bg-emerald-500" },
+  stale: { label: "Not reporting", dot: "bg-red-500" },
+  inactive: { label: "Deactivated", dot: "bg-slate-400" },
 };
-
-const STATE_ORDER: FleetState[] = ["online", "stale", "inactive"];
 
 export default async function BiometricDevicesPage({
   searchParams,
@@ -97,7 +89,6 @@ export default async function BiometricDevicesPage({
     stale: devices.filter((d) => fleetState(d) === "stale").length,
     inactive: devices.filter((d) => fleetState(d) === "inactive").length,
   };
-  const fleetTotal = devices.length || 1;
 
   return (
     <>
@@ -107,7 +98,7 @@ export default async function BiometricDevicesPage({
         actions={
           <button
             type="button"
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-body-md text-sm font-semibold text-white transition-colors hover:bg-on-primary-fixed-variant"
+            className="flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 py-2 font-body-md text-sm font-semibold text-white transition-colors hover:bg-on-primary-fixed-variant"
           >
             <Icon name="add" className="text-[18px]" />
             Register Device
@@ -115,45 +106,46 @@ export default async function BiometricDevicesPage({
         }
       />
 
-      <div className="grid grid-cols-12 gap-gutter">
-        {/* ─────────────────────────────── main column ─────────────────── */}
-        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
+      <div className="flex flex-col gap-gutter">
+        <div className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
+          <MetricCard label="Terminals" value={formatNumber(devices.length)} icon="fingerprint" />
+          <MetricCard label="Online" value={formatNumber(counts.online)} icon="wifi" tone="tertiary" />
+          <MetricCard label="Not reporting" value={formatNumber(counts.stale)} icon="wifi_off" tone="error" accent={counts.stale > 0} />
+          <MetricCard label="Deactivated" value={formatNumber(counts.inactive)} icon="power_settings_new" tone="amber" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-gutter xl:grid-cols-12">
           <BentoCard
-            title={
-              <span className="flex items-center gap-2">
-                <Icon
-                  name="dns"
-                  className="text-[18px] text-on-surface-variant"
-                />
-                Registered Terminals
-              </span>
-            }
-            action={
-              <form action="/admin/devices" method="get">
-                <div className="relative">
-                  <Icon
-                    name="search"
-                    className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline"
-                  />
-                  <input
-                    type="search"
-                    name="q"
-                    defaultValue={q ?? ""}
-                    placeholder="Search serial or branch..."
-                    className="w-64 rounded-md border border-outline-variant/60 bg-surface py-1.5 pl-9 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
-                  />
-                </div>
-              </form>
-            }
+            className="xl:col-span-8"
+            title="Registered Terminals"
+            subtitle={`${formatNumber(rows.length)} ${rows.length === 1 ? "terminal" : "terminals"}${needle ? ` matching “${q}”` : ""}`}
           >
+            <form action="/admin/devices" method="get" className="mb-4 flex min-w-0 items-center gap-3">
+              <div className="relative min-w-0 flex-1">
+                <Icon
+                  name="search"
+                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline"
+                />
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q ?? ""}
+                  placeholder="Search serial or branch..."
+                  aria-label="Search terminals"
+                  className="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pl-9 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                />
+              </div>
+              {needle ? (
+                <a href="/admin/devices" className="shrink-0 text-sm text-on-surface-variant hover:text-primary">
+                  Clear
+                </a>
+              ) : null}
+            </form>
+
             {rows.length === 0 ? (
               <EmptyState
                 symbol="devices_other"
-                title={
-                  devices.length === 0
-                    ? "No terminals registered"
-                    : "No terminals match that search"
-                }
+                title={devices.length === 0 ? "No terminals registered" : "No terminals match that search"}
                 description={
                   devices.length === 0
                     ? "Biometric terminals appear here once enrolled to a branch."
@@ -161,167 +153,64 @@ export default async function BiometricDevicesPage({
                 }
               />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left">
-                  <thead>
-                    <tr className="border-b border-outline-variant/60 text-on-surface-variant">
-                      <th className="px-4 py-3 font-table-header text-table-header uppercase">
-                        Terminal
-                      </th>
-                      <th className="px-4 py-3 font-table-header text-table-header uppercase">
-                        Branch
-                      </th>
-                      <th className="px-4 py-3 font-table-header text-table-header uppercase">
-                        Last Sync
-                      </th>
-                      <th className="px-4 py-3 font-table-header text-table-header uppercase">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((device) => {
-                      const state = fleetState(device);
-                      const meta = STATE_META[state];
+              <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {rows.map((device) => {
+                  const meta = STATE_META[fleetState(device)];
 
-                      return (
-                        <tr
-                          key={device.id}
-                          className="border-b border-outline-variant/60 transition-colors last:border-0 hover:bg-surface"
-                        >
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
-                              <div className="flex size-8 items-center justify-center rounded bg-primary/10 text-primary">
-                                <Icon name="fingerprint" className="text-[18px]" />
-                              </div>
-                              <div>
-                                <div className="font-mono text-sm font-semibold text-on-surface">
-                                  {device.deviceSerial}
-                                </div>
-                                <div className="text-[10px] text-outline">
-                                  Terminal #{device.id}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            {device.branchName ?? "—"}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-on-surface-variant">
-                            {device.lastSyncAt ? (
-                              formatRelativeTime(device.lastSyncAt)
-                            ) : (
-                              <span className="text-error">Never synced</span>
-                            )}
-                          </td>
-                          <td className="px-4 py-3">
-                            <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-container px-2 py-0.5 text-[10px] font-medium text-on-surface-variant">
-                              <span
-                                className={`inline-block size-2 rounded-full ${meta.dot}`}
-                              />
-                              {meta.label}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-
-            <div className="mt-4 flex items-center justify-between border-t border-outline-variant/60 pt-4 text-xs text-on-surface-variant">
-              <span>
-                {formatNumber(rows.length)}{" "}
-                {rows.length === 1 ? "terminal" : "terminals"}
-                {needle ? ` matching “${q}”` : ""}
-              </span>
-              {needle ? (
-                <a href="/admin/devices" className="hover:text-primary">
-                  Clear search
-                </a>
-              ) : null}
-            </div>
-          </BentoCard>
-        </div>
-
-        {/* ────────────────────────────── side column ──────────────────── */}
-        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
-          <BentoCard title="Fleet Status Overview">
-            {devices.length === 0 ? (
-              <p className="py-4 text-center font-body-md text-body-md text-outline">
-                No terminals enrolled.
-              </p>
-            ) : (
-              <>
-                <div className="mb-2 flex gap-0.5 overflow-hidden rounded-full">
-                  {STATE_ORDER.map((state) => (
-                    <div
-                      key={state}
-                      className={`h-2 ${STATE_META[state].bar}`}
-                      style={{ width: `${(counts[state] / fleetTotal) * 100}%` }}
-                    />
-                  ))}
-                </div>
-                <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs">
-                  {STATE_ORDER.map((state) => (
-                    <div key={state} className="flex items-center gap-1.5">
-                      <span
-                        className={`size-2 rounded-full ${STATE_META[state].dot}`}
-                      />
-                      <span className="text-on-surface-variant">
-                        {STATE_META[state].label} ({formatNumber(counts[state])})
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </>
+                  return (
+                    <li key={device.id} className="flex min-w-0 flex-col gap-3 rounded-lg border border-outline-variant/40 p-3">
+                      <div className="flex min-w-0 items-start gap-3">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <Icon name="fingerprint" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="break-all font-mono text-sm font-semibold text-on-surface">{device.deviceSerial}</p>
+                          <p className="break-words text-xs text-on-surface-variant">{device.branchName ?? "No branch"}</p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/30 pt-2 text-xs">
+                        <span className="inline-flex items-center gap-1.5 font-medium text-on-surface-variant">
+                          <span className={`inline-block size-2 rounded-full ${meta.dot}`} />
+                          {meta.label}
+                        </span>
+                        <span className={device.lastSyncAt ? "text-on-surface-variant" : "text-error"}>
+                          {device.lastSyncAt ? `Synced ${formatRelativeTime(device.lastSyncAt)}` : "Never synced"}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </BentoCard>
 
           <BentoCard
-            title={
-              <span className="flex items-center gap-2 text-error">
-                <Icon name="sync_problem" className="text-[18px]" />
-                Recent Sync Failures
-              </span>
-            }
-            subtitle={
-              failures.length > 0
-                ? "Scans the backend refused — no attendance row was written."
-                : undefined
-            }
-            flush
+            className="xl:col-span-4"
+            title="Recent Sync Failures"
+            subtitle="Scans the backend refused. No attendance was recorded for them."
           >
-            <div className="flex flex-col gap-3 p-card-padding pt-0">
-              {failures.length === 0 ? (
-                <p className="py-4 text-center font-body-md text-body-md text-outline">
-                  No rejected scans.
-                </p>
-              ) : (
-                failures.slice(0, 6).map((failure) => (
-                  <div
-                    key={failure.id}
-                    className="flex flex-col gap-1 rounded-lg border border-red-100 bg-red-50/50 p-3"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="min-w-0 truncate font-mono text-[11px] font-semibold text-on-surface">
+            {failures.length === 0 ? (
+              <EmptyState symbol="task_alt" title="No rejected scans" description="Every recent scan was accepted." />
+            ) : (
+              <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-1">
+                {failures.slice(0, 6).map((failure) => (
+                  <li key={failure.id} className="flex min-w-0 flex-col gap-1 rounded-lg border border-red-100 bg-red-50/50 p-3">
+                    <div className="flex min-w-0 items-start justify-between gap-2">
+                      <span className="min-w-0 break-all font-mono text-[11px] font-semibold text-on-surface">
                         {failure.deviceSerial ?? "Unknown terminal"}
                       </span>
-                      <span className="shrink-0 rounded bg-white px-1.5 py-0.5 text-[10px] text-on-surface-variant shadow-sm">
+                      <span className="shrink-0 text-[10px] text-on-surface-variant">
                         {formatRelativeTime(failure.createdAt)}
                       </span>
                     </div>
-                    <span className="text-xs text-error">{failure.reason}</span>
+                    <span className="break-words text-xs text-error">{failure.reason}</span>
                     {failure.employeeName ? (
-                      <span className="text-[10px] text-on-surface-variant">
-                        {failure.employeeName}
-                      </span>
+                      <span className="break-words text-[10px] text-on-surface-variant">{failure.employeeName}</span>
                     ) : null}
-                  </div>
-                ))
-              )}
-            </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </BentoCard>
         </div>
       </div>

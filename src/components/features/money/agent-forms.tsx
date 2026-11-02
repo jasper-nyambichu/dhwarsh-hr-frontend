@@ -188,7 +188,7 @@ export function AdvanceRequestForm() {
   );
 }
 
-/** Ask the Administrator for money to pay employees. The Accounts Office releases it once approved. */
+/** Ask the Administrator for money to pay employees. The Administrator releases it once approved. */
 export function PaymentRequestForm() {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(submitPaymentRequestAction, IDLE);
   const formRef = useRef<HTMLFormElement>(null);
@@ -233,7 +233,7 @@ export function PaymentRequestForm() {
 
 type ReleasedRequest = { id: number; label: string; remaining: number };
 
-/** Record a payment made to an employee by M-Pesa, against money the Accounts Office has released. */
+/** Record a payment made to an employee by M-Pesa, against money the Administrator has released. */
 export function PaymentRecordForm({
   requests,
   employees,

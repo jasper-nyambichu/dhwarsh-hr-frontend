@@ -77,7 +77,7 @@ export async function submitEmployeeRequestAction(
       parsed.data,
     );
 
-    revalidatePath("/hr/employees");
+    revalidatePath("/admin/employee-requests");
 
     return { status: "success", data: request };
   } catch (error) {

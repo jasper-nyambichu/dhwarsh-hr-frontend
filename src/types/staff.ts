@@ -16,8 +16,8 @@ export type AgentOption = { id: number; name: string };
 /**
  * The body of `POST /employees` and `POST /employee-requests` (`EmployeeRequest`).
  *
- * There is no salary: pay is worked out from the days the Back Office locks and the daily rate the
- * Admin sets, so the forms no longer ask for one.
+ * Pay is worked out from the days the Back Office locks and the daily rate the Admin sets. Basic
+ * salary is optional and for reference only; only an Admin's form offers it.
  */
 export type EmployeeEntryPayload = {
   fullName: string;
@@ -29,8 +29,10 @@ export type EmployeeEntryPayload = {
   branchId: number;
   departmentId?: number;
   agentId?: number;
-  position?: string;
-  employmentType: EmploymentType;
+  shifNumber?: string;
+  nssfNumber?: string;
+  kraPin?: string;
+  basicSalary?: number;
   dateHired?: string;
   bankName?: string;
   bankAccountNumber?: string;
@@ -55,5 +57,5 @@ export type StaffRequestResponse = {
   branchName: string | null;
   departmentName: string | null;
   agentName: string | null;
-  details: { fullName: string; position: string | null; employmentType: EmploymentType };
+  details: { fullName: string; position: string | null; employmentType: EmploymentType | null };
 };

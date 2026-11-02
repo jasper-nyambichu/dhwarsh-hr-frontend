@@ -32,6 +32,5 @@ export async function unlockDaysWorkedAction(
   }
 
   revalidatePath("/admin", "layout");
-  revalidatePath("/payroll", "layout");
   return { status: "success", data: undefined };
 }

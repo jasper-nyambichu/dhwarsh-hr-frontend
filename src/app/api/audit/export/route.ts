@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { ApiError } from "@/app/lib/api-error";
 import { getSession } from "@/app/lib/session";
 import { hasPermission } from "@/config/roles";
-import { getAuditLogs } from "@/lib/api/audit";
+import { getAuditLogs, type AuditCategory } from "@/lib/api/audit";
 import { parseDate, parseId } from "@/lib/search-params";
 import { parseDetails } from "@/lib/audit-format";
 
@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
 
   const search = request.nextUrl.searchParams;
   const filters = {
+    category: (search.get("category") || undefined) as AuditCategory | undefined,
     action: search.get("action") || undefined,
     entityType: search.get("entityType") || undefined,
     userId: parseId(search.get("user") ?? undefined),

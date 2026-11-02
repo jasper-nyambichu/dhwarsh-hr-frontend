@@ -59,6 +59,11 @@ export function getAttendanceSummary(
   });
 }
 
+/** The signed-in agent's own employees today. */
+export function getMyAgentAttendanceToday(signal?: AbortSignal): Promise<{ employees: number; reported: number; currentlyIn: number }> {
+  return api.get("/attendance/dashboard/my-agent-today", { signal });
+}
+
 /** The live feed, newest first. Each record contributes up to two entries. */
 export function getAttendanceActivity(
   params: AttendanceActivityParams = {},

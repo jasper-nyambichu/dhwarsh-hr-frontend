@@ -194,7 +194,7 @@ export const api = {
     request<T>("DELETE", path, undefined, options),
 };
 
-/** Streams a PDF from `service/payroll/documents` for download. */
+/** Streams a generated file (PDF, CSV or the logo) from the backend. */
 export async function fetchDocument(
   path: string,
   options: ApiRequestOptions = {},
@@ -208,7 +208,7 @@ export async function fetchDocument(
   const response = await fetch(buildUrl(path, options.query), {
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
-      Accept: "application/pdf",
+      Accept: "*/*",
     },
     cache: "no-store",
   });

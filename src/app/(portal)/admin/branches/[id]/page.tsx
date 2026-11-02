@@ -182,9 +182,6 @@ export default async function BranchDetailPage({
                       <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">
                         Name
                       </th>
-                      <th className="pb-3 pr-2 font-table-header text-table-header uppercase text-outline">
-                        Head of Dept
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="font-body-md text-body-md">
@@ -192,18 +189,6 @@ export default async function BranchDetailPage({
                       <tr key={dept.id}>
                         <td className="py-3 pl-2 font-medium text-on-primary-fixed-variant">
                           {dept.name}
-                        </td>
-                        <td className="py-3 pr-2">
-                          {dept.headOfDepartmentName ? (
-                            <span className="flex items-center gap-2">
-                              <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-blue-soft text-[10px] font-bold text-primary-container">
-                                {initials(dept.headOfDepartmentName)}
-                              </span>
-                              {dept.headOfDepartmentName}
-                            </span>
-                          ) : (
-                            <span className="text-amber-main">Unassigned</span>
-                          )}
                         </td>
                       </tr>
                     ))}

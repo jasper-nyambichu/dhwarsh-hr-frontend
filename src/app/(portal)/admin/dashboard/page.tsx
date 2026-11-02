@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requireAnyPermission } from "@/app/lib/dal";
+import { QuickAccessGroups, type QuickAccessItem } from "@/components/features/dashboard/quick-access";
 import { AlertSpotlight } from "@/components/shared/alert-spotlight";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
@@ -10,34 +11,41 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { SegmentStrip } from "@/components/shared/segment-strip";
 import { StatCard } from "@/components/shared/stat-card";
 import { Icon } from "@/components/ui/icon";
+import { format } from "date-fns";
+import { navigationFor } from "@/config/navigation";
 import { getAgents } from "@/lib/api/agent";
+import { getAdvances, getLoans, getPaymentRequests } from "@/lib/api/agent-money";
 import { getAttendanceDevices, getAttendanceSummary } from "@/lib/api/attendance";
 import { getBranches } from "@/lib/api/branch";
 import { getEmployeesByBranch } from "@/lib/api/employee";
-import { formatNumber, formatPercent, formatRelativeTime } from "@/lib/format";
+import { getEmployeeRequests } from "@/lib/api/employee-request";
+import { getOffDays } from "@/lib/api/off-day";
+import { formatNumber, formatPercent } from "@/lib/format";
 import type { AttendanceDeviceItem, BranchResponse } from "@/types";
 
 /**
  * Admin dashboard. Serves SUPER_ADMIN and ADMIN — both own /admin.
  *
  * Everything here is a real read: branch directory, the attendance summary for
- * today, the agent list, the terminal fleet, and a per-branch employee count.
+ * today, the agent list, the terminal fleet, a per-branch employee count, and
+ * everything waiting on an administrator's decision.
  *
- * Five widgets the placeholder carried are not here, because nothing in the
+ * Laid out top to bottom by how urgent it is: anything needing attention, the
+ * headline cards (awaiting approval, clocked in, employees, branches, off days),
+ * then a card for every place on the sidebar under a heading, then branch
+ * performance beside today's attendance. The cards come from the navigation
+ * itself, so a new sidebar item appears here without a second list.
+ *
+ * Three widgets the placeholder carried are not here, because nothing in the
  * schema or the API can answer them:
  *
  *   · **Headcount Growth** — a seven-month series. Nothing records headcount
  *     over time; `employees` holds only the current row, so a trend line would
  *     have to be invented wholesale.
- *   · **Payroll Status** (disbursed / processed / pending on hold) — needs the
- *     payroll-run list, which the backend does not expose yet.
  *   · **Awaiting Approval** — the approval queues are scoped per role
  *     (`/leave/pending/manager` and friends); there is no company-wide pending
  *     queue to render for an administrator.
- *   · **Workforce Split** — the donut needs `employment_type`, which the
- *     `by-branch` list does not return. Only the single-employee read carries
- *     it, so a company-wide split would be one request per employee.
- *   · **Payroll KES** per branch — no per-branch payroll total exists.
+ *   · **Workforce Split** — employment type is no longer collected.
  *
  * Each returns with the aggregate endpoint that supplies it. Until then an
  * empty slot is honest and a fabricated one is not — the figures above were
@@ -47,6 +55,17 @@ import type { AttendanceDeviceItem, BranchResponse } from "@/types";
 
 /** A terminal that has not synced in this long reads as not reporting. */
 const DEVICE_STALE_MINUTES = 60;
+
+/** Which heading each sidebar item sits under. Anything not listed goes under "More". */
+const QUICK_ACCESS_GROUPS: readonly { title: string; hrefs: readonly string[] }[] = [
+  { title: "People", hrefs: ["/admin/employees/new", "/admin/employees", "/admin/employee-requests", "/admin/off-days", "/admin/attendance", "/admin/days-worked"] },
+  { title: "Money", hrefs: ["/admin/money-requests", "/admin/pay-settings", "/admin/payslips"] },
+  { title: "Organisation", hrefs: ["/admin/branches", "/admin/departments", "/admin/agents"] },
+  { title: "System", hrefs: ["/admin/users", "/admin/devices", "/admin/audit", "/admin/settings"] },
+];
+
+const CARD_LINK =
+  "flex rounded-card transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
 function isDeviceStale(device: AttendanceDeviceItem): boolean {
   if (device.status !== "ACTIVE") return false;
@@ -59,7 +78,7 @@ function isDeviceStale(device: AttendanceDeviceItem): boolean {
 export default async function AdminDashboardPage() {
   // ADMIN and SUPER_ADMIN both hold these; anyone else is bounced to their own
   // namespace before a single figure renders.
-  await requireAnyPermission(["company:read", "branch:read"]);
+  const session = await requireAnyPermission(["company:read", "branch:read"]);
 
   let branches: BranchResponse[];
 
@@ -81,10 +100,16 @@ export default async function AdminDashboardPage() {
   // Secondary reads are independent of each other and of the branch directory.
   // `allSettled` throughout: one unavailable panel must not blank the page, and
   // an empty slot is a truthful rendering of "could not read this".
-  const [summaryResult, agentsResult, devicesResult] = await Promise.allSettled([
+  const today = format(new Date(), "yyyy-MM-dd");
+  const [summaryResult, agentsResult, devicesResult, employeeRequestsResult, paymentsResult, advancesResult, loansResult, offDaysResult] = await Promise.allSettled([
     getAttendanceSummary(),
     getAgents(),
     getAttendanceDevices(),
+    getEmployeeRequests("PENDING"),
+    getPaymentRequests(),
+    getAdvances(),
+    getLoans("PENDING"),
+    getOffDays({ from: today, to: today }),
   ]);
 
   const countResults = await Promise.allSettled(
@@ -97,6 +122,21 @@ export default async function AdminDashboardPage() {
     agentsResult.status === "fulfilled" ? agentsResult.value : null;
   const devices =
     devicesResult.status === "fulfilled" ? devicesResult.value : null;
+
+  const count = <T,>(result: PromiseSettledResult<T[]>, keep: (row: T) => boolean = () => true): number | null =>
+    result.status === "fulfilled" ? result.value.filter(keep).length : null;
+
+  const pendingEmployees = count(employeeRequestsResult);
+  const pendingPayments = count(paymentsResult, (request) => request.status === "PENDING");
+  const toRelease = count(paymentsResult, (request) => request.status === "APPROVED");
+  const pendingAdvances = count(advancesResult, (advance) => advance.status === "PENDING");
+  const pendingLoans = count(loansResult);
+  const offToday = offDaysResult.status === "fulfilled" ? new Set(offDaysResult.value.map((offDay) => offDay.employeeId)).size : null;
+  const pendingMoney = (pendingPayments ?? 0) + (pendingAdvances ?? 0) + (pendingLoans ?? 0);
+
+  // A queue that could not be read must not read as "nothing waiting".
+  const unreadQueue = [pendingEmployees, pendingPayments, pendingAdvances, pendingLoans].some((value) => value === null);
+  const awaitingTotal = (pendingEmployees ?? 0) + pendingMoney;
 
   const headcount = new Map<number, number | null>(
     branches.map((branch, index) => {
@@ -115,6 +155,42 @@ export default async function AdminDashboardPage() {
   const activeBranches = branches.filter((b) => b.status === "ACTIVE").length;
   const staleDevices = (devices ?? []).filter(isDeviceStale);
 
+  const shown = (value: number | null): string => (value === null ? "—" : formatNumber(value));
+
+  const hints: Record<string, Pick<QuickAccessItem, "hint" | "attention">> = {
+    "/admin/employees": { hint: `${formatNumber(totalEmployees)} employees` },
+    "/admin/employee-requests": { hint: `${shown(pendingEmployees)} employees to approve`, attention: pendingEmployees ?? 0 },
+    "/admin/money-requests": { hint: `${formatNumber(pendingMoney)} to decide · ${shown(toRelease)} to release`, attention: pendingMoney + (toRelease ?? 0) },
+    "/admin/off-days": { hint: `${shown(offToday)} off today` },
+    "/admin/attendance": { hint: summary ? `${formatNumber(summary.currentlyIn)} clocked in now` : "Live attendance board" },
+    "/admin/days-worked": { hint: "Locked by the Back Office" },
+    "/admin/branches": { hint: `${formatNumber(activeBranches)} active of ${formatNumber(branches.length)}` },
+    "/admin/departments": { hint: "Company-wide departments" },
+    "/admin/agents": { hint: agents ? `${formatNumber(agents.length)} agents · ${formatNumber(agents.reduce((sum, a) => sum + (a.employeeCount ?? 0), 0))} staff` : "Agent directory" },
+    "/admin/users": { hint: "Accounts and access" },
+    "/admin/devices": { hint: devices ? `${formatNumber(summary?.devicesOnline ?? 0)} of ${formatNumber(devices.length)} reporting` : "Biometric terminals", attention: staleDevices.length },
+    "/admin/audit": { hint: "Damages, logins and approvals" },
+    "/admin/pay-settings": { hint: "Rates and agent payments" },
+    "/admin/payslips": { hint: "What each employee is paid" },
+    "/admin/settings": { hint: "Company profile and logo" },
+  };
+
+  const quickAccess: QuickAccessItem[] = [
+    { href: "/admin/employees/new", title: "Add Employee", icon: "person_add", hint: "Register a new employee" },
+    ...navigationFor(session.role)
+      .filter((item) => item.href !== "/admin/dashboard")
+      .map((item) => ({ href: item.href, title: item.title, icon: item.icon, ...(hints[item.href] ?? { hint: `Open ${item.title}` }) })),
+  ];
+
+  const inGroup = (href: string) => QUICK_ACCESS_GROUPS.some((group) => group.hrefs.includes(href));
+  const quickAccessGroups = [
+    ...QUICK_ACCESS_GROUPS.map((group) => ({
+      title: group.title,
+      items: group.hrefs.flatMap((href) => quickAccess.filter((item) => item.href === href)),
+    })),
+    { title: "More", items: quickAccess.filter((item) => !inGroup(item.href)) },
+  ];
+
   /** Attendance rate for one branch, from the summary's per-branch roll-up. */
   const rateFor = (branchId: number): number | null => {
     const row = summary?.branches.find((b) => b.branchId === branchId);
@@ -122,31 +198,80 @@ export default async function AdminDashboardPage() {
   };
 
   return (
-    <div className="grid grid-cols-1 gap-gutter md:grid-cols-12">
-      {/* ───────────────────────────────── left column ─────────────────── */}
-      <div className="flex flex-col gap-gutter md:col-span-8">
-        <div className="grid grid-cols-1 gap-gutter sm:grid-cols-3">
+    <div className="flex flex-col gap-gutter">
+      {staleDevices.length > 0 ? (
+        <AlertSpotlight
+          message={`${formatNumber(staleDevices.length)} ${
+            staleDevices.length === 1 ? "terminal has" : "terminals have"
+          } not synced in the last hour.`}
+          href="/admin/devices"
+        />
+      ) : null}
+
+      {/* ─────────────────────────────── headline cards ─────────────────── */}
+      <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 xl:grid-cols-5">
+        <Link href="/admin/employee-requests" className={CARD_LINK}>
           <StatCard
+            className="w-full"
+            label="Awaiting Approval"
+            value={formatNumber(awaitingTotal)}
+            icon="fact_check"
+            badgeIcon="arrow_forward"
+            hint={
+              unreadQueue
+                ? "Some queues could not be read, so this may be low"
+                : `${shown(pendingEmployees)} employees · ${formatNumber(pendingMoney)} money`
+            }
+          />
+        </Link>
+        <Link href="/admin/attendance" className={CARD_LINK}>
+          <StatCard
+            className="w-full"
+            label="Clocked In Now"
+            value={summary ? formatNumber(summary.currentlyIn) : "—"}
+            icon="schedule"
+            badgeIcon="arrow_forward"
+            hint={summary ? `${formatNumber(summary.reported)} of ${formatNumber(summary.expectedEmployees)} reported today` : "Could not be read"}
+          />
+        </Link>
+        <Link href="/admin/employees" className={CARD_LINK}>
+          <StatCard
+            className="w-full"
             label="Total Employees"
             value={formatNumber(totalEmployees)}
             icon="group"
-            badgeIcon="badge"
+            badgeIcon="arrow_forward"
+            hint="Open the employee list"
           />
+        </Link>
+        <Link href="/admin/dashboard/branches" className={CARD_LINK}>
           <StatCard
-            label="Active Branches"
+            className="w-full"
+            label="Branches"
             value={formatNumber(activeBranches)}
             icon="corporate_fare"
-            badgeIcon="storefront"
+            badgeIcon="arrow_forward"
+            hint="Open to see employees by branch"
           />
+        </Link>
+        <Link href="/admin/off-days/calendar" className={`${CARD_LINK} sm:col-span-2 xl:col-span-1`}>
           <StatCard
-            label="Labour Agents"
-            value={agents === null ? "—" : formatNumber(agents.length)}
-            icon="engineering"
-            badgeIcon="handshake"
+            className="w-full"
+            label="Off Today"
+            value={shown(offToday)}
+            icon="calendar_month"
+            badgeIcon="arrow_forward"
+            hint="Open the month's off days calendar"
           />
-        </div>
+        </Link>
+      </div>
 
+      <QuickAccessGroups groups={quickAccessGroups} />
+
+      {/* ───────────────────────── performance and attendance ───────────── */}
+      <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
         <BentoCard
+          className="lg:col-span-8"
           title="Branch Performance"
           subtitle="Headcount and today's attendance rate, per branch"
           action={
@@ -187,7 +312,7 @@ export default async function AdminDashboardPage() {
 
                 <tbody className="font-body-md text-body-md">
                   {branches.map((branch) => {
-                    const count = headcount.get(branch.id);
+                    const employees = headcount.get(branch.id);
                     const rate = rateFor(branch.id);
 
                     return (
@@ -211,9 +336,9 @@ export default async function AdminDashboardPage() {
                           )}
                         </td>
                         <td className="py-3 text-right tabular-nums text-on-surface-variant">
-                          {count === null || count === undefined
+                          {employees === null || employees === undefined
                             ? "—"
-                            : formatNumber(count)}
+                            : formatNumber(employees)}
                         </td>
                         <td className="py-3 pr-2 text-right tabular-nums text-on-surface-variant">
                           {rate === null ? "—" : formatPercent(rate)}
@@ -226,149 +351,63 @@ export default async function AdminDashboardPage() {
             </div>
           )}
         </BentoCard>
-      </div>
 
-      {/* ──────────────────────────────── right column ─────────────────── */}
-      <div className="flex flex-col gap-gutter md:col-span-4">
-        {summary ? (
-          <SegmentStrip
-            segments={[
-              { label: "Expected", value: formatNumber(summary.expectedEmployees) },
-              { label: "Reported", value: formatNumber(summary.reported) },
-              {
-                label: "Not Yet In",
-                value: formatNumber(summary.notYetIn),
-                tone: summary.notYetIn > 0 ? "warning" : "default",
-              },
-            ]}
-          />
-        ) : null}
-
-        {staleDevices.length > 0 ? (
-          <AlertSpotlight
-            message={`${formatNumber(staleDevices.length)} ${
-              staleDevices.length === 1 ? "terminal has" : "terminals have"
-            } not synced in the last hour.`}
-            href="/admin/devices"
-          />
-        ) : null}
-
-        <BentoCard title="Attendance Today">
+        <div className="flex flex-col gap-gutter lg:col-span-4">
           {summary ? (
-            <>
-              <p className="font-card-stat text-card-stat tabular-nums text-on-surface">
-                {formatPercent(summary.attendanceRatePercent, 1)}
-              </p>
-              <p className="mt-1 text-[10px] text-outline">
-                {formatNumber(summary.reported)} of{" "}
-                {formatNumber(summary.expectedEmployees)} employees reported
-              </p>
-              <div className="mt-4 border-t border-outline-variant/40 pt-3 text-[11px] text-on-surface-variant">
-                <div className="flex justify-between">
-                  <span>Currently in</span>
-                  <span className="tabular-nums">
-                    {formatNumber(summary.currentlyIn)}
-                  </span>
-                </div>
-                <div className="mt-1.5 flex justify-between">
-                  <span>Clocked out</span>
-                  <span className="tabular-nums">
-                    {formatNumber(summary.clockedOut)}
-                  </span>
-                </div>
-              </div>
-              <Link
-                href="/admin/attendance"
-                className="mt-4 flex items-center gap-1 text-[11px] font-medium text-primary-container hover:underline"
-              >
-                Attendance board
-                <Icon name="arrow_forward" className="text-sm" />
-              </Link>
-            </>
-          ) : (
-            <p className="py-4 text-center font-body-md text-body-md text-outline">
-              Attendance for today could not be read.
-            </p>
-          )}
-        </BentoCard>
-
-        <BentoCard title="Device Fleet">
-          {devices ? (
-            <>
-              <div className="flex items-baseline gap-2">
-                <span className="font-card-stat text-card-stat tabular-nums text-on-surface">
-                  {formatNumber(summary?.devicesOnline ?? 0)}
-                </span>
-                <span className="text-[11px] text-on-surface-variant">
-                  of {formatNumber(devices.length)} reporting
-                </span>
-              </div>
-
-              {staleDevices.length > 0 ? (
-                <ul className="mt-4 flex flex-col gap-2 border-t border-outline-variant/40 pt-3">
-                  {staleDevices.slice(0, 4).map((device) => (
-                    <li
-                      key={device.id}
-                      className="flex items-center justify-between gap-3 text-[11px]"
-                    >
-                      <span className="min-w-0 truncate font-mono text-on-surface-variant">
-                        {device.deviceSerial}
-                      </span>
-                      <span className="shrink-0 text-error">
-                        {device.lastSyncAt
-                          ? formatRelativeTime(device.lastSyncAt)
-                          : "never"}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="mt-3 text-[11px] text-on-surface-variant">
-                  Every active terminal has synced recently.
-                </p>
-              )}
-
-              <Link
-                href="/admin/devices"
-                className="mt-4 flex items-center gap-1 text-[11px] font-medium text-primary-container hover:underline"
-              >
-                Manage devices
-                <Icon name="arrow_forward" className="text-sm" />
-              </Link>
-            </>
-          ) : (
-            <p className="py-4 text-center font-body-md text-body-md text-outline">
-              The device fleet could not be read.
-            </p>
-          )}
-        </BentoCard>
-
-        <BentoCard title="Labour Agents">
-          <div className="flex items-baseline gap-2">
-            <span className="font-card-stat text-card-stat tabular-nums text-on-surface">
-              {agents === null ? "—" : formatNumber(agents.length)}
-            </span>
-            <span className="text-[11px] text-on-surface-variant">
-              registered suppliers
-            </span>
-          </div>
-          {agents && agents.length > 0 ? (
-            <p className="mt-3 text-[11px] text-on-surface-variant">
-              {formatNumber(
-                agents.reduce((sum, a) => sum + (a.employeeCount ?? 0), 0),
-              )}{" "}
-              staff deployed across them.
-            </p>
+            <SegmentStrip
+              segments={[
+                { label: "Expected", value: formatNumber(summary.expectedEmployees) },
+                { label: "Reported", value: formatNumber(summary.reported) },
+                {
+                  label: "Not Yet In",
+                  value: formatNumber(summary.notYetIn),
+                  tone: summary.notYetIn > 0 ? "warning" : "default",
+                },
+              ]}
+            />
           ) : null}
-          <Link
-            href="/admin/agents"
-            className="mt-4 flex items-center gap-1 text-[11px] font-medium text-primary-container hover:underline"
-          >
-            Agent directory
-            <Icon name="arrow_forward" className="text-sm" />
-          </Link>
-        </BentoCard>
+
+          <BentoCard title="Attendance Today" className="flex-1">
+            {summary ? (
+              <>
+                <p className="font-card-stat text-card-stat tabular-nums text-on-surface">
+                  {formatPercent(summary.attendanceRatePercent, 1)}
+                </p>
+                <p className="mt-1 text-[10px] text-outline">
+                  {formatNumber(summary.reported)} of{" "}
+                  {formatNumber(summary.expectedEmployees)} employees reported
+                </p>
+                <div className="mt-4 border-t border-outline-variant/40 pt-3 text-[11px] text-on-surface-variant">
+                  <div className="flex justify-between">
+                    <span>Currently in</span>
+                    <span className="tabular-nums">
+                      {formatNumber(summary.currentlyIn)}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex justify-between">
+                    <span>Clocked out</span>
+                    <span className="tabular-nums">
+                      {formatNumber(summary.clockedOut)}
+                    </span>
+                  </div>
+                </div>
+                <Link
+                  href="/admin/attendance"
+                  className="mt-4 flex items-center gap-1 text-[11px] font-medium text-primary-container hover:underline"
+                >
+                  Attendance board
+                  <Icon name="arrow_forward" className="text-sm" />
+                </Link>
+              </>
+            ) : (
+              <p className="py-4 text-center font-body-md text-body-md text-outline">
+                Attendance for today could not be read.
+              </p>
+            )}
+          </BentoCard>
+        </div>
       </div>
+
     </div>
   );
 }

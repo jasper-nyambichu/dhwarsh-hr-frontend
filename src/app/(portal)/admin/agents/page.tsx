@@ -93,13 +93,13 @@ export default async function AdminAgentsPage() {
         title="Labour Agents"
         description="Manage external recruitment and labour supply partners."
         actions={
-          <button
-            type="button"
-            className="flex items-center gap-2 rounded-lg bg-on-primary-fixed-variant px-4 py-2 font-bold text-white shadow-sm transition-colors hover:bg-primary hover:shadow-md"
+          <Link
+            href="/admin/agents/new"
+            className="flex min-h-11 items-center gap-2 rounded-lg bg-on-primary-fixed-variant px-4 py-2 font-bold text-white shadow-sm transition-colors hover:bg-primary hover:shadow-md"
           >
             <Icon name="add" className="text-sm" />
             Register Agent
-          </button>
+          </Link>
         }
       />
 
@@ -164,7 +164,27 @@ export default async function AdminAgentsPage() {
               />
             </div>
           ) : (
-            <div className="w-full overflow-x-auto">
+            <>
+            <ul className="flex flex-col divide-y divide-[#E9EFF5] md:hidden">
+              {agents.map((agent) => (
+                <li key={agent.id}>
+                  <Link href={`/admin/agents/${agent.id}`} className="flex min-w-0 flex-col gap-2 p-4 hover:bg-[#f6fafe]">
+                    <span className="flex min-w-0 items-start justify-between gap-3">
+                      <span className="min-w-0 break-words font-semibold text-primary">{agent.name}</span>
+                      <StatusBadge status={agent.status} />
+                    </span>
+                    <span className="break-words text-xs text-on-surface-variant">
+                      {[agent.phone, agent.directorName ? `Director: ${agent.directorName}` : null].filter(Boolean).join(" · ") || "—"}
+                    </span>
+                    <span className="flex flex-wrap justify-between gap-2 text-xs text-on-surface-variant">
+                      <span>{CHARGE_TYPE_LABEL[agent.chargeType]}: {chargeLabel(agent)}</span>
+                      <span>{formatNumber(agent.employeeCount ?? 0)} staff</span>
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="hidden w-full overflow-x-auto md:block">
               <table className="data-table w-full border-collapse text-left">
                 <thead>
                   <tr>
@@ -172,7 +192,7 @@ export default async function AdminAgentsPage() {
                       Agent Details
                     </th>
                     <th className="px-4 py-3 font-table-header text-table-header uppercase tracking-wider text-on-surface-variant">
-                      Contact Person
+                      Director
                     </th>
                     <th className="px-4 py-3 font-table-header text-table-header uppercase tracking-wider text-on-surface-variant">
                       Phone
@@ -181,7 +201,7 @@ export default async function AdminAgentsPage() {
                       Deployed Staff
                     </th>
                     <th className="px-4 py-3 font-table-header text-table-header uppercase tracking-wider text-on-surface-variant">
-                      Commission Type
+                      Service Fee
                     </th>
                     <th className="px-4 py-3 text-right font-table-header text-table-header uppercase tracking-wider text-on-surface-variant">
                       Status
@@ -216,7 +236,7 @@ export default async function AdminAgentsPage() {
                         </Link>
                       </td>
                       <td className="px-4 py-3">
-                        {agent.contactPerson ?? (
+                        {agent.directorName ?? (
                           <span className="text-on-surface-variant">—</span>
                         )}
                       </td>
@@ -246,6 +266,7 @@ export default async function AdminAgentsPage() {
                 </tbody>
               </table>
             </div>
+            </>
           )}
 
           <div className="flex items-center justify-between border-t border-[#E9EFF5] bg-white p-4 text-xs text-on-surface-variant">

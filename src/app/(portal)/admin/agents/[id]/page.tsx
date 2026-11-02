@@ -108,33 +108,33 @@ export default async function AgentDetailPage({
   }
 
   const canEdit = viewer.role === "SUPER_ADMIN" || viewer.role === "ADMIN";
-  const canDeactivate = viewer.role === "SUPER_ADMIN";
+  const canDeactivate = canEdit;
 
   return (
     <>
       {/* ─────────────────────────────── page header ─────────────────── */}
       <div className="mb-8 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-3">
           <Link
             href="/admin/agents"
             className="flex items-center justify-center rounded-full p-1 text-on-surface-variant transition-colors hover:bg-surface-container-low hover:text-primary"
           >
             <Icon name="chevron_left" />
           </Link>
-          <h1 className="font-page-title text-page-title text-on-surface">
+          <h1 className="min-w-0 break-words font-page-title text-page-title text-on-surface">
             {agent.name}
           </h1>
           <StatusBadge status={agent.status} />
         </div>
 
-        <div className="flex w-full items-center gap-3 sm:w-auto">
+        <div className="flex w-full items-center gap-3 sm:w-auto sm:shrink-0">
           {canEdit ? (
-            <button
-              type="button"
+            <Link
+              href={`/admin/agents/${agent.id}/edit`}
               className="flex-1 rounded-lg bg-secondary-container px-4 py-2 text-center font-bold text-body-md text-primary-container transition-colors hover:bg-secondary-fixed sm:flex-none"
             >
               Edit Agent
-            </button>
+            </Link>
           ) : null}
           {/* SUPER_ADMIN only — `deactivateAgent` is `hasRole('SUPER_ADMIN')`
               on the backend, so rendering this for ADMIN would be a button
@@ -267,7 +267,7 @@ export default async function AgentDetailPage({
             <dl className="mt-4 flex flex-col gap-3 font-body-md text-body-md">
               <div className="flex items-start justify-between gap-4">
                 <dt className="text-on-surface-variant">Phone</dt>
-                <dd className="text-right font-mono text-[11px] text-on-surface">
+                <dd className="min-w-0 break-all text-right font-mono text-[11px] text-on-surface">
                   {agent.phone ?? "—"}
                 </dd>
               </div>
@@ -279,8 +279,36 @@ export default async function AgentDetailPage({
               </div>
               <div className="flex items-start justify-between gap-4">
                 <dt className="text-on-surface-variant">Address</dt>
-                <dd className="text-right text-on-surface">
+                <dd className="min-w-0 break-words text-right text-on-surface">
                   {agent.address ?? "—"}
+                </dd>
+              </div>
+            </dl>
+          </BentoCard>
+
+          <BentoCard title="Director">
+            <dl className="flex flex-col gap-3 font-body-md text-body-md">
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-on-surface-variant">Name</dt>
+                <dd className="min-w-0 break-words text-right text-on-surface">
+                  {agent.directorName ?? "—"}
+                </dd>
+              </div>
+              <div className="flex items-start justify-between gap-4">
+                <dt className="text-on-surface-variant">ID photo</dt>
+                <dd className="text-right">
+                  {agent.directorIdOnFile ? (
+                    <a
+                      href={`/api/agents/${agent.id}/director-id`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-medium text-primary hover:underline"
+                    >
+                      View photo
+                    </a>
+                  ) : (
+                    <span className="text-amber-main">Not uploaded</span>
+                  )}
                 </dd>
               </div>
             </dl>

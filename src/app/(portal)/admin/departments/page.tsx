@@ -57,7 +57,6 @@ export default async function DepartmentsPage() {
               <thead>
                 <tr>
                   <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Department</th>
-                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Head</th>
                   <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Actions</th>
                 </tr>
               </thead>
@@ -66,9 +65,6 @@ export default async function DepartmentsPage() {
                   <tr key={department.id} className="border-b border-outline-variant/20 last:border-0">
                     <td className="py-3 pl-2 font-semibold text-primary">
                       <Link href={`/admin/departments/${department.id}`}>{department.name}</Link>
-                    </td>
-                    <td className="py-3 text-on-surface-variant">
-                      {department.headOfDepartmentName ?? <span className="text-amber-main">No head</span>}
                     </td>
                     <td className="py-3 pr-2">
                       <div className="flex items-start justify-end gap-3">

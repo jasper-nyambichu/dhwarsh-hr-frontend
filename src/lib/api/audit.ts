@@ -15,7 +15,11 @@ import type {
  * SUPER_ADMIN, AUDITOR and FINANCE_OFFICER may read; no one may change it.
  */
 
+/** The groups an auditor tracks most: every damage event, every login, and every approval or rejection. */
+export type AuditCategory = "DAMAGES" | "LOGINS" | "APPROVALS";
+
 export type AuditSearch = {
+  category?: AuditCategory;
   action?: string;
   entityType?: string;
   userId?: number;

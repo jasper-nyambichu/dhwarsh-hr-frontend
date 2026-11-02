@@ -19,8 +19,7 @@ export function getCompany(signal?: AbortSignal): Promise<CompanyResponse> {
 
 /**
  * Payroll settings — VAT rate, working hours, overtime multiplier, weekend days,
- * payroll period. SUPER_ADMIN, ADMIN and PAYROLL_OFFICER may read; only
- * SUPER_ADMIN may write.
+ * payroll period. Admin reads and writes.
  */
 export function getCompanySettings(signal?: AbortSignal): Promise<CompanySettingsResponse> {
   return api.get<CompanySettingsResponse>("/company/settings", { signal });
@@ -28,7 +27,6 @@ export function getCompanySettings(signal?: AbortSignal): Promise<CompanySetting
 
 export type CompanyInput = {
   name: string;
-  logoUrl?: string;
   address?: string;
   phone?: string;
   email?: string;
@@ -41,7 +39,7 @@ export type CompanyInput = {
   timezone?: string;
 };
 
-/** Creates or updates the company. SUPER_ADMIN only. Replaces every field. */
+/** Creates or updates the company. Admin. Replaces every field except the logo. */
 export function saveCompany(payload: CompanyInput): Promise<CompanyResponse> {
   return api.put<CompanyResponse>("/company", payload);
 }
@@ -56,7 +54,16 @@ export type CompanySettingsInput = {
   payrollPeriod?: string;
 };
 
-/** Updates the payroll settings (creating them on first use). SUPER_ADMIN only. */
+/** Saves the logo. Multipart, so `api.post` leaves the Content-Type to the runtime. */
+export function uploadCompanyLogo(body: FormData): Promise<CompanyResponse> {
+  return api.post<CompanyResponse>("/company/logo", body);
+}
+
+export function removeCompanyLogo(): Promise<CompanyResponse> {
+  return api.delete<CompanyResponse>("/company/logo");
+}
+
+/** Updates the settings (creating them on first use). Admin. */
 export function updateCompanySettings(
   payload: CompanySettingsInput,
 ): Promise<CompanySettingsResponse> {

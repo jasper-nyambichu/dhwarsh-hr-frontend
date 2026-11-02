@@ -57,8 +57,7 @@ export async function decideLeaveAction(
       rejectionReason: parsed.rejectionReason,
     });
 
-    revalidatePath("/hr/leave");
-    revalidatePath("/hr/dashboard");
+    revalidatePath("/branch/approvals");
 
     return { status: "success", data: request };
   } catch (error) {
@@ -82,8 +81,7 @@ export async function decideLeaveFinalAction(
       rejectionReason: parsed.rejectionReason,
     });
 
-    revalidatePath("/admin/leave");
-    revalidatePath("/hr/leave");
+    revalidatePath("/branch/approvals");
 
     return { status: "success", data: request };
   } catch (error) {
@@ -109,7 +107,7 @@ export async function decideLeaveByManagerAction(
 
     revalidatePath("/branch/approvals");
     revalidatePath("/branch/dashboard");
-    revalidatePath("/admin/leave");
+    revalidatePath("/branch/approvals");
 
     return { status: "success", data: request };
   } catch (error) {
@@ -117,8 +115,8 @@ export async function decideLeaveByManagerAction(
   }
 }
 
-/** Refreshes the HR leave queue (legacy). */
+/** Refreshes the leave queue. */
 export async function refreshLeaveQueue(): Promise<void> {
   await requirePermission("leave:read");
-  revalidatePath("/hr/leave");
+  revalidatePath("/branch/approvals");
 }

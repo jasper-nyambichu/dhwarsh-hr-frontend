@@ -1,7 +1,7 @@
 import "server-only";
 
 import { api } from "@/app/lib/api-client";
-import type { AgentResponse, EmployeeSummaryResponse } from "@/types";
+import type { AgentResponse, ChargeType, EmployeeSummaryResponse } from "@/types";
 
 /**
  * `controller/agent/AgentController` — base `/agents`.
@@ -39,6 +39,38 @@ export function getAgentStaff(
   return api.get<EmployeeSummaryResponse[]>(`/employees/by-agent/${agentId}`, {
     signal,
   });
+}
+
+/** Payload for create and update. The backend replaces every field on save. */
+export type AgentInput = {
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  directorName: string;
+  chargeType: ChargeType;
+  chargeAmount: number | null;
+  chargePercentage: number | null;
+  vatRegistered: boolean;
+  contactPerson?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  kraPin?: string | null;
+  contractStartDate?: string | null;
+  contractEndDate?: string | null;
+};
+
+export function createAgent(payload: AgentInput): Promise<AgentResponse> {
+  return api.post<AgentResponse>("/agents", payload);
+}
+
+export function updateAgent(id: number, payload: AgentInput): Promise<AgentResponse> {
+  return api.put<AgentResponse>(`/agents/${id}`, payload);
+}
+
+/** Saves a photo of the director's ID, replacing any before it. PNG or JPEG, up to 5 MB. */
+export function uploadDirectorId(id: number, body: FormData): Promise<AgentResponse> {
+  return api.post<AgentResponse>(`/agents/${id}/director-id`, body);
 }
 
 /**

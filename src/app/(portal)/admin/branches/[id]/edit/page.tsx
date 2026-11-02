@@ -11,7 +11,7 @@ import { getUsers } from "@/lib/api/user";
 import { BranchForm } from "../../_components/branch-form";
 import { BranchStatusButton } from "../../_components/branch-status-button";
 
-/** Edit a branch. Activate / deactivate is offered to Super Admin only. */
+/** Edit a branch. Admin can also activate or deactivate it. */
 export default async function EditBranchPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requirePermission("branch:write");
 
@@ -52,7 +52,7 @@ export default async function EditBranchPage({ params }: { params: Promise<{ id:
     );
   }
 
-  const canChangeStatus = session.role === "SUPER_ADMIN" && hasPermission(session.role, "branch:write");
+  const canChangeStatus = hasPermission(session.role, "branch:write");
 
   return (
     <>

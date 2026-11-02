@@ -31,19 +31,7 @@ export type LoginInput = z.infer<typeof loginSchema>;
  * A 4-digit PIN is only 10,000 combinations. Attempt throttling and lockout
  * must be enforced server-side — nothing here can rate-limit an attacker.
  */
-export const employeeLoginSchema = z.object({
-  employeeNumber: z
-    .string()
-    .min(1, { message: "Employee number is required." })
-    .max(30, { message: "Employee number is too long." })
-    .trim(),
-  pin: z
-    .string()
-    .length(4, { message: "Enter all 4 digits." })
-    .regex(/^\d{4}$/, { message: "PIN must be 4 digits." }),
-});
 
-export type EmployeeLoginInput = z.infer<typeof employeeLoginSchema>;
 
 /**
  * Agent portal credential.
@@ -365,13 +353,9 @@ export const userAccountSchema = z.object({
   role: z.enum([
     "SUPER_ADMIN",
     "ADMIN",
-    "HR_MANAGER",
-    "PAYROLL_OFFICER",
     "BRANCH_MANAGER",
     "AGENT",
-    "EMPLOYEE",
-    "FINANCE_OFFICER",
-    "AUDITOR",
+    "BACK_OFFICE",
   ]),
   employeeId: z.coerce.number().int().positive().optional(),
   agentId: z.coerce.number().int().positive().optional(),

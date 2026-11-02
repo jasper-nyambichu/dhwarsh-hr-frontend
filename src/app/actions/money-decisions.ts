@@ -27,8 +27,6 @@ function readText(formData: FormData, name: string): string | undefined {
 function refreshMoneyScreens() {
   revalidatePath("/admin", "layout");
   revalidatePath("/agent", "layout");
-  revalidatePath("/finance", "layout");
-  revalidatePath("/payroll", "layout");
 }
 
 /** A rejection always says why, so the agent knows what to change. */
@@ -177,7 +175,7 @@ export async function rejectPaymentRequestAction(_previous: ActionState, formDat
   return { status: "success", data: undefined };
 }
 
-/** Accounts Office: the money has been sent. `reference` is how, kept on the request as proof. */
+/** Admin: the money has been sent. `reference` is how, kept on the request as proof. */
 export async function releasePaymentRequestAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
   await requirePermission("paymentrequest:release");
 

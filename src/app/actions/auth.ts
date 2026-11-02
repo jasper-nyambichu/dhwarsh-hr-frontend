@@ -7,7 +7,6 @@ import { ROLE_HOME, isRole, type Role } from "@/config/roles";
 import {
   agentLoginSchema,
   changePasswordSchema,
-  employeeLoginSchema,
   loginSchema,
 } from "@/app/lib/definitions";
 import { createSession, deleteSession, getSession } from "@/app/lib/session";
@@ -153,41 +152,6 @@ export async function login(
   }
 
   return establishSession(result, next);
-}
-
-/* --------------------------------------------------------- employee login */
-
-export async function employeeLogin(
-  _prev: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  const parsed = employeeLoginSchema.safeParse({
-    employeeNumber: formData.get("employeeNumber"),
-    pin: formData.get("pin"),
-  });
-
-  if (!parsed.success) {
-    return {
-      status: "error",
-      message: "Check the fields below.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
-    };
-  }
-
-  const result = await authenticate("/employee-login", parsed.data);
-
-  if ("error" in result) {
-    return { status: "error", message: result.error };
-  }
-
-  if (!isRole(result.role)) {
-    return {
-      status: "error",
-      message: "Your account has an unrecognised role. Contact HR.",
-    };
-  }
-
-  return establishSession(result);
 }
 
 /* ------------------------------------------------------------ agent login */

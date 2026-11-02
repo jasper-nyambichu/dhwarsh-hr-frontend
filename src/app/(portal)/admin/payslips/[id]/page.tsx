@@ -2,38 +2,30 @@ import { notFound } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { PayslipDocument } from "@/components/features/payroll/payslip-document";
+import { PayslipDetail } from "@/components/features/payslip/payslip-views";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
-import { getPayslip } from "@/lib/api/payroll";
-import type { PayslipResponse } from "@/types/payroll";
+import { getCompany } from "@/lib/api/company";
+import { getPayslip } from "@/lib/api/payslip";
+import type { EmployeePayslip } from "@/types/payslip";
 
-/** One employee's payslip, as seen by payroll staff. `id` is the payslip id. */
-export default async function PayrollPayslipDetailPage({ params }: { params: Promise<{ id: string }> }) {
+/** One payslip. The backend refuses one this viewer may not see. */
+export default async function AdminPayslipPage({ params }: { params: Promise<{ id: string }> }) {
   await requirePermission("payslip:read");
 
   const { id } = await params;
   const payslipId = Number(id);
   if (!Number.isInteger(payslipId) || payslipId <= 0) notFound();
 
-  let payslip: PayslipResponse;
+  let payslip: EmployeePayslip;
   try {
     payslip = await getPayslip(payslipId);
   } catch (error) {
-    if (error instanceof ApiError && (error.isNotFound || error.isForbidden)) notFound();
-    return (
-      <DataUnavailable
-        title="Payslip"
-        subject="This payslip"
-        reason={error instanceof Error ? error.message : undefined}
-      />
-    );
+    if (error instanceof ApiError && (error.status === 404 || error.status === 403)) notFound();
+    return <DataUnavailable title="Payslip" subject="This payslip" reason={error instanceof ApiError ? error.message : undefined} />;
   }
 
-  return (
-    <PayslipDocument
-      payslip={payslip}
-      backHref={`/admin/payslips?run=${payslip.payrollRunId}`}
-      backLabel="Back to Payslips"
-    />
-  );
+  // Only decides whether a logo is shown, so a failure here must not hide the payslip.
+  const company = await getCompany().catch(() => null);
+
+  return <PayslipDetail payslip={payslip} backHref="/admin/payslips" hasLogo={Boolean(company?.logoUrl)} />;
 }

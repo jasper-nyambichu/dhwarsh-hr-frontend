@@ -95,12 +95,12 @@ export async function updateBranchAction(
   return { status: "success", data: undefined };
 }
 
-/** Super Admin only: activate or deactivate a branch. */
+/** Admin: activate or deactivate a branch. */
 export async function setBranchStatusAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireRole(["SUPER_ADMIN"]);
+  await requireRole(["ADMIN", "SUPER_ADMIN"]);
 
   const id = Number(formData.get("id"));
   const status = String(formData.get("status") ?? "");

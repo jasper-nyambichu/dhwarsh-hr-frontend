@@ -5,19 +5,17 @@ import { useActionState } from "react";
 
 import { createDepartmentAction, updateDepartmentAction } from "@/app/actions/department";
 import { BentoCard } from "@/components/shared/bento-card";
-import { FormMessage, SelectField, TextField } from "@/components/shared/form-field";
+import { FormMessage, TextField } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 import type { CompanyDepartment } from "@/types/staff";
 
-/** Add or edit a company-wide department. The head can be any employee. */
+/** Add or edit a company-wide department. */
 export function DepartmentForm({
   mode,
   initial,
-  people,
 }: {
   mode: "create" | "edit";
   initial?: CompanyDepartment;
-  people: { id: number; name: string }[];
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
     mode === "create" ? createDepartmentAction : updateDepartmentAction,
@@ -32,12 +30,6 @@ export function DepartmentForm({
       <BentoCard title="Department details" subtitle="Available to every branch">
         <div className="grid grid-cols-1 gap-4">
           <TextField label="Department name" name="name" required defaultValue={initial?.name} error={errors?.name?.[0]} placeholder="e.g. Finance" />
-          <SelectField label="Head of department" name="headOfDepartmentId" defaultValue={initial?.headOfDepartmentId ? String(initial.headOfDepartmentId) : ""} hint="Optional.">
-            <option value="">None</option>
-            {people.map((person) => (
-              <option key={person.id} value={person.id}>{person.name}</option>
-            ))}
-          </SelectField>
         </div>
       </BentoCard>
 

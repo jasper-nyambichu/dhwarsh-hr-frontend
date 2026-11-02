@@ -43,7 +43,6 @@ function invalid(fieldErrors: Record<string, string[]>): ActionState {
 function refreshMoneyScreens() {
   revalidatePath("/agent", "layout");
   revalidatePath("/admin", "layout");
-  revalidatePath("/finance", "layout");
 }
 
 /** Agent: ask for a loan for one of THEIR employees. The Administrator reviews it and fixes the interest. */

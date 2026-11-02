@@ -2,7 +2,7 @@ import "server-only";
 
 import { api } from "@/app/lib/api-client";
 import type { EmployeeInput } from "@/app/lib/definitions";
-import type { EmployeeResponse, EmployeeSummaryResponse } from "@/types";
+import type { EmployeeDirectoryResponse, EmployeeResponse, EmployeeSummaryResponse } from "@/types";
 
 /**
  * `controller/employee/EmployeeController` — base `/employees`.
@@ -25,6 +25,28 @@ export function getEmployeesByBranch(
 ): Promise<EmployeeSummaryResponse[]> {
   return api.get<EmployeeSummaryResponse[]>(
     `/employees/by-branch/${branchId}`,
+    { signal },
+  );
+}
+
+/** Admin: everyone in one branch, with basic salary. */
+export function getBranchDirectory(
+  branchId: number,
+  signal?: AbortSignal,
+): Promise<EmployeeDirectoryResponse[]> {
+  return api.get<EmployeeDirectoryResponse[]>(
+    `/employees/directory/by-branch/${branchId}`,
+    { signal },
+  );
+}
+
+/** Agent: only their own employees in one branch. */
+export function getMyBranchDirectory(
+  branchId: number,
+  signal?: AbortSignal,
+): Promise<EmployeeDirectoryResponse[]> {
+  return api.get<EmployeeDirectoryResponse[]>(
+    `/employees/my-directory/by-branch/${branchId}`,
     { signal },
   );
 }

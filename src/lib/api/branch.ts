@@ -53,14 +53,13 @@ export function updateBranch(id: number, payload: BranchInput): Promise<BranchRe
 }
 
 /**
- * Deactivates a branch. SUPER_ADMIN only, unlike create/update which also accept
- * ADMIN. Refused by the backend while the branch still has active employees.
+ * Deactivates a branch. Refused by the backend while the branch still has active employees.
  */
 export function deactivateBranch(id: number): Promise<void> {
   return api.put<void>(`/branches/${id}/deactivate`);
 }
 
-/** Reactivates a branch. SUPER_ADMIN only. */
+/** Reactivates a branch. */
 export function activateBranch(id: number): Promise<void> {
   return api.put<void>(`/branches/${id}/activate`);
 }

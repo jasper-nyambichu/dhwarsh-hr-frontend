@@ -18,7 +18,6 @@ import { decrypt } from "@/app/lib/session";
 /** Reachable without a session — one per principal type, plus recovery. */
 const PUBLIC_PATHS = [
   "/login",
-  "/employee-login",
   "/agent-login",
   "/forgot-password",
   "/reset-password",
@@ -72,7 +71,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Wrong namespace: an EMPLOYEE poking at /payroll/runs lands back home.
+  // Wrong namespace: an AGENT poking at /admin lands back home.
   if (!canAccessPath(session.role, pathname)) {
     return NextResponse.redirect(new URL(home, request.url));
   }

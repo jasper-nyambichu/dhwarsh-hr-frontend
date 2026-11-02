@@ -9,20 +9,20 @@ import { getCompany, getCompanySettings } from "@/lib/api/company";
 import type { CompanyResponse, CompanySettingsResponse } from "@/types";
 
 import { CompanyForm } from "./_components/company-form";
+import { LogoForm } from "./_components/logo-form";
 import { SettingsForm } from "./_components/settings-form";
 
 /**
- * Settings — company profile and the payroll rules, editable by Super Admin.
+ * Settings — company profile, logo and rules, editable by Admin.
  *
  * Both reads return 404 on a database where they were never set up. That is a
- * first-run state, not a failure: Super Admin gets the empty company form to fill
- * in (saving it also creates the default payroll settings), and anyone else is told
- * the company is not set up yet. Any other failure is a real error.
+ * first-run state, not a failure: Admin gets the empty company form to fill in
+ * (saving it also creates the default settings). Any other failure is a real error.
  */
 export default async function AdminSettingsPage() {
   await requirePermission("company:settings");
   const viewer = await getCurrentUser();
-  const canWrite = viewer.role === "SUPER_ADMIN";
+  const canWrite = viewer.role === "SUPER_ADMIN" || viewer.role === "ADMIN";
 
   const [companyResult, settingsResult] = await Promise.allSettled([getCompany(), getCompanySettings()]);
 
@@ -36,7 +36,7 @@ export default async function AdminSettingsPage() {
     return (
       <DataUnavailable
         title="Settings"
-        description="Company profile and payroll rules."
+        description="Company profile and rules."
         subject="Company settings"
         reason={realFailure instanceof ApiError ? realFailure.message : undefined}
       />
@@ -48,16 +48,18 @@ export default async function AdminSettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Company profile and the rules payroll is calculated against." />
+      <PageHeader title="Settings" description="Company profile, logo and the rules agent payments use." />
 
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-gutter">
         {!company && !canWrite ? (
           <div className="rounded-card border border-dashed border-amber-main/40 bg-amber-main/5 p-6 text-center font-body-md text-body-md text-on-surface-variant">
-            The company has not been set up yet. The Super Admin needs to complete it before payroll can run.
+            The company has not been set up yet. An Admin needs to complete it before agent payments can be calculated.
           </div>
         ) : (
           <CompanyForm initial={company} readOnly={!canWrite} />
         )}
+
+        {company && canWrite ? <LogoForm hasLogo={company.logoUrl !== null} version={String(company.logoUrl)} /> : null}
 
         {company ? (
           <SettingsForm
@@ -78,8 +80,8 @@ export default async function AdminSettingsPage() {
           </span>
           <p className="font-body-md text-body-md text-on-surface-variant">
             {canWrite
-              ? "Only the Super Admin can change these. Statutory rates (SHIF, NSSF, Housing Levy, PAYE, NITA) are currently set in the payroll engine, not here."
-              : "Read-only. Company details and payroll rules are changed by the Super Admin."}
+              ? "Only an Admin can change these. The daily rate and NSSF are set under Pay Rates."
+              : "Read-only. Company details and rules are changed by an Admin."}
           </p>
         </div>
       </div>

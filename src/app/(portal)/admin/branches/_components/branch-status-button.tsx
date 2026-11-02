@@ -7,7 +7,7 @@ import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
-/** Super Admin only: switch a branch between active and inactive. */
+/** Admin: switch a branch between active and inactive. */
 export function BranchStatusButton({ id, status }: { id: number; status: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(setBranchStatusAction, {
     status: "idle",

@@ -17,7 +17,6 @@ type Parsed = { ok: true; input: DepartmentInput } | { ok: false; state: ActionS
 
 function readDepartment(formData: FormData): Parsed {
   const name = String(formData.get("name") ?? "").trim();
-  const head = String(formData.get("headOfDepartmentId") ?? "").trim();
 
   if (!name) {
     return {
@@ -26,7 +25,7 @@ function readDepartment(formData: FormData): Parsed {
     };
   }
 
-  return { ok: true, input: { name, headOfDepartmentId: head ? Number(head) : undefined } };
+  return { ok: true, input: { name } };
 }
 
 export async function createDepartmentAction(

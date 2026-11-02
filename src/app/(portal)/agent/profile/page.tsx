@@ -14,9 +14,9 @@ import { formatDate, formatNumber, humanizeEnum } from "@/lib/format";
 
 function Field({ label, value, mono = false }: { label: string; value: string | null | undefined; mono?: boolean }) {
   return (
-    <div>
+    <div className="min-w-0">
       <p className="mb-1 text-xs font-semibold text-secondary">{label}</p>
-      <p className={`text-sm text-on-surface ${mono ? "font-mono" : ""}`}>{value?.trim() ? value : "—"}</p>
+      <p className={`break-words text-sm text-on-surface ${mono ? "font-mono" : ""}`}>{value?.trim() ? value : "—"}</p>
     </div>
   );
 }
@@ -41,13 +41,13 @@ export default async function AgentProfilePage() {
     <>
       <PageHeader
         title={
-          <span className="flex items-center gap-6">
-            <span className="flex size-24 items-center justify-center rounded-2xl bg-white p-2 shadow-ambient-1">
+          <span className="flex min-w-0 items-center gap-3 sm:gap-6">
+            <span className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-white p-2 shadow-ambient-1 sm:size-24">
               <Icon name="business" className="text-4xl text-primary" />
             </span>
-            <span>
+            <span className="min-w-0">
               <span className="flex flex-wrap items-center gap-3">
-                <span className="text-2xl font-bold text-on-primary-fixed-variant">{agent.name}</span>
+                <span className="min-w-0 break-words text-xl font-bold text-on-primary-fixed-variant sm:text-2xl">{agent.name}</span>
                 <span className="rounded border border-orange/20 bg-orange/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-orange">
                   {humanizeEnum(agent.status)}
                 </span>
@@ -61,7 +61,7 @@ export default async function AgentProfilePage() {
       />
 
       <div className="grid grid-cols-12 gap-gutter">
-        <div className="col-span-12 lg:col-span-6">
+        <div className="col-span-12 min-w-0 lg:col-span-6">
           <BentoCard title="Company Details">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <Field label="Registered Company Name" value={agent.name} />
@@ -75,7 +75,7 @@ export default async function AgentProfilePage() {
           </BentoCard>
         </div>
 
-        <div className="col-span-12 lg:col-span-6">
+        <div className="col-span-12 min-w-0 lg:col-span-6">
           <BentoCard title="Contact Information">
             <div className="grid grid-cols-1 gap-6">
               <Field label="Business Phone" value={agent.phone} />
@@ -84,7 +84,7 @@ export default async function AgentProfilePage() {
           </BentoCard>
         </div>
 
-        <div className="col-span-12 lg:col-span-6">
+        <div className="col-span-12 min-w-0 lg:col-span-6">
           <BentoCard title="Banking Details" className="border-t-4 border-orange">
             <div className="grid grid-cols-1 gap-6">
               <Field label="Bank Name" value={agent.bankName} />
@@ -93,7 +93,7 @@ export default async function AgentProfilePage() {
           </BentoCard>
         </div>
 
-        <div className="col-span-12 lg:col-span-6">
+        <div className="col-span-12 min-w-0 lg:col-span-6">
           <BentoCard title="Contract & Charges">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               <Field label="Contract Start" value={formatDate(agent.contractStartDate)} />

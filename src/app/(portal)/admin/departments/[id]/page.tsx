@@ -7,9 +7,8 @@ import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
-import { getBranches } from "@/lib/api/branch";
 import { getDepartment } from "@/lib/api/department";
-import { getEmployeesByBranch, getEmployeesByDepartment } from "@/lib/api/employee";
+import { getEmployeesByDepartment } from "@/lib/api/employee";
 import { formatNumber } from "@/lib/format";
 
 import { DepartmentForm } from "../_components/department-form";
@@ -24,21 +23,13 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
 
   let department: Awaited<ReturnType<typeof getDepartment>>;
   let staff: Awaited<ReturnType<typeof getEmployeesByDepartment>>;
-  let people: { id: number; name: string }[];
   try {
-    const [found, members, branches] = await Promise.all([
+    const [found, members] = await Promise.all([
       getDepartment(departmentId),
       getEmployeesByDepartment(departmentId),
-      getBranches(),
     ]);
     department = found;
     staff = members;
-
-    const results = await Promise.allSettled(branches.map((branch) => getEmployeesByBranch(branch.id)));
-    people = results
-      .flatMap((result) => (result.status === "fulfilled" ? result.value : []))
-      .filter((employee) => employee.employmentStatus === "ACTIVE" || employee.id === found.headOfDepartmentId)
-      .map((employee) => ({ id: employee.id, name: `${employee.fullName} (${employee.employeeNumber})` }));
   } catch (error) {
     if (error instanceof ApiError && error.isNotFound) notFound();
     return <DataUnavailable title="Department" subject="This department" reason={error instanceof ApiError ? error.message : undefined} />;
@@ -49,7 +40,7 @@ export default async function DepartmentDetailPage({ params }: { params: Promise
       <PageHeader title={department.name} description={`${formatNumber(staff.length)} employee${staff.length === 1 ? "" : "s"} across all branches`} />
 
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-gutter">
-        <DepartmentForm mode="edit" initial={department} people={people} />
+        <DepartmentForm mode="edit" initial={department} />
 
         <BentoCard title="Employees in this department">
           {staff.length === 0 ? (

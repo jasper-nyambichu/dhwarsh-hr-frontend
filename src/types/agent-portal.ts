@@ -2,7 +2,7 @@
  * Agent Portal response types.
  *
  * Mirrors `dto/response/agentadvance/AgentAdvanceResponse` and
- * `dto/response/payroll/AgentPayrollSummaryResponse`.
+ * `dto/response/settlement/AgentSettlementResponse`.
  *
  * Kept out of `types/index.ts` on purpose: that file's `ADVANCE_STATUSES`
  * lists PENDING / APPROVED / REJECTED / RECOVERED, none of which the backend
@@ -29,29 +29,34 @@ export type AgentAdvanceResponse = {
 };
 
 /**
- * One agent's payment statement for one payroll run (proposal section 6).
- * `payrollRunId` is the natural key: there is exactly one summary per agent
- * per run.
+ * What one agent is paid for one period:
+ * days pay + PAYE + NSSF + NITA + agent fee + VAT - loans - damages - advances.
  */
-export type AgentPayrollSummaryResponse = {
+export type AgentSettlementResponse = {
   id: number;
-  payrollRunId: number;
-  periodStart: string;
-  periodEnd: string;
   agentId: number;
   agentName: string | null;
-  employeeCount: number | null;
-  grossSalaries: number;
-  serviceCharge: number;
-  shifTotal: number | null;
-  nssfTotal: number | null;
-  housingLevyTotal: number | null;
-  payeTotal: number | null;
-  employeeLoanDeductionsTotal: number | null;
-  advanceRecoveryTotal: number | null;
-  subtotalBeforeVat: number;
-  vatApplied: boolean;
-  vatRateUsed: number | null;
-  vatAmount: number | null;
-  finalAmountPayable: number;
+  periodStart: string;
+  periodEnd: string;
+  employeeCount: number;
+  daysWorkedTotal: number;
+  daysPay: number;
+  payeTotal: number;
+  nssfTotal: number;
+  nitaTotal: number;
+  agentFee: number;
+  vatRateUsed: number;
+  vatAmount: number;
+  loanTotal: number;
+  damageTotal: number;
+  advanceRecovered: number;
+  amountPayable: number;
+  paymentRequestId: number | null;
+};
+
+/** The body of `POST /agent-settlements/calculate`. Leaving out `agentIds` means every active agent. */
+export type AgentSettlementRunPayload = {
+  periodStart: string;
+  periodEnd: string;
+  agentIds?: number[];
 };

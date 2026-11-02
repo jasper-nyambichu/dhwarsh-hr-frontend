@@ -5,7 +5,9 @@ import { revalidatePath } from "next/cache";
 import { toActionError } from "@/app/lib/api-error";
 import { requireRole } from "@/app/lib/dal";
 import {
+  removeCompanyLogo,
   saveCompany,
+  uploadCompanyLogo,
   updateCompanySettings,
   type CompanyInput,
 } from "@/lib/api/company";
@@ -18,12 +20,12 @@ function text(formData: FormData, name: string): string | undefined {
   return value === "" ? undefined : value;
 }
 
-/** Super Admin: create or update the company profile. */
+/** Admin: create or update the company profile. */
 export async function saveCompanyAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireRole(["SUPER_ADMIN"]);
+  await requireRole(["ADMIN", "SUPER_ADMIN"]);
 
   const name = text(formData, "name");
   const email = text(formData, "email");
@@ -36,11 +38,10 @@ export async function saveCompanyAction(
     return { status: "error", message: "Check the fields below.", fieldErrors };
   }
 
-  // The backend replaces every field on save, so anything not sent is wiped —
-  // including the logo, which this form only carries through.
+  // The backend replaces every field on save, so anything not sent is wiped. The logo is the
+  // exception: it only changes through its own upload.
   const payload: CompanyInput = {
     name: name!,
-    logoUrl: text(formData, "logoUrl"),
     address: text(formData, "address"),
     phone: text(formData, "phone"),
     email,
@@ -64,12 +65,53 @@ export async function saveCompanyAction(
   return { status: "success", data: undefined };
 }
 
-/** Super Admin: payroll settings — VAT, working hours, overtime, weekend, period. */
+/** Admin: the logo on payslips and employee lists. The backend checks the file really is an image. */
+export async function uploadCompanyLogoAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireRole(["ADMIN", "SUPER_ADMIN"]);
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { status: "error", message: "Choose a logo file." };
+  }
+
+  const body = new FormData();
+  body.append("file", file);
+
+  try {
+    await uploadCompanyLogo(body);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin/settings");
+  return { status: "success", data: undefined };
+}
+
+export async function removeCompanyLogoAction(
+  _previous: ActionState,
+  _formData: FormData,
+): Promise<ActionState> {
+  await requireRole(["ADMIN", "SUPER_ADMIN"]);
+
+  try {
+    await removeCompanyLogo();
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin/settings");
+  return { status: "success", data: undefined };
+}
+
+/** Admin: company rules — VAT, working hours, overtime, weekend. */
 export async function saveSettingsAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireRole(["SUPER_ADMIN"]);
+  await requireRole(["ADMIN", "SUPER_ADMIN"]);
 
   const vatRate = Number(formData.get("vatRate"));
   const hours = Number(formData.get("defaultWorkingHoursPerDay"));

@@ -83,7 +83,7 @@ export function AdvanceDecisionBar({ advanceId }: { advanceId: number }) {
   );
 }
 
-/** Payment request: approve (the Accounts Office is then told to release it), or reject with a reason. */
+/** Payment request: approve (it is then ready to release), or reject with a reason. */
 export function PaymentDecisionBar({ paymentRequestId }: { paymentRequestId: number }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2">
@@ -153,7 +153,7 @@ export function LoanDecisionBar({ loanId }: { loanId: number }) {
   );
 }
 
-/** Accounts Office: the money has been sent — record how. */
+/** Admin: the money has been sent — record how. */
 export function ReleaseForm({ paymentRequestId }: { paymentRequestId: number }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(releasePaymentRequestAction, IDLE);
   const referenceId = useId();

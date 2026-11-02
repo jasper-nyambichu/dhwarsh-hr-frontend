@@ -61,7 +61,7 @@ export default async function BackOfficeAttendancePage({
 
   return (
     <>
-      <PageHeader title="Attendance" description="Who reported to work, and when. Payroll counts days worked from these records." />
+      <PageHeader title="Attendance" description="Who reported to work, and when. Agent payments count days worked from these records." />
 
       <form method="get" action="/backoffice/attendance" className="mb-4 flex flex-wrap items-end gap-3 rounded-card bg-surface-container-lowest p-3 shadow-ambient-1">
         <select name="branchId" defaultValue={branchId ?? ""} aria-label="Branch" className={FIELD}>

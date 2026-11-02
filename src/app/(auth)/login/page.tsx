@@ -12,10 +12,9 @@ export const metadata: Metadata = {
 
 /**
  * Staff sign-in. Entry point for every STAFF-principal role:
- * SUPER_ADMIN, ADMIN, HR_MANAGER, PAYROLL_OFFICER, BRANCH_MANAGER,
- * FINANCE_OFFICER, AUDITOR.
+ * SUPER_ADMIN, ADMIN, BRANCH_MANAGER, BACK_OFFICE.
  *
- * After authentication the action redirects to ROLE_HOME[role], so all seven
+ * After authentication the action redirects to ROLE_HOME[role], so they all
  * share one door but land in their own namespace.
  */
 export default function StaffLoginPage() {
@@ -36,7 +35,7 @@ export default function StaffLoginPage() {
             Your whole workforce, one clear view.
           </h1>
           <p className="font-body-md text-body-md text-white/70">
-            Dhwarsh HR: Integrated Kenya payroll &amp; attendance.
+            Dhwarsh HR: Integrated Kenya workforce &amp; attendance.
           </p>
 
           {/* Floating stat cards */}
@@ -132,17 +131,6 @@ export default function StaffLoginPage() {
             className="group flex items-center gap-1 transition-colors hover:text-primary"
           >
             Agent Portal
-            <Icon
-              name="arrow_forward"
-              className="text-[12px] transition-transform group-hover:translate-x-0.5"
-            />
-          </Link>
-          <span className="text-outline-variant">|</span>
-          <Link
-            href="/employee-login"
-            className="group flex items-center gap-1 transition-colors hover:text-primary"
-          >
-            Employee Self-Service
             <Icon
               name="arrow_forward"
               className="text-[12px] transition-transform group-hover:translate-x-0.5"

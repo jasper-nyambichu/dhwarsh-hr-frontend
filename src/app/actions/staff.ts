@@ -11,7 +11,7 @@ import {
   createEmployeeDirect,
   submitEmployeeRequest,
 } from "@/lib/api/staff";
-import { EMPLOYMENT_TYPES, type ActionState, type EmploymentType } from "@/types";
+import type { ActionState } from "@/types";
 import type { EmployeeEntryPayload } from "@/types/staff";
 
 function text(formData: FormData, name: string): string | undefined {
@@ -24,16 +24,20 @@ type Parsed = { ok: true; payload: EmployeeEntryPayload } | { ok: false; state: 
 function readEmployee(formData: FormData): Parsed {
   const fullName = text(formData, "fullName");
   const branchId = Number(formData.get("branchId"));
-  const employmentType = String(formData.get("employmentType") ?? "");
   const email = text(formData, "email");
   const mpesa = text(formData, "mpesaNumber");
+  const salary = text(formData, "basicSalary");
 
   const fieldErrors: Record<string, string[]> = {};
   if (!fullName) fieldErrors.fullName = ["Required"];
   if (!Number.isInteger(branchId) || branchId <= 0) fieldErrors.branchId = ["Choose a branch"];
-  if (!(EMPLOYMENT_TYPES as readonly string[]).includes(employmentType)) fieldErrors.employmentType = ["Choose a type"];
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fieldErrors.email = ["Not a valid email"];
   if (mpesa && !/^(\+?254|0)[17]\d{8}$/.test(mpesa.replace(/\s/g, ""))) fieldErrors.mpesaNumber = ["Use a Kenyan number, e.g. 0712 345 678"];
+
+  for (const field of ["shifNumber", "nssfNumber", "kraPin"]) {
+    if ((text(formData, field)?.length ?? 0) > 20) fieldErrors[field] = ["Use 20 characters or fewer"];
+  }
+  if (salary && !(Number(salary) >= 0)) fieldErrors.basicSalary = ["Enter zero or more"];
 
   if (Object.keys(fieldErrors).length > 0) {
     return { ok: false, state: { status: "error", message: "Check the fields below.", fieldErrors } };
@@ -54,8 +58,10 @@ function readEmployee(formData: FormData): Parsed {
       branchId,
       departmentId: department ? Number(department) : undefined,
       agentId: agent ? Number(agent) : undefined,
-      position: text(formData, "position"),
-      employmentType: employmentType as EmploymentType,
+      shifNumber: text(formData, "shifNumber"),
+      nssfNumber: text(formData, "nssfNumber"),
+      kraPin: text(formData, "kraPin"),
+      basicSalary: salary ? Number(salary) : undefined,
       dateHired: text(formData, "dateHired"),
       // Pay goes out by M-Pesa for now, so the "bank" details are the M-Pesa number.
       bankName: mpesa ? "M-PESA" : undefined,
@@ -117,7 +123,7 @@ export async function assignDepartmentAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requireRole(["ADMIN", "SUPER_ADMIN", "BRANCH_MANAGER", "HR_MANAGER"]);
+  await requireRole(["ADMIN", "SUPER_ADMIN", "BRANCH_MANAGER"]);
 
   const id = Number(formData.get("employeeId"));
   const departmentId = Number(formData.get("departmentId"));

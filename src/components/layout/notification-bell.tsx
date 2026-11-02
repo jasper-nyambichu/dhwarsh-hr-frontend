@@ -255,8 +255,7 @@ const DEFAULT_STYLE = {
 };
 
 /**
- * Where a notification leads. An admin's "needs review" opens that request; HR's
- * outcome opens their requests list, where the reason for a rejection is shown.
+ * Where a notification leads. An admin's "needs review" opens that request.
  * Anything else has no destination and is just dismissed.
  */
 function hrefFor(item: NotificationResponse): string | null {
@@ -265,9 +264,6 @@ function hrefFor(item: NotificationResponse): string | null {
       return item.referenceId
         ? `/admin/employee-requests/${item.referenceId}`
         : "/admin/employee-requests";
-    case NOTIFICATION_TYPE.EMPLOYEE_REQUEST_APPROVED:
-    case NOTIFICATION_TYPE.EMPLOYEE_REQUEST_REJECTED:
-      return "/hr/employees/requests";
     default:
       return null;
   }

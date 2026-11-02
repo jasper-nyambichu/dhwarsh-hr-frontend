@@ -6,9 +6,9 @@ import type { PaySettingsPayload, PaySettingsResponse } from "@/types/pay-model"
 /**
  * `controller/company/CompanySettingsController` — base `/company/settings`.
  *
- * The Admin sets the daily rate, SHIF and NSSF (a percentage of pay or a fixed amount), the
- * optional statutory switches and the deduction ceiling. Every field after `vatRate` is optional
- * on the backend, so a save here leaves the working-hours, overtime and weekend settings alone.
+ * The Admin sets the daily rate, NSSF (a percentage of pay or a fixed amount), the VAT rate and the
+ * deduction ceiling. Every field after `vatRate` is optional on the backend, so a save here leaves
+ * the other settings alone.
  */
 
 export function getPaySettings(signal?: AbortSignal): Promise<PaySettingsResponse> {

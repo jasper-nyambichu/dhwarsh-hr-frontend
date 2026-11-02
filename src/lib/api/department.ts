@@ -38,8 +38,6 @@ export function deleteDepartment(id: number): Promise<void> {
 /** Payload for create and update. */
 export type DepartmentInput = {
   name: string;
-  /** Any employee; omit for none. */
-  headOfDepartmentId?: number;
 };
 
 export function createDepartment(payload: DepartmentInput): Promise<CompanyDepartment> {

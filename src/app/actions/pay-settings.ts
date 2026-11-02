@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { updatePaySettings } from "@/lib/api/pay-settings";
+import { calculateAgentPayments } from "@/lib/api/settlement";
 import type { ActionState } from "@/types";
 import {
   CONTRIBUTION_MODES,
@@ -24,7 +25,7 @@ function readMode(formData: FormData, name: string): ContributionMode | undefine
   return (CONTRIBUTION_MODES as readonly string[]).includes(raw) ? (raw as ContributionMode) : undefined;
 }
 
-/** SHIF / NSSF: a percentage can't pass 100, a fixed amount can't be absurdly large. */
+/** NSSF: a percentage can't pass 100, a fixed amount can't be absurdly large. */
 function checkContribution(
   label: string,
   field: string,
@@ -45,7 +46,7 @@ function checkContribution(
   }
 }
 
-/** Admin: set the daily rate, SHIF/NSSF, the optional statutory switches and the deduction ceiling. */
+/** Admin: set the daily rate, NSSF, the VAT rate and the deduction ceiling. */
 export async function savePaySettingsAction(
   _previous: ActionState,
   formData: FormData,
@@ -53,15 +54,11 @@ export async function savePaySettingsAction(
   await requirePermission("settings:manage");
 
   const dailyRate = readNumber(formData, "dailyRate");
-  const shifMode = readMode(formData, "shifMode");
-  const shifValue = readNumber(formData, "shifValue");
   const nssfMode = readMode(formData, "nssfMode");
   const nssfValue = readNumber(formData, "nssfValue");
   const ceiling = readNumber(formData, "deductionCeilingPercent");
 
-  // The backend requires the VAT rate on every save; it arrives unchanged from the loaded settings.
-  const vatRaw = readNumber(formData, "vatRate");
-  const vatRate = Number.isFinite(vatRaw) && vatRaw >= 0 && vatRaw <= 100 ? vatRaw : 0;
+  const vatRate = readNumber(formData, "vatRate");
 
   const fieldErrors: Record<string, string[]> = {};
 
@@ -71,7 +68,10 @@ export async function savePaySettingsAction(
     fieldErrors.dailyRate = ["That amount is too large"];
   }
 
-  checkContribution("SHIF", "shif", shifMode, shifValue, fieldErrors);
+  if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) {
+    fieldErrors.vatRate = ["Enter a percentage from 0 to 100"];
+  }
+
   checkContribution("NSSF", "nssf", nssfMode, nssfValue, fieldErrors);
 
   if (!Number.isFinite(ceiling) || ceiling < 1 || ceiling > 100) {
@@ -85,14 +85,8 @@ export async function savePaySettingsAction(
   const payload: PaySettingsPayload = {
     vatRate,
     dailyRate,
-    shifMode: shifMode!,
-    shifValue,
     nssfMode: nssfMode!,
     nssfValue,
-    // An unticked checkbox is absent from the form, so these are always sent: that is how a switch is turned off.
-    applyHousingLevy: formData.get("applyHousingLevy") === "on",
-    applyPaye: formData.get("applyPaye") === "on",
-    applyNita: formData.get("applyNita") === "on",
     deductionCeilingPercent: ceiling,
   };
 
@@ -103,6 +97,38 @@ export async function savePaySettingsAction(
   }
 
   revalidatePath("/admin", "layout");
-  revalidatePath("/payroll", "layout");
+  return { status: "success", data: undefined };
+}
+
+/**
+ * Admin: work out what each agent is paid for a period. All or nothing: if one employee has no locked
+ * days, or an agent was already paid for part of the period, nothing changes and the reason is shown.
+ */
+export async function calculateAgentPaymentsAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("settings:manage");
+
+  const periodStart = String(formData.get("periodStart") ?? "");
+  const periodEnd = String(formData.get("periodEnd") ?? "");
+
+  const fieldErrors: Record<string, string[]> = {};
+  if (!periodStart) fieldErrors.periodStart = ["Choose a date"];
+  if (!periodEnd) fieldErrors.periodEnd = ["Choose a date"];
+  if (periodStart && periodEnd && periodEnd < periodStart) fieldErrors.periodEnd = ["Must be on or after the start"];
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return { status: "error", message: "Check the fields below.", fieldErrors };
+  }
+
+  try {
+    await calculateAgentPayments({ periodStart, periodEnd });
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/agent", "layout");
   return { status: "success", data: undefined };
 }

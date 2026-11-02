@@ -70,7 +70,7 @@ const SECTIONS: readonly TermsSection[] = [
 ];
 
 /** Where "Back" goes when the page was opened directly and there is no history. */
-const FALLBACK_HREF = "/me/loans/new";
+const FALLBACK_HREF = "/agent/loans";
 
 /**
  * Loan terms and conditions — public, and outside the portal.

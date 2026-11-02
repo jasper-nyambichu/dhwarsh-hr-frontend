@@ -59,7 +59,7 @@ export async function DaysWorkedPanel({
     <>
       <PageHeader
         title="Days worked"
-        description="The days each employee reported, as locked by the Back Office in the desktop application. Payroll only uses locked figures."
+        description="The days each employee reported, as locked by the Back Office in the desktop application. Agent payments only use locked figures."
       />
 
       <form
@@ -125,7 +125,7 @@ export async function DaysWorkedPanel({
         >
           {!locked ? (
             <p role="status" className="mb-3 rounded-lg bg-error/10 p-3 text-sm text-error">
-              These figures are live from attendance and are not final. Payroll cannot use them until the Back Office
+              These figures are live from attendance and are not final. Agent payments cannot use them until the Back Office
               locks the period in the desktop application.
             </p>
           ) : null}

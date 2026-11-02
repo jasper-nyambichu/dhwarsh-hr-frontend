@@ -789,6 +789,8 @@ export type AgentResponse = {
   phone: string | null;
   email: string | null;
   address: string | null;
+  directorName: string | null;
+  directorIdOnFile: boolean;
   bankName: string | null;
   bankAccountNumber: string | null;
   kraPin: string | null;
@@ -808,6 +810,21 @@ export type EmployeeSummaryResponse = {
   fullName: string;
   employeeNumber: string;
   branchName: string | null;
+  position: string | null;
+  employmentStatus: EmploymentStatus;
+};
+
+/**
+ * `dto/response/employee/EmployeeDirectoryResponse` — one row of a branch's list on the dashboards.
+ */
+export type EmployeeDirectoryResponse = {
+  id: number;
+  employeeNumber: string;
+  fullName: string;
+  phone: string | null;
+  departmentName: string | null;
+  agentName: string | null;
+  basicSalary: number | null;
   position: string | null;
   employmentStatus: EmploymentStatus;
 };
@@ -836,7 +853,7 @@ export type EmployeeResponse = {
   agentId: number | null;
   agentName: string | null;
   position: string | null;
-  employmentType: EmploymentType;
+  employmentType: EmploymentType | null;
   basicSalary: number | null;
   dateHired: string | null;
   employmentStatus: EmploymentStatus;

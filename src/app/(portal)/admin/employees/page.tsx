@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { EmployeeExportButtons } from "@/components/features/employee/employee-export-buttons";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -10,8 +11,8 @@ import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
 import { getBranches } from "@/lib/api/branch";
-import { getEmployeesByBranch } from "@/lib/api/employee";
-import { formatNumber, initials } from "@/lib/format";
+import { getBranchDirectory } from "@/lib/api/employee";
+import { formatMoney, formatNumber, initials } from "@/lib/format";
 
 /** Every employee in the company, each listed under their own branch. */
 export default async function AdminEmployeesPage() {
@@ -24,7 +25,7 @@ export default async function AdminEmployeesPage() {
     return <DataUnavailable title="Employees" subject="The branch list" reason={error instanceof ApiError ? error.message : undefined} />;
   }
 
-  const results = await Promise.allSettled(branches.map((branch) => getEmployeesByBranch(branch.id)));
+  const results = await Promise.allSettled(branches.map((branch) => getBranchDirectory(branch.id)));
   const groups = branches.map((branch, index) => {
     const result = results[index];
     return {
@@ -43,10 +44,13 @@ export default async function AdminEmployeesPage() {
         title="Employees"
         description="Every employee, listed under their branch."
         actions={
-          <Link href="/admin/employees/new" className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-body-md text-body-md font-bold text-on-primary shadow-sm transition-colors hover:bg-on-primary-fixed-variant">
+          <div className="flex flex-wrap gap-3">
+            <EmployeeExportButtons />
+            <Link href="/admin/employees/new" className="flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 font-body-md text-body-md font-bold text-on-primary shadow-sm transition-colors hover:bg-on-primary-fixed-variant">
             <Icon name="person_add" className="text-[18px]" />
             Add Employee
           </Link>
+          </div>
         }
       />
 
@@ -68,11 +72,12 @@ export default async function AdminEmployeesPage() {
                 <p className="py-2 text-sm text-on-surface-variant">No employees in this branch yet.</p>
               ) : (
                 <div className="w-full overflow-x-auto">
-                  <table className="data-table w-full min-w-[520px] border-collapse text-left">
+                  <table className="data-table w-full min-w-[640px] border-collapse text-left">
                     <thead>
                       <tr>
                         <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Employee</th>
                         <th className="pb-3 font-table-header text-table-header uppercase text-outline">Position</th>
+                        <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Basic Salary</th>
                         <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Status</th>
                       </tr>
                     </thead>
@@ -89,6 +94,7 @@ export default async function AdminEmployeesPage() {
                             </Link>
                           </td>
                           <td className="py-3 text-on-surface-variant">{person.position ?? "—"}</td>
+                          <td className="py-3 text-right tabular-nums">{person.basicSalary === null ? "—" : formatMoney(person.basicSalary)}</td>
                           <td className="py-3 pr-2 text-right"><StatusBadge status={person.employmentStatus} /></td>
                         </tr>
                       ))}

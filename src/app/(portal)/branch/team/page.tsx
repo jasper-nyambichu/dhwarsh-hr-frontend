@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { EmployeeExportButtons } from "@/components/features/employee/employee-export-buttons";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -46,6 +47,7 @@ export default async function BranchTeamPage() {
         description={`Managing personnel for ${branch.name}.`}
         actions={
           <div className="flex flex-wrap gap-3">
+            <EmployeeExportButtons />
             <Link href="/branch/requests" className="flex items-center gap-2 rounded-lg border border-primary px-4 py-2 font-body-md text-body-md font-semibold text-primary transition-colors hover:bg-primary-fixed">
               My Requests
             </Link>

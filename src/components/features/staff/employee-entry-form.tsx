@@ -6,8 +6,7 @@ import { useActionState } from "react";
 import { addEmployeeAction, requestEmployeeAction } from "@/app/actions/staff";
 import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage, SelectField, TextField } from "@/components/shared/form-field";
-import { humanizeEnum } from "@/lib/format";
-import { EMPLOYMENT_TYPES, type ActionState } from "@/types";
+import type { ActionState } from "@/types";
 
 type Option = { id: number; name: string };
 
@@ -101,19 +100,32 @@ export function EmployeeEntryForm({
             </SelectField>
           )}
 
-          <TextField label="Position" name="position" />
-          <SelectField label="Employment type" name="employmentType" required defaultValue="" error={errors?.employmentType?.[0]}>
-            <option value="" disabled>Select…</option>
-            {EMPLOYMENT_TYPES.map((type) => (
-              <option key={type} value={type}>{humanizeEnum(type)}</option>
-            ))}
-          </SelectField>
           <TextField label="Date hired" name="dateHired" type="date" defaultValue={today} />
+        </div>
+      </BentoCard>
+
+      <BentoCard title="Statutory details" subtitle="Optional. Add them now or later.">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <TextField label="SHIF number" name="shifNumber" maxLength={20} error={errors?.shifNumber?.[0]} />
+          <TextField label="NSSF number" name="nssfNumber" maxLength={20} error={errors?.nssfNumber?.[0]} />
+          <TextField label="KRA PIN" name="kraPin" maxLength={20} error={errors?.kraPin?.[0]} />
         </div>
       </BentoCard>
 
       <BentoCard title="Payment & emergency contact">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {mode === "direct" ? (
+            <TextField
+              className="sm:col-span-2"
+              label="Basic salary (KES)"
+              name="basicSalary"
+              type="number"
+              min="0"
+              step="0.01"
+              error={errors?.basicSalary?.[0]}
+              hint="Optional, and for reference only: pay is worked out from days worked."
+            />
+          ) : null}
           <TextField
             className="sm:col-span-2"
             label="M-Pesa number"

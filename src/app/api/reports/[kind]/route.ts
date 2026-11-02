@@ -6,7 +6,6 @@ import { hasPermission } from "@/config/roles";
 import {
   getAttendanceReport,
   getEmployeeListReport,
-  getPayrollRegisterReport,
 } from "@/lib/api/report";
 
 /**
@@ -40,7 +39,7 @@ import {
  */
 
 /** The reports the backend serves, by the name that appears in the URL. */
-const KINDS = ["attendance", "payroll-register", "employee-list"] as const;
+const KINDS = ["attendance", "employee-list"] as const;
 
 type ReportKind = (typeof KINDS)[number];
 
@@ -133,17 +132,6 @@ export async function GET(
         }
 
         file = await getAttendanceReport(branchId, { start, end });
-        break;
-      }
-
-      case "payroll-register": {
-        const runId = parseId(search.get("runId"));
-
-        if (!runId) {
-          return fail("A payroll register needs a `runId`.", 400);
-        }
-
-        file = await getPayrollRegisterReport(runId);
         break;
       }
 

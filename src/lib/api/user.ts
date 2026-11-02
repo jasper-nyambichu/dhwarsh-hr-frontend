@@ -27,6 +27,11 @@ export function getUsers(signal?: AbortSignal): Promise<UserSummaryResponse[]> {
   return api.get<UserSummaryResponse[]>("/users", { signal });
 }
 
+/** Which branch a Back Office officer works at. Their access stays company-wide. */
+export function assignUserBranch(userId: number, branchId: number): Promise<UserSummaryResponse> {
+  return api.put<UserSummaryResponse>(`/users/${userId}/branch`, { branchId });
+}
+
 /**
  * Deactivates an account. SUPER_ADMIN only.
  *
