@@ -22,6 +22,8 @@ export function PasswordField({
   invalid,
   leadingIcon,
   className,
+  value,
+  onChange,
 }: {
   id?: string;
   name?: string;
@@ -32,6 +34,9 @@ export function PasswordField({
   /** Material Symbols ligature rendered inside the field, e.g. "lock". */
   leadingIcon?: string;
   className?: string;
+  /** Pass both to hold the value in the parent. */
+  value?: string;
+  onChange?: (value: string) => void;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -51,6 +56,7 @@ export function PasswordField({
         placeholder={placeholder}
         required={required}
         autoComplete={autoComplete}
+        {...(onChange ? { value, onChange: (event) => onChange(event.target.value) } : {})}
         aria-invalid={invalid || undefined}
         className={cn(
           "w-full rounded-lg border bg-surface-container-lowest font-body-md text-body-md text-on-surface transition-all",

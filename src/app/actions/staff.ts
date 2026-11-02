@@ -115,7 +115,7 @@ export async function requestEmployeeAction(
 
   revalidatePath("/branch", "layout");
   revalidatePath("/agent", "layout");
-  redirect(session.role === "AGENT" ? "/agent/requests?sent=1" : "/branch/requests?sent=1");
+  redirect(session.role === "AGENT" ? "/agent/requests?sent=1" : "/branch/approvals?sent=1");
 }
 
 /** Admin or Branch Manager: put an employee in one of the company-wide departments. */
@@ -140,7 +140,7 @@ export async function assignDepartmentAction(
   }
 
   revalidatePath("/admin/employees", "layout");
-  revalidatePath("/branch/team", "layout");
+  revalidatePath("/branch/employees", "layout");
   return { status: "success", data: undefined };
 }
 

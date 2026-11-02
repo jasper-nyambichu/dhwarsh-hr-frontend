@@ -17,6 +17,11 @@ export function getOffDays(range: Range, signal?: AbortSignal): Promise<OffDayRe
   return api.get<OffDayResponse[]>("/off-days", { query: { ...range }, signal });
 }
 
+/** Off days of the signed-in Branch Manager's own branch touching the range. */
+export function getMyBranchOffDays(range: Range, signal?: AbortSignal): Promise<OffDayResponse[]> {
+  return api.get<OffDayResponse[]>("/off-days/my-branch", { query: { ...range }, signal });
+}
+
 /** The signed-in agent's own employees' off days touching the range. */
 export function getMyOffDays(range: Range, signal?: AbortSignal): Promise<OffDayResponse[]> {
   return api.get<OffDayResponse[]>("/off-days/mine", { query: { ...range }, signal });

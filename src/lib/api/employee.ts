@@ -29,6 +29,11 @@ export function getEmployeesByBranch(
   );
 }
 
+/** Branch Manager: everyone in their own branch. The backend leaves out the salary. */
+export function getMyBranchEmployees(signal?: AbortSignal): Promise<EmployeeDirectoryResponse[]> {
+  return api.get<EmployeeDirectoryResponse[]>("/employees/my-branch-directory", { signal });
+}
+
 /** Admin: everyone in one branch, with basic salary. */
 export function getBranchDirectory(
   branchId: number,

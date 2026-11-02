@@ -62,11 +62,14 @@ export function BranchEmployeesTable({
   employees,
   employeeHref,
   emptyDescription,
+  showSalary = true,
 }: {
   employees: EmployeeDirectoryResponse[];
   /** Links each name to the employee's record. Leave out when the viewer has no such page. */
   employeeHref?: (id: number) => string;
   emptyDescription: string;
+  /** Branch Managers do not see pay. */
+  showSalary?: boolean;
 }) {
   const existing = existingEmployees(employees);
 
@@ -104,13 +107,15 @@ export function BranchEmployeesTable({
                 <dd className="break-words text-on-surface">{person.departmentName ?? "—"}</dd>
               </div>
               <div className="min-w-0">
-                <dt className="text-outline">Agent Name</dt>
+                <dt className="text-outline">Agent</dt>
                 <dd className="break-words text-on-surface">{person.agentName ?? "—"}</dd>
               </div>
-              <div className="min-w-0">
-                <dt className="text-outline">Basic Salary</dt>
-                <dd className="break-words tabular-nums text-on-surface">{person.basicSalary === null ? "—" : formatMoney(person.basicSalary)}</dd>
-              </div>
+              {showSalary ? (
+                <div className="min-w-0">
+                  <dt className="text-outline">Basic Salary</dt>
+                  <dd className="break-words tabular-nums text-on-surface">{person.basicSalary === null ? "—" : formatMoney(person.basicSalary)}</dd>
+                </div>
+              ) : null}
             </dl>
           </li>
         ))}
@@ -119,12 +124,12 @@ export function BranchEmployeesTable({
         <table className="data-table w-full min-w-[640px] border-collapse text-left">
           <thead>
             <tr>
-              <th className={`${header} pl-2`}>Employee Code</th>
-              <th className={header}>Name</th>
+              <th className={`${header} pl-2`}>Emp No</th>
+              <th className={header}>Employee Name</th>
               <th className={header}>Phone No.</th>
               <th className={header}>Department</th>
-              <th className={header}>Agent Name</th>
-              <th className={`${header} pr-2 text-right`}>Basic Salary</th>
+              <th className={header}>Agent</th>
+              {showSalary ? <th className={`${header} pr-2 text-right`}>Basic Salary</th> : null}
             </tr>
           </thead>
           <tbody className="font-body-md text-body-md text-on-surface">
@@ -143,9 +148,11 @@ export function BranchEmployeesTable({
                 <td className="py-3 tabular-nums text-on-surface-variant">{person.phone ?? "—"}</td>
                 <td className="py-3 text-on-surface-variant">{person.departmentName ?? "—"}</td>
                 <td className="py-3 text-on-surface-variant">{person.agentName ?? "—"}</td>
-                <td className="py-3 pr-2 text-right tabular-nums">
-                  {person.basicSalary === null ? "—" : formatMoney(person.basicSalary)}
-                </td>
+                {showSalary ? (
+                  <td className="py-3 pr-2 text-right tabular-nums">
+                    {person.basicSalary === null ? "—" : formatMoney(person.basicSalary)}
+                  </td>
+                ) : null}
               </tr>
             ))}
           </tbody>

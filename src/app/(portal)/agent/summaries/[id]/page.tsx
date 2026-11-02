@@ -107,6 +107,10 @@ export default async function AgentSummaryDetailPage({ params }: { params: Promi
           <MetricCard label="Amount Payable" value={formatMoney(s.amountPayable)} icon="payments" tone="primary" />
         </div>
 
+        <BentoCard title="For the Government" subtitle="Included in the amount you receive. You deduct these, with SHIF and any other statutory amounts, and pay them to the government.">
+          <Line label="PAYE, NSSF and NITA" amount={s.payeTotal + s.nssfTotal + s.nitaTotal} />
+        </BentoCard>
+
         <BentoCard title="Payment Breakdown">
           <div className="flex flex-col">
             <Line label="Pay for days worked" amount={s.daysPay} />

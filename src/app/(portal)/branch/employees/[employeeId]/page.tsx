@@ -44,7 +44,7 @@ export default async function BranchEmployeePage({ params }: { params: Promise<{
       <PageHeader
         title={
           <span className="flex flex-wrap items-center gap-3">
-            <Link href="/branch/team" aria-label="Back to my team" className="text-on-surface-variant hover:text-on-surface">
+            <Link href="/branch/employees" aria-label="Back to employees" className="text-on-surface-variant hover:text-on-surface">
               <Icon name="arrow_back_ios_new" />
             </Link>
             {employee.fullName}

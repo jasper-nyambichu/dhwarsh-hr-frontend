@@ -12,7 +12,13 @@ import type { ActionState } from "@/types";
  * Starts the calculation for a period. It moves real balances (loans, damages, advances) and a period
  * can only be paid once, so it asks first.
  */
-export function AgentPaymentForm() {
+export function AgentPaymentForm({
+  subtitle = "Uses the days locked for exactly this period under Days Worked. Each agent's amount then waits under Money Requests for you to release.",
+  successText = "Agent payments calculated. Release them under Money Requests.",
+}: {
+  subtitle?: string;
+  successText?: string;
+}) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(calculateAgentPaymentsAction, {
     status: "idle",
   });
@@ -21,7 +27,7 @@ export function AgentPaymentForm() {
   return (
     <BentoCard
       title="Calculate agent payments"
-      subtitle="Uses the days the Back Office locked for exactly this period. Each agent's amount then waits under Money Requests for you to release."
+      subtitle={subtitle}
     >
       <ConfirmForm
         action={formAction}
@@ -34,12 +40,12 @@ export function AgentPaymentForm() {
         className="flex flex-col gap-4"
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <TextField label="Period start" name="periodStart" type="date" required error={errors.periodStart?.[0]} />
-          <TextField label="Period end" name="periodEnd" type="date" required error={errors.periodEnd?.[0]} />
+          <TextField label="Starting date" name="periodStart" type="date" required error={errors.periodStart?.[0]} />
+          <TextField label="Final date" name="periodEnd" type="date" required error={errors.periodEnd?.[0]} />
         </div>
 
         <div aria-live="polite">
-          <FormMessage state={state} successText="Agent payments calculated. Release them under Money Requests." />
+          <FormMessage state={state} successText={successText} />
         </div>
 
         <button

@@ -1,29 +1,22 @@
 import Link from "next/link";
-import { format, parseISO, startOfMonth } from "date-fns";
+import { format } from "date-fns";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { CHECKOUT_FILTERS, CheckoutTypes, clockTime, matchesCheckoutFilter } from "@/components/features/attendance/checkout-types";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { getAttendanceRecords } from "@/lib/api/attendance";
-import { formatDate, formatNumber, humanizeEnum } from "@/lib/format";
+import { formatDate, formatNumber } from "@/lib/format";
 import { buildHref, first, parseDate, parsePage } from "@/lib/search-params";
 
 const FIELD = "h-10 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary";
+const HEADER = "pb-3 font-table-header text-table-header uppercase text-outline";
 
-function time(value: string | null): string {
-  if (!value) return "—";
-  try {
-    return format(parseISO(value), "HH:mm");
-  } catch {
-    return value;
-  }
-}
-
-/** Attendance records for the manager's own branch (the backend scopes it) over a date range. */
+/** One day of the manager's own branch (the backend scopes it): who came, who left, and why they stepped out. */
 export default async function BranchAttendancePage({
   searchParams,
 }: {
@@ -32,73 +25,94 @@ export default async function BranchAttendancePage({
   await requirePermission("attendance:read:branch");
 
   const params = await searchParams;
-  const today = new Date();
-  const start = parseDate(first(params.start)) ?? format(startOfMonth(today), "yyyy-MM-dd");
-  const end = parseDate(first(params.end)) ?? format(today, "yyyy-MM-dd");
-  const openOnly = first(params.open) === "1";
+  const today = format(new Date(), "yyyy-MM-dd");
+  const date = parseDate(first(params.date)) ?? today;
+  const type = CHECKOUT_FILTERS.find((option) => option.value === first(params.type))?.value;
   const page = parsePage(first(params.page));
 
   let records: Awaited<ReturnType<typeof getAttendanceRecords>>;
   try {
-    records = await getAttendanceRecords({ start, end, openOnly, page, size: 25 });
+    records = await getAttendanceRecords({ start: date, end: date, page, size: 100 });
   } catch (error) {
     return <DataUnavailable title="Attendance" subject="The attendance records" reason={error instanceof ApiError ? error.message : undefined} />;
   }
 
-  const filters = { start, end, open: openOnly ? "1" : undefined };
+  const filters = { date, type };
+  const shown = records.content.filter((record) => matchesCheckoutFilter(record, type));
 
   return (
     <>
-      <PageHeader title="Attendance" description="Who reported to work in your branch, and when." />
+      <PageHeader title="Attendance" description="How your employees are moving through the working day." />
 
       <form method="get" action="/branch/attendance" className="mb-4 flex flex-wrap items-end gap-3 rounded-card bg-surface-container-lowest p-3 shadow-ambient-1">
-        <input type="date" name="start" defaultValue={start} aria-label="From date" className={FIELD} />
-        <input type="date" name="end" defaultValue={end} aria-label="To date" className={FIELD} />
-        <label className="flex h-10 items-center gap-2 text-sm text-on-surface-variant">
-          <input type="checkbox" name="open" value="1" defaultChecked={openOnly} className="size-4 accent-primary" />
-          Still on site
-        </label>
+        <input type="date" name="date" defaultValue={date} max={today} aria-label="Date" className={FIELD} />
+        <select name="type" defaultValue={type ?? ""} aria-label="Check-out type" className={`${FIELD} min-w-0 max-w-full`}>
+          <option value="">All check-out types</option>
+          {CHECKOUT_FILTERS.map((option) => (
+            <option key={option.value} value={option.value}>{option.label}</option>
+          ))}
+        </select>
         <button type="submit" className="h-10 rounded-lg bg-primary px-5 text-sm font-semibold text-on-primary hover:bg-primary-container">Apply</button>
-        <Link href="/branch/attendance" className="flex h-10 items-center rounded-lg border border-outline-variant px-3 text-sm text-on-surface-variant hover:bg-surface-container-low">Reset</Link>
+        <Link href="/branch/attendance" className="flex h-10 items-center rounded-lg border border-outline-variant px-3 text-sm text-on-surface-variant hover:bg-surface-container-low">Clear</Link>
       </form>
 
-      <BentoCard title="Records" subtitle={`${formatNumber(records.totalElements)} found`}>
-        {records.content.length === 0 ? (
-          <EmptyState symbol="event_busy" title="No attendance for these dates" description="Widen the dates, or check that the branch's device is registered and online." />
+      <BentoCard title={formatDate(date)} subtitle={`${formatNumber(shown.length)} employee${shown.length === 1 ? "" : "s"}`}>
+        {shown.length === 0 ? (
+          <EmptyState symbol="event_busy" title="Nobody to show" description="Try another date or check-out type." />
         ) : (
           <>
-            <div className="w-full overflow-x-auto">
+            <ul className="flex flex-col gap-3 md:hidden">
+              {shown.map((record) => (
+                <li key={record.id} className="min-w-0 rounded-lg border border-outline-variant/40 p-3">
+                  <div className="flex min-w-0 items-start justify-between gap-3">
+                    <p className="min-w-0 break-words font-semibold text-on-surface">{record.employeeName ?? `Employee #${record.employeeId}`}</p>
+                    <span className="shrink-0 font-mono text-xs text-on-surface-variant">{record.employeeNumber ?? ""}</span>
+                  </div>
+                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                    <div>
+                      <dt className="text-outline">Time Checked In</dt>
+                      <dd className="tabular-nums text-on-surface">{clockTime(record.clockIn)}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-outline">Time Checked Out</dt>
+                      <dd className="tabular-nums text-on-surface">{clockTime(record.clockOut)}</dd>
+                    </div>
+                    <div className="col-span-2 min-w-0">
+                      <dt className="mb-1 text-outline">Check-out Type</dt>
+                      <dd><CheckoutTypes record={record} /></dd>
+                    </div>
+                  </dl>
+                </li>
+              ))}
+            </ul>
+
+            <div className="hidden w-full overflow-x-auto md:block">
               <table className="data-table w-full min-w-[720px] border-collapse text-left">
                 <thead>
                   <tr>
-                    <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Employee</th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">Date</th>
-                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">In</th>
-                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Out</th>
-                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Hours</th>
-                    <th className="pb-3 pr-2 text-center font-table-header text-table-header uppercase text-outline">Status</th>
+                    <th className={`${HEADER} pl-2`}>Emp No</th>
+                    <th className={HEADER}>Employee Name</th>
+                    <th className={HEADER}>Time Checked In</th>
+                    <th className={HEADER}>Time Checked Out</th>
+                    <th className={`${HEADER} pr-2`}>Check-out Type</th>
                   </tr>
                 </thead>
                 <tbody className="font-body-md text-body-md text-on-surface">
-                  {records.content.map((record) => (
-                    <tr key={record.id} className="border-b border-outline-variant/20 last:border-0">
-                      <td className="py-3 pl-2">
-                        <span className="block font-semibold">{record.employeeName ?? `Employee #${record.employeeId}`}</span>
-                        <span className="block font-mono text-[11px] text-outline">{record.employeeNumber ?? ""}</span>
-                      </td>
-                      <td className="py-3 text-on-surface-variant">{formatDate(record.attendanceDate)}</td>
-                      <td className="py-3 text-right tabular-nums">{time(record.clockIn)}</td>
-                      <td className="py-3 text-right tabular-nums">{time(record.clockOut)}</td>
-                      <td className="py-3 text-right tabular-nums text-on-surface-variant">{record.hoursWorked === null ? "—" : record.hoursWorked.toFixed(1)}</td>
-                      <td className="py-3 pr-2 text-center text-xs font-medium">{humanizeEnum(record.status)}</td>
+                  {shown.map((record) => (
+                    <tr key={record.id} className="border-b border-outline-variant/20 align-top last:border-0">
+                      <td className="py-3 pl-2 font-mono text-xs text-on-surface-variant">{record.employeeNumber ?? "—"}</td>
+                      <td className="py-3 font-semibold">{record.employeeName ?? `Employee #${record.employeeId}`}</td>
+                      <td className="py-3 tabular-nums">{clockTime(record.clockIn)}</td>
+                      <td className="py-3 tabular-nums">{clockTime(record.clockOut)}</td>
+                      <td className="py-3 pr-2"><CheckoutTypes record={record} /></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <Pagination data={records} hrefFor={(target) => buildHref("/branch/attendance", filters, target)} />
           </>
         )}
+        {records.totalPages > 1 ? <Pagination data={records} hrefFor={(target) => buildHref("/branch/attendance", filters, target)} /> : null}
       </BentoCard>
     </>
   );

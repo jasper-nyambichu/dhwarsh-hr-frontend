@@ -40,8 +40,9 @@ export default async function BranchNewEmployeePage() {
         lockedBranch={{ id: data.branch.id, name: data.branch.name }}
         departments={data.departments.map((department) => ({ id: department.id, name: department.name }))}
         agents={data.agents}
+        agentRequired
         today={format(new Date(), "yyyy-MM-dd")}
-        cancelHref="/branch/team"
+        cancelHref="/branch/employees"
       />
     </>
   );

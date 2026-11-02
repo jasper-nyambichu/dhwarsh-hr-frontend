@@ -54,11 +54,15 @@ export function StaffRequestsView({
   basePath,
   addHref,
   sent,
+  title = "My requests",
+  description = "Employees you have asked the Administrator to add. Nothing is added until the Administrator approves.",
 }: {
   requests: StaffRequestResponse[];
   basePath: string;
   addHref: string;
   sent: boolean;
+  title?: string;
+  description?: string;
 }) {
   const sorted = [...requests].sort((a, b) => b.requestedAt.localeCompare(a.requestedAt));
   const latest = sorted[0];
@@ -72,8 +76,8 @@ export function StaffRequestsView({
   return (
     <>
       <PageHeader
-        title="My requests"
-        description="Employees you have asked the Administrator to add. Nothing is added until the Administrator approves."
+        title={title}
+        description={description}
       />
 
       {sent ? (

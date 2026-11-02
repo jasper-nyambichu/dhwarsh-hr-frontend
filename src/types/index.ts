@@ -632,6 +632,21 @@ export type AttendanceRecordItem = {
   hoursWorked: number | null;
   status: AttendanceRecordStatus;
   source: AttendanceSource;
+  /** Times they stepped out during the day, oldest first. */
+  checkouts: AttendanceCheckoutItem[];
+};
+
+/** `AttendanceDashboardDtos.CheckoutItem` — a lunch break or an emergency, recorded by the Back Office application. */
+export type AttendanceCheckoutItem = {
+  id: number;
+  type: string;
+  checkedOutAt: string;
+  expectedBackAt: string | null;
+  checkedInAt: string | null;
+  /** `RETURNED` is back from something with no time limit. */
+  returnStatus: "OUT" | "ON_TIME" | "LATE" | "RETURNED";
+  minutesLate: number | null;
+  reason: string | null;
 };
 
 /**
@@ -979,5 +994,8 @@ export type UserSummaryResponse = {
   role: Role;
   displayName: string | null;
   branchId: number | null;
+  agentId: number | null;
   active: boolean;
+  /** A Branch Manager the Admin has allowed to run the agent payment calculation. */
+  canRunPayments: boolean;
 };

@@ -23,6 +23,7 @@ export function EmployeeEntryForm({
   agents,
   lockedBranch,
   lockedAgent,
+  agentRequired = false,
   today,
   cancelHref,
 }: {
@@ -32,6 +33,8 @@ export function EmployeeEntryForm({
   agents: Option[];
   lockedBranch?: Option;
   lockedAgent?: Option;
+  /** Everyone a Branch Manager adds is paid through an agent, so the choice cannot be left empty. */
+  agentRequired?: boolean;
   today: string;
   cancelHref: string;
 }) {
@@ -97,10 +100,14 @@ export function EmployeeEntryForm({
             <SelectField
               label="Agent"
               name="agentId"
+              required={agentRequired}
               defaultValue=""
-              hint={mode === "request" ? "If you choose an agent, they are notified." : "Leave empty for staff paid directly by the company."}
+              error={errors?.agentId?.[0]}
+              hint={agentRequired
+                ? "They are paid through this agent, using the payment formula."
+                : mode === "request" ? "If you choose an agent, they are notified." : "Leave empty for staff paid directly by the company."}
             >
-              <option value="">No agent — paid directly</option>
+              {agentRequired ? <option value="" disabled>Select an agent…</option> : <option value="">No agent — paid directly</option>}
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>{agent.name}</option>
               ))}

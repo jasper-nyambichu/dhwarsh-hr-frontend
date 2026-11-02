@@ -247,6 +247,18 @@ const TYPE_STYLE: Record<string, { icon: string; chip: string }> = {
     icon: "cancel",
     chip: "bg-error-container/40 text-error",
   },
+  [NOTIFICATION_TYPE.AGENT_PAYMENT_RUN_GRANTED]: {
+    icon: "verified_user",
+    chip: "bg-tertiary-container/20 text-tertiary",
+  },
+  [NOTIFICATION_TYPE.AGENT_PAYMENT_RUN_REVOKED]: {
+    icon: "block",
+    chip: "bg-error-container/40 text-error",
+  },
+  [NOTIFICATION_TYPE.AGENT_PAYMENTS_RUN_BY_MANAGER]: {
+    icon: "calculate",
+    chip: "bg-amber-main/15 text-amber-main",
+  },
 };
 
 const DEFAULT_STYLE = {
@@ -255,15 +267,23 @@ const DEFAULT_STYLE = {
 };
 
 /**
- * Where a notification leads. An admin's "needs review" opens that request.
- * Anything else has no destination and is just dismissed.
+ * Where a notification leads. An admin's "needs review" opens that request, and a decision opens the
+ * requester's list. Anything else has no destination and is just dismissed.
  */
-function hrefFor(item: NotificationResponse): string | null {
+function hrefFor(item: NotificationResponse, pathname: string): string | null {
   switch (item.type) {
     case NOTIFICATION_TYPE.EMPLOYEE_REQUEST_SUBMITTED:
       return item.referenceId
         ? `/admin/employee-requests/${item.referenceId}`
         : "/admin/employee-requests";
+    case NOTIFICATION_TYPE.EMPLOYEE_REQUEST_APPROVED:
+    case NOTIFICATION_TYPE.EMPLOYEE_REQUEST_REJECTED:
+      if (pathname.startsWith("/branch")) return "/branch/approvals";
+      return pathname.startsWith("/agent") ? "/agent/requests" : null;
+    case NOTIFICATION_TYPE.AGENT_PAYMENT_RUN_GRANTED:
+      return "/branch/agent-payments";
+    case NOTIFICATION_TYPE.AGENT_PAYMENTS_RUN_BY_MANAGER:
+      return "/admin/money-requests";
     default:
       return null;
   }
@@ -277,7 +297,8 @@ function NotificationRow({
   onOpen: () => void;
 }) {
   const style = TYPE_STYLE[item.type] ?? DEFAULT_STYLE;
-  const href = hrefFor(item);
+  const pathname = usePathname();
+  const href = hrefFor(item, pathname);
 
   const className =
     "flex w-full items-start gap-3 bg-primary-fixed/20 px-4 py-3 text-left transition-colors hover:bg-primary-fixed/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40";

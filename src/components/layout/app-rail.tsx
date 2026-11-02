@@ -35,10 +35,10 @@ import { cn } from "@/lib/utils";
  * SUPER_ADMIN owns eight routes and the rail must not push its own footer
  * off-screen on a short viewport.
  */
-export function AppRail({ role }: { role: Role }) {
+export function AppRail({ role, canRunPayments = false }: { role: Role; canRunPayments?: boolean }) {
   const pathname = usePathname();
   const { open, close, expanded, toggleExpanded } = useNav();
-  const items = navigationFor(role);
+  const items = navigationFor(role, canRunPayments);
 
   // Close the drawer when the route changes. Without this it stays open over
   // the page the user just navigated to.

@@ -3,13 +3,16 @@ import Link from "next/link";
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { AgentPaymentForm } from "@/components/features/settings/agent-payment-form";
+import { RunPaymentAccess, type RunPaymentManager } from "@/components/features/settings/run-payment-access";
 import { PayModelForm } from "@/components/features/settings/pay-model-form";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { getBranches } from "@/lib/api/branch";
 import { getPaySettings } from "@/lib/api/pay-settings";
 import { getAgentPayments } from "@/lib/api/settlement";
+import { getUsers } from "@/lib/api/user";
 import { formatDateRange, formatMoney, formatNumber } from "@/lib/format";
 import type { AgentSettlementResponse } from "@/types/agent-portal";
 import type { PaySettingsResponse } from "@/types/pay-model";
@@ -67,6 +70,21 @@ export default async function PaySettingsPage() {
     payments = null;
   }
 
+  let managers: RunPaymentManager[] = [];
+  try {
+    const [users, branches] = await Promise.all([getUsers(), getBranches()]);
+    managers = users
+      .filter((user) => user.role === "BRANCH_MANAGER" && user.active)
+      .map((user) => ({
+        id: user.id,
+        username: user.username,
+        branchName: branches.find((branch) => branch.id === user.branchId)?.name ?? null,
+        canRunPayments: user.canRunPayments,
+      }));
+  } catch {
+    managers = [];
+  }
+
   return (
     <>
       <PageHeader
@@ -84,6 +102,7 @@ export default async function PaySettingsPage() {
 
       <div className="mt-gutter flex flex-col gap-gutter">
         <AgentPaymentForm />
+        <RunPaymentAccess managers={managers} />
 
         <BentoCard
           title="Agent payments"

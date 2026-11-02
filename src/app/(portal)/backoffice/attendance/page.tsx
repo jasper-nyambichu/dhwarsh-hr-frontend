@@ -30,11 +30,12 @@ export default async function BackOfficeAttendancePage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  await requirePermission("attendance:read");
+  const session = await requirePermission("attendance:read");
 
   const params = await searchParams;
   const today = new Date();
-  const branchId = parseId(first(params.branchId));
+  const ownBranchId = session.branchId;
+  const branchId = ownBranchId ?? parseId(first(params.branchId));
   const start = parseDate(first(params.start)) ?? format(startOfMonth(today), "yyyy-MM-dd");
   const end = parseDate(first(params.end)) ?? format(today, "yyyy-MM-dd");
   const openOnly = first(params.open) === "1";
@@ -64,12 +65,12 @@ export default async function BackOfficeAttendancePage({
       <PageHeader title="Attendance" description="Who reported to work, and when. Agent payments count days worked from these records." />
 
       <form method="get" action="/backoffice/attendance" className="mb-4 flex flex-wrap items-end gap-3 rounded-card bg-surface-container-lowest p-3 shadow-ambient-1">
-        <select name="branchId" defaultValue={branchId ?? ""} aria-label="Branch" className={FIELD}>
+        {ownBranchId ? null : <select name="branchId" defaultValue={branchId ?? ""} aria-label="Branch" className={FIELD}>
           <option value="">All branches</option>
           {branches.map((branch) => (
             <option key={branch.id} value={branch.id}>{branch.name}</option>
           ))}
-        </select>
+        </select>}
         <input type="date" name="start" defaultValue={start} aria-label="From date" className={FIELD} />
         <input type="date" name="end" defaultValue={end} aria-label="To date" className={FIELD} />
         <label className="flex h-10 items-center gap-2 text-sm text-on-surface-variant">

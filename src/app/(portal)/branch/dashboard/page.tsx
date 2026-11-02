@@ -6,19 +6,24 @@ import { RequestList } from "@/components/features/staff/request-list";
 import { LiveAttendanceBoard } from "@/components/features/attendance/live-attendance-board";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
+import { EmptyState } from "@/components/shared/empty-state";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { getAttendanceActivity, getAttendanceSummary } from "@/lib/api/attendance";
 import { getMyBranch } from "@/lib/api/branch";
 import { getEmployeesByBranch } from "@/lib/api/employee";
-import { getPendingManagerApprovals } from "@/lib/api/leave";
+import { getMyBranchOffDays } from "@/lib/api/off-day";
 import { getMyStaffRequests } from "@/lib/api/staff";
-import { formatDate, formatNumber } from "@/lib/format";
+import { formatDateRange, formatNumber } from "@/lib/format";
+import { groupByEmployee, monthLabel, monthRange, parseMonth } from "@/lib/off-days";
+
+const CARD_LINK =
+  "flex rounded-card transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
 /**
- * Branch Manager dashboard — today's attendance for their own branch (the backend scopes it), the
- * size of the team, leave waiting on them, and the employees they have submitted for approval.
- * The leave and request figures are optional: if one fails, the rest of the page still loads.
+ * Branch Manager dashboard — today's attendance for their own branch (the backend scopes it), their
+ * employees, this month's off list, and the employees waiting on an Admin. Each card opens its page.
+ * Those last figures are optional: if one fails, the rest of the page still loads.
  */
 export default async function BranchDashboardPage() {
   await requirePermission("attendance:read:branch");
@@ -41,27 +46,36 @@ export default async function BranchDashboardPage() {
     );
   }
 
-  const [teamResult, leaveResult, requestsResult] = await Promise.allSettled([
+  const month = parseMonth(undefined);
+  const [employeesResult, offDaysResult, requestsResult] = await Promise.allSettled([
     getEmployeesByBranch(core.branch.id),
-    getPendingManagerApprovals(),
+    getMyBranchOffDays(monthRange(month)),
     getMyStaffRequests(),
   ]);
-  const team = teamResult.status === "fulfilled" ? teamResult.value : [];
-  const leave = leaveResult.status === "fulfilled" ? leaveResult.value : [];
+  const employees = employeesResult.status === "fulfilled" ? employeesResult.value : [];
+  const offList = offDaysResult.status === "fulfilled" ? groupByEmployee(offDaysResult.value, month) : null;
   const requests = requestsResult.status === "fulfilled" ? requestsResult.value : [];
 
-  const activeTeam = team.filter((person) => person.employmentStatus === "ACTIVE").length;
+  const activeEmployees = employees.filter((person) => person.employmentStatus === "ACTIVE").length;
   const pendingRequests = requests.filter((request) => request.status === "PENDING").length;
 
   return (
     <>
       <PageHeader title={core.branch.name} description="Your branch today." />
 
-      <div className="grid grid-cols-1 gap-gutter md:grid-cols-4">
-        <MetricCard label="Team" value={formatNumber(activeTeam)} icon="group" tone="primary" hint="Active employees" />
-        <MetricCard label="On Site Now" value={formatNumber(core.summary.currentlyIn)} icon="login" tone="primary" />
-        <MetricCard label="Leave To Decide" value={formatNumber(leave.length)} icon="event_available" tone={leave.length > 0 ? "error" : "primary"} />
-        <MetricCard label="Awaiting Admin" value={formatNumber(pendingRequests)} icon="pending_actions" tone="primary" hint="Employees you submitted" />
+      <div className="grid grid-cols-1 gap-gutter sm:grid-cols-2 xl:grid-cols-4">
+        <Link href="/branch/employees" className={CARD_LINK}>
+          <MetricCard className="w-full" label="Employees" value={formatNumber(activeEmployees)} icon="group" tone="primary" hint="Active employees" />
+        </Link>
+        <Link href="/branch/attendance" className={CARD_LINK}>
+          <MetricCard className="w-full" label="Attendance" value={formatNumber(core.summary.currentlyIn)} icon="schedule" tone="primary" hint="On site now" />
+        </Link>
+        <Link href="/branch/off-days" className={CARD_LINK}>
+          <MetricCard className="w-full" label="Off List This Month" value={offList === null ? "—" : formatNumber(offList.length)} icon="event_busy" tone="primary" hint="Employees with days off" />
+        </Link>
+        <Link href="/branch/approvals" className={CARD_LINK}>
+          <MetricCard className="w-full" label="Awaiting Admin" value={formatNumber(pendingRequests)} icon="pending_actions" tone="primary" hint="Employees you added" />
+        </Link>
       </div>
 
       <div className="mt-gutter">
@@ -73,17 +87,27 @@ export default async function BranchDashboardPage() {
 
       <div className="mt-gutter grid grid-cols-1 gap-gutter lg:grid-cols-2">
         <BentoCard
-          title="Leave Awaiting You"
-          action={<Link href="/branch/approvals" className="text-[10px] font-semibold text-primary hover:underline">Open</Link>}
+          title="Off List This Month"
+          subtitle={monthLabel(month)}
+          action={<Link href="/branch/off-days" className="text-[10px] font-semibold text-primary hover:underline">Open</Link>}
         >
-          {leave.length === 0 ? (
-            <p className="py-2 text-sm text-on-surface-variant">Nothing is waiting for your decision.</p>
+          {offList === null ? (
+            <p className="py-2 text-sm text-on-surface-variant">The off list could not be read.</p>
+          ) : offList.length === 0 ? (
+            <EmptyState symbol="event_available" title="Nobody is off this month" description="Days an agent gives your employees off appear here." />
           ) : (
             <ul className="flex flex-col divide-y divide-outline-variant/20">
-              {leave.slice(0, 5).map((request) => (
-                <li key={request.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <span className="text-sm font-medium text-on-surface">{request.employeeName ?? `Employee #${request.employeeId}`}</span>
-                  <span className="text-xs text-on-surface-variant">{request.leaveTypeName ?? "Leave"} · {formatDate(request.startDate)}</span>
+              {offList.slice(0, 6).map((group) => (
+                <li key={group.employeeId} className="flex items-start justify-between gap-3 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block break-words text-sm font-medium text-on-surface">{group.employeeName}</span>
+                    <span className="block text-xs text-on-surface-variant">
+                      {group.offDays.map((offDay) => formatDateRange(offDay.startDate, offDay.endDate)).join(", ")}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold tabular-nums text-on-surface">
+                    {group.totalDays} day{group.totalDays === 1 ? "" : "s"}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -91,8 +115,8 @@ export default async function BranchDashboardPage() {
         </BentoCard>
 
         <BentoCard
-          title="My Employee Requests"
-          action={<Link href="/branch/requests" className="text-[10px] font-semibold text-primary hover:underline">Open</Link>}
+          title="Approvals"
+          action={<Link href="/branch/approvals" className="text-[10px] font-semibold text-primary hover:underline">Open</Link>}
         >
           <RequestList requests={requests.slice(0, 4)} />
         </BentoCard>

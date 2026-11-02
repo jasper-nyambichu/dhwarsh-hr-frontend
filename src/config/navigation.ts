@@ -54,10 +54,8 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
 
   BRANCH_MANAGER: [
     { title: "Dashboard", href: "/branch/dashboard", icon: "dashboard" },
-    { title: "Team", href: "/branch/team", icon: "group" },
-    { title: "Requests", href: "/branch/requests", icon: "pending_actions" },
+    { title: "Employees", href: "/branch/employees", icon: "group" },
     { title: "Attendance", href: "/branch/attendance", icon: "schedule" },
-    { title: "Roster", href: "/branch/roster", icon: "calendar_month" },
     { title: "Approvals", href: "/branch/approvals", icon: "checklist" },
     { title: "Payslips", href: "/branch/payslips", icon: "receipt_long" },
   ],
@@ -85,8 +83,13 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
 
 };
 
-export function navigationFor(role: Role): readonly NavItem[] {
-  return ROLE_NAVIGATION[role];
+export function navigationFor(role: Role, canRunPayments = false): readonly NavItem[] {
+  if (!canRunPayments) return ROLE_NAVIGATION[role];
+
+  // Only while the Admin allows it, so it sits outside the fixed list.
+  const items = [...ROLE_NAVIGATION[role]];
+  items.splice(items.length - 1, 0, { title: "Agent Payments", href: "/branch/agent-payments", icon: "calculate" });
+  return items;
 }
 
 /**

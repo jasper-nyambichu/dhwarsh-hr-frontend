@@ -24,6 +24,11 @@ export function getDaysWorked(
   });
 }
 
+/** Locks every active employee's days for one branch and period, at the figures attendance gives. */
+export function lockDaysWorked(branchId: number, periodStart: string, periodEnd: string): Promise<unknown> {
+  return api.post("/days-worked/lock", { branchId, periodStart, periodEnd });
+}
+
 /** Admin only: reopens a locked period so the Back Office can correct it and lock it again. */
 export function unlockDaysWorked(
   branchId: number,

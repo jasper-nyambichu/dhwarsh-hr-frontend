@@ -3,7 +3,7 @@ import { endOfMonth, format, startOfMonth } from "date-fns";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { DaysWorkedUnlockForm } from "@/components/features/backoffice/days-worked-forms";
+import { DaysWorkedLockForm, DaysWorkedUnlockForm } from "@/components/features/backoffice/days-worked-forms";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -19,7 +19,7 @@ const FIELD =
 
 /**
  * Days worked per branch for a pay period. The Back Office reviews and locks them in the desktop
- * application; here an Admin can see exactly what was locked and reopen a period if it must change.
+ * application; here an Admin can see the figures, lock them, and reopen a period if it must change.
  */
 export async function DaysWorkedPanel({
   params,
@@ -126,7 +126,7 @@ export async function DaysWorkedPanel({
           {!locked ? (
             <p role="status" className="mb-3 rounded-lg bg-error/10 p-3 text-sm text-error">
               These figures are live from attendance and are not final. Agent payments cannot use them until the Back Office
-              locks the period in the desktop application.
+              or an Admin locks the period.
             </p>
           ) : null}
 
@@ -179,6 +179,12 @@ export async function DaysWorkedPanel({
               </tbody>
             </table>
           </div>
+
+          {!locked && canUnlock && branchId ? (
+            <div className="mt-4 sm:flex sm:justify-end">
+              <DaysWorkedLockForm branchId={branchId} periodStart={start} periodEnd={end} />
+            </div>
+          ) : null}
 
           {locked && canUnlock && branchId ? (
             <div className="mt-4 sm:flex sm:justify-end">

@@ -58,6 +58,17 @@ const passwordRules = z
   .regex(/[a-z]/, { message: "Include a lowercase letter." })
   .regex(/[0-9]/, { message: "Include a number." });
 
+/** The login the Admin sets for a branch or an agent. Matches `CredentialsRequest`. */
+export const credentialsSchema = z.object({
+  username: z
+    .string()
+    .trim()
+    .min(3, { message: "Use at least 3 characters." })
+    .max(50, { message: "Use at most 50 characters." })
+    .regex(/^[A-Za-z0-9._@-]+$/, { message: "Use only letters, numbers and . _ @ -" }),
+  password: passwordRules.optional(),
+});
+
 export const changePasswordSchema = z
   .object({
     currentPassword: z.string().min(1, { message: "Current password is required." }),

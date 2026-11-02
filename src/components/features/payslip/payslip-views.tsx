@@ -34,7 +34,7 @@ export function PayslipList({
       <PageHeader title="Payslips" description={description} />
 
       <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
-        <MetricCard label="Paid to Employees" value={formatMoney(due)} icon="payments" tone="primary" hint="From the payment formula" />
+        <MetricCard label="Paid to Agents for Employees" value={formatMoney(due)} icon="payments" tone="primary" hint="From the payment formula" />
         <MetricCard label="Recorded by Agents" value={formatMoney(recorded)} icon="receipt_long" tone="primary" hint="M-Pesa payments recorded" />
         <MetricCard label="Not Yet Recorded" value={formatMoney(notRecorded)} icon="pending_actions" tone={notRecorded > 0 ? "amber" : "primary"} accent={notRecorded > 0} />
       </div>
@@ -51,7 +51,7 @@ export function PayslipList({
                   <th className={header}>Period</th>
                   <th className={header}>Branch</th>
                   <th className={header}>Agent</th>
-                  <th className={`${header} text-right`}>Paid to Employee</th>
+                  <th className={`${header} text-right`}>Paid to Agent</th>
                   <th className={`${header} text-right`}>Recorded</th>
                   <th className={`${header} pr-2 text-right`}>Not Recorded</th>
                 </tr>
@@ -150,7 +150,7 @@ export function PayslipDetail({
             <Line label="Less: Damages" amount={payslip.damage} negative />
 
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary-fixed bg-primary-fixed-dim/20 px-4 py-4">
-              <span className="font-page-title text-page-title text-primary">Amount Paid to Employee</span>
+              <span className="font-page-title text-page-title text-primary">Amount Paid to the Agent for This Employee</span>
               <span className="font-page-title text-page-title font-bold text-primary">{formatMoney(payslip.amountDue)}</span>
             </div>
           </div>

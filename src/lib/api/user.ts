@@ -1,7 +1,7 @@
 import "server-only";
 
 import { api } from "@/app/lib/api-client";
-import type { UserSummaryResponse } from "@/types";
+import type { Role, UserSummaryResponse } from "@/types";
 
 /**
  * `controller/auth/UserController` — base `/users`.
@@ -22,6 +22,16 @@ import type { UserSummaryResponse } from "@/types";
  * no paging on this endpoint, so a paged table here would be theatre.
  */
 
+/** The signed-in account as it stands now. */
+export function getMe(signal?: AbortSignal): Promise<UserSummaryResponse> {
+  return api.get<UserSummaryResponse>("/users/me", { signal });
+}
+
+/** Admin: lets a Branch Manager run the agent payment calculation, or takes it back. */
+export function setRunPayments(userId: number, allowed: boolean): Promise<UserSummaryResponse> {
+  return api.put<UserSummaryResponse>(`/users/${userId}/run-payments`, { allowed });
+}
+
 /** Every account. SUPER_ADMIN and ADMIN. */
 export function getUsers(signal?: AbortSignal): Promise<UserSummaryResponse[]> {
   return api.get<UserSummaryResponse[]>("/users", { signal });
@@ -32,7 +42,24 @@ export function deleteUser(userId: number): Promise<void> {
   return api.delete<void>(`/users/${userId}`);
 }
 
-/** Which branch a Back Office officer works at. Their access stays company-wide. */
+export type Credentials = { username: string; password?: string };
+
+/** The Admin sets a branch's Branch Manager or Back Office login. Refused if the branch already has one. */
+export function createBranchLogin(branchId: number, role: Role, credentials: Credentials): Promise<UserSummaryResponse> {
+  return api.post<UserSummaryResponse>(`/users/branches/${branchId}/login`, credentials, { query: { role } });
+}
+
+/** The Admin sets an agent's login. Refused if the agent already has one. */
+export function createAgentLogin(agentId: number, credentials: Credentials): Promise<UserSummaryResponse> {
+  return api.post<UserSummaryResponse>(`/users/agents/${agentId}/login`, credentials);
+}
+
+/** Changes a Branch Manager, Back Office or agent login. Leaving the password out keeps the current one. */
+export function changeCredentials(userId: number, credentials: Credentials): Promise<UserSummaryResponse> {
+  return api.put<UserSummaryResponse>(`/users/${userId}/credentials`, credentials);
+}
+
+/** Which branch a Back Office officer works at. Their dashboard then shows that branch only. */
 export function assignUserBranch(userId: number, branchId: number): Promise<UserSummaryResponse> {
   return api.put<UserSummaryResponse>(`/users/${userId}/branch`, { branchId });
 }

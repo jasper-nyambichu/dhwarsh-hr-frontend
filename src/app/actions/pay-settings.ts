@@ -108,7 +108,8 @@ export async function calculateAgentPaymentsAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requirePermission("settings:manage");
+  // A Branch Manager reaches this role check too; the backend refuses one the Admin has not allowed.
+  await requirePermission("agentpayment:run");
 
   const periodStart = String(formData.get("periodStart") ?? "");
   const periodEnd = String(formData.get("periodEnd") ?? "");
@@ -130,5 +131,6 @@ export async function calculateAgentPaymentsAction(
 
   revalidatePath("/admin", "layout");
   revalidatePath("/agent", "layout");
+  revalidatePath("/branch", "layout");
   return { status: "success", data: undefined };
 }

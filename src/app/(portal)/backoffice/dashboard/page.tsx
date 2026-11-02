@@ -13,17 +13,18 @@ import { formatTimestamp } from "@/lib/audit-format";
 import { parseId } from "@/lib/search-params";
 
 /**
- * Back Office dashboard — who is clocked in right now, across every branch (or one, with
- * `?branchId=`), and whether the biometric devices feeding it are online. Updates live.
+ * Back Office dashboard — who is clocked in right now, and whether the biometric devices feeding it
+ * are online. A login with a branch sees that branch alone. Updates live.
  */
 export default async function BackOfficeDashboardPage({
   searchParams,
 }: {
   searchParams: Promise<{ branchId?: string }>;
 }) {
-  await requirePermission("attendance:read");
+  const session = await requirePermission("attendance:read");
   const { branchId: rawBranch } = await searchParams;
-  const branchId = parseId(rawBranch);
+  const ownBranchId = session.branchId;
+  const branchId = ownBranchId ?? parseId(rawBranch);
 
   let data: {
     summary: Awaited<ReturnType<typeof getAttendanceSummary>>;
@@ -56,9 +57,12 @@ export default async function BackOfficeDashboardPage({
 
   return (
     <>
-      <PageHeader title="Back Office" description="Clock-in and clock-out activity from the biometric devices." />
+      <PageHeader
+        title={branches.find((branch) => branch.id === ownBranchId)?.name ?? "Back Office"}
+        description="Clock-in and clock-out activity from the biometric devices."
+      />
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      {ownBranchId ? null : <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href="/backoffice/dashboard"
           className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
@@ -78,7 +82,7 @@ export default async function BackOfficeDashboardPage({
             {branch.name}
           </Link>
         ))}
-      </div>
+      </div>}
 
       <LiveAttendanceBoard
         initialSnapshot={{ summary, activity, fetchedAt: summary.generatedAt }}
