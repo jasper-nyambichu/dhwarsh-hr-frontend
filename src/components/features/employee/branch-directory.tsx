@@ -79,8 +79,44 @@ export function BranchEmployeesTable({
 
   return (
     <BentoCard title="Employees" subtitle={`${formatNumber(existing.length)} in this branch`}>
-      <div className="w-full overflow-x-auto">
-        <table className="data-table w-full min-w-[720px] border-collapse text-left">
+      <ul className="flex flex-col gap-3 md:hidden">
+        {sorted.map((person) => (
+          <li key={person.id} className="min-w-0 rounded-lg border border-outline-variant/40 p-3">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <p className="min-w-0 break-words font-semibold text-on-surface">
+                {employeeHref ? (
+                  <Link href={employeeHref(person.id)} className="text-primary hover:underline">
+                    {person.fullName}
+                  </Link>
+                ) : (
+                  person.fullName
+                )}
+              </p>
+              <span className="shrink-0 font-mono text-xs text-on-surface-variant">{person.employeeNumber}</span>
+            </div>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+              <div className="min-w-0">
+                <dt className="text-outline">Phone No.</dt>
+                <dd className="break-words tabular-nums text-on-surface">{person.phone ?? "—"}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-outline">Department</dt>
+                <dd className="break-words text-on-surface">{person.departmentName ?? "—"}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-outline">Agent Name</dt>
+                <dd className="break-words text-on-surface">{person.agentName ?? "—"}</dd>
+              </div>
+              <div className="min-w-0">
+                <dt className="text-outline">Basic Salary</dt>
+                <dd className="break-words tabular-nums text-on-surface">{person.basicSalary === null ? "—" : formatMoney(person.basicSalary)}</dd>
+              </div>
+            </dl>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden w-full overflow-x-auto md:block">
+        <table className="data-table w-full min-w-[640px] border-collapse text-left">
           <thead>
             <tr>
               <th className={`${header} pl-2`}>Employee Code</th>
