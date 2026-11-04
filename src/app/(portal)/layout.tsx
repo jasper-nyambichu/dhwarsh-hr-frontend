@@ -5,7 +5,6 @@ import { NavProvider, SIDEBAR_COOKIE } from "@/components/layout/nav-context";
 import { StubActionBridge } from "@/components/layout/stub-action-bridge";
 import { Topbar } from "@/components/layout/topbar";
 import { getCurrentUser } from "@/app/lib/dal";
-import { getMe } from "@/lib/api/user";
 
 /**
  * Protected shell for all 9 role portals.
@@ -38,16 +37,13 @@ export default async function PortalLayout({
   // client-side read would flash the collapsed rail on every navigation.
   const expanded = cookieStore.get(SIDEBAR_COOKIE)?.value === "1";
 
-  // A convenience only: the page and the backend are what enforce it, so a failed read just hides the link.
-  const canRunPayments = user.role === "BRANCH_MANAGER" ? await getMe().then((me) => me.canRunPayments).catch(() => false) : false;
-
   return (
     <NavProvider defaultExpanded={expanded}>
       <StubActionBridge />
       <div className="flex h-dvh w-full overflow-hidden bg-surface-bright">
         {/* Chrome is interactive by construction — exempt from the stub net. */}
         <div data-live-region className="contents">
-          <AppRail role={user.role} canRunPayments={canRunPayments} />
+          <AppRail role={user.role} />
         </div>
 
         <main className="relative z-0 flex h-full min-w-0 flex-1 flex-col overflow-hidden">

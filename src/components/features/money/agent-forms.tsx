@@ -12,6 +12,7 @@ import {
 import { BentoCard } from "@/components/shared/bento-card";
 import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage } from "@/components/shared/form-field";
+import { DateInput } from "@/components/shared/date-input";
 import { formatKes } from "@/lib/money-format";
 import type { ActionState } from "@/types";
 
@@ -356,7 +357,7 @@ export function PaymentRecordForm({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id={`${id}-date`} label="Date paid" hint="Leave empty for today.">
-            <input id={`${id}-date`} name="paidOn" type="date" className={INPUT} />
+            <DateInput id={`${id}-date`} name="paidOn" className={INPUT} />
           </Field>
           <Field id={`${id}-note`} label="Note (optional)" error={errors.note?.[0]}>
             <input id={`${id}-note`} name="note" type="text" maxLength={255} className={INPUT} />

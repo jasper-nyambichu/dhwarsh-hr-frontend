@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { ApiError } from "@/app/lib/api-error";
+import { DeactivateAgentButton } from "@/components/features/agents/deactivate-agent-button";
 import { getCurrentUser, requirePermission } from "@/app/lib/dal";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
@@ -140,12 +141,7 @@ export default async function AgentDetailPage({
               on the backend, so rendering this for ADMIN would be a button
               that always 403s. */}
           {canDeactivate && agent.status === "ACTIVE" ? (
-            <button
-              type="button"
-              className="flex-1 rounded-lg border border-error px-4 py-2 text-center font-bold text-body-md text-error transition-colors hover:bg-error-container sm:flex-none"
-            >
-              Deactivate
-            </button>
+            <DeactivateAgentButton id={agent.id} name={agent.name} />
           ) : null}
         </div>
       </div>

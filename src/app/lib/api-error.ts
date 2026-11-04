@@ -1,9 +1,20 @@
 import "server-only";
 
+import {
+  NO_PERMISSION,
+  NOT_FOUND,
+  REQUEST_REFUSED,
+  SESSION_EXPIRED,
+  SYSTEM_ERROR,
+  SYSTEM_UNREACHABLE,
+} from "@/lib/api-messages";
+
 /**
  * Error envelope parsing. Mirrors `exception/GlobalExceptionHandler`.
  *
- * Parsed in one place so no call site has to guess the response shape.
+ * Parsed in one place so no call site has to guess the response shape. An
+ * `ApiError`'s message is always safe to show the user, so pages and forms can
+ * display it as it is.
  */
 
 /** Shape emitted by the Spring GlobalExceptionHandler (`ApiResponse.error`). */
@@ -89,15 +100,24 @@ function normalizeFieldErrors(
 }
 
 const FALLBACK_MESSAGES: Record<number, string> = {
-  400: "The request was invalid.",
-  401: "Your session has expired. Please sign in again.",
-  403: "You do not have permission to perform this action.",
-  404: "The requested record was not found.",
   409: "This record was changed by someone else. Reload and try again.",
   422: "Some fields need attention.",
-  500: "Something went wrong on the server.",
-  503: "The service is temporarily unavailable.",
 };
+
+/**
+ * What the user reads for a failed response. Only a refusal (a 4xx such as "this branch already has a
+ * Branch Manager") keeps the backend's words, because those are written for them and say what to fix.
+ * A server failure's text describes the system's internals, so it goes to the log instead.
+ */
+function userMessage(status: number, backendMessage: string | undefined): string {
+  if (status === 401) return SESSION_EXPIRED;
+  if (status === 403) return NO_PERMISSION;
+  if (status === 404) return NOT_FOUND;
+  if (status === 502 || status === 503 || status === 504) return SYSTEM_UNREACHABLE;
+  if (status >= 500) return SYSTEM_ERROR;
+
+  return backendMessage || FALLBACK_MESSAGES[status] || REQUEST_REFUSED;
+}
 
 /** Builds an ApiError from a failed Response. Never throws. */
 export async function toApiError(response: Response): Promise<ApiError> {
@@ -109,15 +129,14 @@ export async function toApiError(response: Response): Promise<ApiError> {
     // Empty or non-JSON body (gateway timeout, HTML error page).
   }
 
-  const message =
-    body?.message?.trim() ||
-    body?.error?.trim() ||
-    FALLBACK_MESSAGES[response.status] ||
-    `Request failed with status ${response.status}.`;
+  // The user is told what to do; whoever fixes it needs the real cause.
+  if (response.status >= 500) {
+    console.error(`Backend failed: ${response.status} ${response.url}`, body?.message ?? body?.error ?? "");
+  }
 
   return new ApiError(
     response.status,
-    message,
+    userMessage(response.status, body?.message?.trim()),
     normalizeFieldErrors(asFieldMap(body?.data) ?? body?.errors),
     body?.path,
   );
@@ -141,7 +160,8 @@ function asFieldMap(
 
 /**
  * Converts any thrown value into an `ActionState` error for `useActionState`.
- * Keeps raw internals out of the UI.
+ * Keeps raw internals out of the UI: anything that is not an `ApiError` is a
+ * bug on our side, so it is logged and the user gets the general message.
  */
 export function toActionError(error: unknown): {
   status: "error";
@@ -156,8 +176,7 @@ export function toActionError(error: unknown): {
     };
   }
 
-  return {
-    status: "error",
-    message: "Unable to reach the server. Check your connection and try again.",
-  };
+  console.error("Unexpected error in a Server Action:", error);
+
+  return { status: "error", message: SYSTEM_ERROR };
 }

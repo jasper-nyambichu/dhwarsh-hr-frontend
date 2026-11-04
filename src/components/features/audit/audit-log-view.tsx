@@ -12,6 +12,7 @@ import { Icon } from "@/components/ui/icon";
 import { getAuditFilterOptions, getAuditLogs, getAuditSummary, type AuditCategory } from "@/lib/api/audit";
 import { actionLabel } from "@/lib/audit-format";
 import { formatNumber } from "@/lib/format";
+import { DateInput } from "@/components/shared/date-input";
 import { buildHref, first, parseDate, parseId, parsePage } from "@/lib/search-params";
 import { cn } from "@/lib/utils";
 
@@ -154,8 +155,8 @@ export async function AuditLogView({
           defaultValue={userId ? String(userId) : ""}
           options={[{ value: "", label: "All users" }, ...options.users.map((user) => ({ value: String(user.id), label: user.username }))]}
         />
-        <input type="date" name="from" defaultValue={from} aria-label="From date" className="h-10 w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface" />
-        <input type="date" name="to" defaultValue={to} aria-label="To date" className="h-10 w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface" />
+        <DateInput name="from" defaultValue={from} aria-label="From date" className="h-10 w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface" />
+        <DateInput name="to" defaultValue={to} aria-label="To date" className="h-10 w-full min-w-0 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface" />
         <div className="flex gap-2">
           <button type="submit" className="h-10 flex-1 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary-container">
             Apply

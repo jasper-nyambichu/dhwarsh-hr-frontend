@@ -247,17 +247,9 @@ const TYPE_STYLE: Record<string, { icon: string; chip: string }> = {
     icon: "cancel",
     chip: "bg-error-container/40 text-error",
   },
-  [NOTIFICATION_TYPE.AGENT_PAYMENT_RUN_GRANTED]: {
-    icon: "verified_user",
-    chip: "bg-tertiary-container/20 text-tertiary",
-  },
-  [NOTIFICATION_TYPE.AGENT_PAYMENT_RUN_REVOKED]: {
-    icon: "block",
-    chip: "bg-error-container/40 text-error",
-  },
-  [NOTIFICATION_TYPE.AGENT_PAYMENTS_RUN_BY_MANAGER]: {
-    icon: "calculate",
-    chip: "bg-amber-main/15 text-amber-main",
+  [NOTIFICATION_TYPE.BRANCH_CHANGED]: {
+    icon: "move_up",
+    chip: "bg-blue-soft text-primary-container",
   },
 };
 
@@ -280,10 +272,8 @@ function hrefFor(item: NotificationResponse, pathname: string): string | null {
     case NOTIFICATION_TYPE.EMPLOYEE_REQUEST_REJECTED:
       if (pathname.startsWith("/branch")) return "/branch/approvals";
       return pathname.startsWith("/agent") ? "/agent/requests" : null;
-    case NOTIFICATION_TYPE.AGENT_PAYMENT_RUN_GRANTED:
-      return "/branch/agent-payments";
-    case NOTIFICATION_TYPE.AGENT_PAYMENTS_RUN_BY_MANAGER:
-      return "/admin/money-requests";
+    case NOTIFICATION_TYPE.BRANCH_CHANGED:
+      return pathname.startsWith("/branch") ? "/branch/dashboard" : null;
     default:
       return null;
   }

@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/lib/api-error";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -31,7 +32,7 @@ export default async function AgentInvoiceDocumentPage({ params }: { params: Pro
       <DataUnavailable
         title="Invoice"
         subject="This invoice"
-        reason={error instanceof Error ? error.message : undefined}
+        reason={error instanceof ApiError ? error.message : undefined}
       />
     );
   }

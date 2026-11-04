@@ -4,6 +4,7 @@ import { format, parseISO, startOfMonth } from "date-fns";
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { BentoCard } from "@/components/shared/bento-card";
+import { DateInput } from "@/components/shared/date-input";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -71,8 +72,8 @@ export default async function BackOfficeAttendancePage({
             <option key={branch.id} value={branch.id}>{branch.name}</option>
           ))}
         </select>}
-        <input type="date" name="start" defaultValue={start} aria-label="From date" className={FIELD} />
-        <input type="date" name="end" defaultValue={end} aria-label="To date" className={FIELD} />
+        <DateInput name="start" defaultValue={start} aria-label="From date" className={FIELD} />
+        <DateInput name="end" defaultValue={end} aria-label="To date" className={FIELD} />
         <label className="flex h-10 items-center gap-2 text-sm text-on-surface-variant">
           <input type="checkbox" name="open" value="1" defaultChecked={openOnly} className="size-4 accent-primary" />
           Still on site

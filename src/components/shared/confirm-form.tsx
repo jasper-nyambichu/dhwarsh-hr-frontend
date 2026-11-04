@@ -88,7 +88,7 @@ export function ConfirmForm({
             ) : null}
 
             <div className="mt-2 flex w-full flex-col items-center gap-1">
-              <button
+              <button data-live=""
                 ref={yesRef}
                 type="button"
                 onClick={proceed}
@@ -101,7 +101,7 @@ export function ConfirmForm({
               >
                 {confirm.confirmLabel}
               </button>
-              <button
+              <button data-live=""
                 ref={cancelRef}
                 type="button"
                 onClick={() => dialogRef.current?.close()}

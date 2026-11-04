@@ -8,12 +8,12 @@ import { grantOffDay, removeOffDay } from "@/lib/api/off-day";
 import type { ActionState } from "@/types";
 
 function refresh(): void {
-  revalidatePath("/agent/off-days");
+  revalidatePath("/agent/off-days", "layout");
   revalidatePath("/admin/off-days", "layout");
   revalidatePath("/admin/dashboard");
 }
 
-/** Agent: gives one of their own employees days off. The backend checks the employee is theirs. */
+/** Agent: gives one of their own employees days off. A single day sends no end date. The backend checks the employee is theirs. */
 export async function grantOffDayAction(
   _previous: ActionState,
   formData: FormData,
@@ -22,7 +22,7 @@ export async function grantOffDayAction(
 
   const employeeId = Number(formData.get("employeeId"));
   const startDate = String(formData.get("startDate") ?? "");
-  const endDate = String(formData.get("endDate") ?? "");
+  const endDate = String(formData.get("endDate") ?? "") || (formData.has("endDate") ? "" : startDate);
   const reason = String(formData.get("reason") ?? "").trim();
 
   const fieldErrors: Record<string, string[]> = {};

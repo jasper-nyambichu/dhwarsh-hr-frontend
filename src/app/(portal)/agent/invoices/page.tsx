@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/lib/api-error";
 import Link from "next/link";
 
 import { requirePermission } from "@/app/lib/dal";
@@ -27,7 +28,7 @@ export default async function AgentInvoicesPage() {
       <DataUnavailable
         title="Invoices"
         subject="Your invoices"
-        reason={error instanceof Error ? error.message : undefined}
+        reason={error instanceof ApiError ? error.message : undefined}
       />
     );
   }

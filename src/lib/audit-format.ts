@@ -2,11 +2,11 @@ import { format, parseISO } from "date-fns";
 
 import { humanizeEnum } from "@/lib/format";
 
-/** "17 Oct 2026, 09:30:12". The backend sends wall-clock time with no zone, shown as-is. */
+/** "07 Oct 2026, 09:30:12". The backend sends wall-clock time with no zone, shown as-is. */
 export function formatTimestamp(value: string | null | undefined): string {
   if (!value) return "—";
   try {
-    return format(parseISO(value), "d MMM yyyy, HH:mm:ss");
+    return format(parseISO(value), "dd MMM yyyy, HH:mm:ss");
   } catch {
     return value;
   }

@@ -1,18 +1,19 @@
+import { ApiError } from "@/app/lib/api-error";
 import { format } from "date-fns";
+import { redirect } from "next/navigation";
 
 import { requirePermission } from "@/app/lib/dal";
-import { EmployeeOffDayCards } from "@/components/features/off-days/employee-off-day-cards";
-import { MonthNav, OffDayCalendar } from "@/components/features/off-days/off-day-calendar";
-import { OffDayForm, RemoveOffDayButton } from "@/components/features/off-days/off-day-form";
+import { BranchOffCards } from "@/components/features/off-days/branch-off-cards";
+import { MonthNav } from "@/components/features/off-days/off-day-calendar";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
-import { getAgentStaff } from "@/lib/api/agent";
+import { getAgentOffBranches, type AgentOffBranch } from "@/lib/agent-off-days";
 import { getMyOffDays } from "@/lib/api/off-day";
-import { groupByEmployee, monthRange, parseMonth } from "@/lib/off-days";
+import { branchOffSummary, monthRange, parseMonth } from "@/lib/off-days";
 import { buildHref, first } from "@/lib/search-params";
 
-/** The agent gives their own employees days off and sees them on the month calendar. */
+/** The agent starts from the branches their employees work at. */
 export default async function AgentOffDaysPage({
   searchParams,
 }: {
@@ -31,47 +32,40 @@ export default async function AgentOffDaysPage({
 
   const month = parseMonth(first((await searchParams).month));
 
-  let data: { staff: Awaited<ReturnType<typeof getAgentStaff>>; offDays: Awaited<ReturnType<typeof getMyOffDays>> };
+  let data: { branches: AgentOffBranch[]; offDays: Awaited<ReturnType<typeof getMyOffDays>> };
   try {
-    const [staff, offDays] = await Promise.all([getAgentStaff(session.agentId), getMyOffDays(monthRange(month))]);
-    data = { staff, offDays };
+    const offDays = await getMyOffDays(monthRange(month));
+    data = { branches: await getAgentOffBranches(offDays), offDays };
   } catch (error) {
-    return <DataUnavailable title="Off Days" subject="Your employees' off days" reason={error instanceof Error ? error.message : undefined} />;
+    return <DataUnavailable title="Off Days" subject="Your employees' off days" reason={error instanceof ApiError ? error.message : undefined} />;
   }
 
-  const employees = data.staff
-    .filter((person) => person.employmentStatus === "ACTIVE")
-    .map((person) => ({ id: person.id, name: `${person.fullName} (${person.employeeNumber})` }));
-  const groups = groupByEmployee(data.offDays, month);
+  const { branches } = data;
+
+  // Nothing to choose between, so go straight to the employees.
+  if (branches.length === 1 && branches[0].employees !== null) {
+    redirect(buildHref(`/agent/off-days/branches/${branches[0].id}`, { month }));
+  }
+
   const today = format(new Date(), "yyyy-MM-dd");
+  const items = branches.map((branch) => ({
+    id: branch.id,
+    name: branch.name,
+    code: branch.code,
+    status: branch.status,
+    employeeCount: branch.employees?.length,
+    summary: branchOffSummary(data.offDays.filter((offDay) => offDay.branchId === branch.id), month, today),
+    href: buildHref(`/agent/off-days/branches/${branch.id}`, { month }),
+  }));
 
   return (
     <>
       <PageHeader
         title="Off Days"
-        description="Give your employees days off. The Admin can see them too."
+        description="Choose a branch, then give your employees there their days off."
         actions={<MonthNav month={month} hrefFor={(target) => buildHref("/agent/off-days", { month: target })} />}
       />
-
-      <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
-        <div className="min-w-0 lg:col-span-4">
-          <OffDayForm employees={employees} />
-        </div>
-        <div className="min-w-0 lg:col-span-8">
-          <OffDayCalendar month={month} offDays={data.offDays} />
-        </div>
-      </div>
-
-      {groups.length > 0 ? (
-        <section aria-labelledby="off-days-by-employee" className="mt-gutter flex flex-col gap-3">
-          <h2 id="off-days-by-employee" className="font-table-header text-table-header uppercase text-outline">By employee</h2>
-          <EmployeeOffDayCards
-            groups={groups}
-            showAgent={false}
-            action={(offDay) => (offDay.endDate >= today ? <RemoveOffDayButton id={offDay.id} /> : null)}
-          />
-        </section>
-      ) : null}
+      <BranchOffCards items={items} emptyDescription="You have no active employees yet. Their branches appear here once you have some." />
     </>
   );
 }

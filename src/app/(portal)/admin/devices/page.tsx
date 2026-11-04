@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { deactivateDeviceAction } from "@/app/actions/device";
+import { RegisterDeviceButton } from "@/components/features/devices/register-device-button";
 import { BentoCard } from "@/components/shared/bento-card";
 import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
@@ -14,6 +15,7 @@ import {
   getAttendanceDevices,
   getAttendanceSyncFailures,
 } from "@/lib/api/attendance";
+import { getBranches } from "@/lib/api/branch";
 import { formatNumber, formatRelativeTime } from "@/lib/format";
 import type { AttendanceDeviceItem, AttendanceSyncFailure } from "@/types";
 
@@ -59,11 +61,13 @@ export default async function BiometricDevicesPage({
 
   let devices: AttendanceDeviceItem[];
   let failures: AttendanceSyncFailure[];
+  let branches: Awaited<ReturnType<typeof getBranches>>;
 
   try {
-    [devices, failures] = await Promise.all([
+    [devices, failures, branches] = await Promise.all([
       getAttendanceDevices(),
       getAttendanceSyncFailures(),
+      getBranches(),
     ]);
   } catch (error) {
     if (error instanceof ApiError && error.isUnauthorized) redirect("/login");
@@ -98,13 +102,9 @@ export default async function BiometricDevicesPage({
         title="Biometric Devices"
         description="Monitor and manage attendance terminal connectivity."
         actions={
-          <button
-            type="button"
-            className="flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 py-2 font-body-md text-sm font-semibold text-white transition-colors hover:bg-on-primary-fixed-variant"
-          >
-            <Icon name="add" className="text-[18px]" />
-            Register Device
-          </button>
+          <RegisterDeviceButton
+            branches={branches.filter((branch) => branch.status === "ACTIVE").map((branch) => ({ id: branch.id, name: branch.name }))}
+          />
         }
       />
 

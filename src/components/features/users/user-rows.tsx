@@ -7,6 +7,7 @@ import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { ROLE_LABEL } from "@/config/roles";
+import { withToast } from "@/hooks/use-action-toast";
 import { initials } from "@/lib/format";
 import type { ActionState, UserSummaryResponse } from "@/types";
 
@@ -51,7 +52,7 @@ export function AssignBranchForm({
   currentBranchId: number | null;
   branches: { id: number; name: string }[];
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(assignUserBranchAction, { status: "idle" });
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(withToast(assignUserBranchAction, "Branch saved."), { status: "idle" });
 
   return (
     <ConfirmForm

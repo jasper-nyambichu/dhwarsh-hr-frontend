@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 
 import { ApiError } from "@/app/lib/api-error";
+import { SYSTEM_UNREACHABLE } from "@/lib/api-messages";
 import { getSession } from "@/app/lib/session";
 import { hasPermission } from "@/config/roles";
 import { getAttendanceActivity, getAttendanceSummary } from "@/lib/api/attendance";
@@ -81,7 +82,7 @@ export async function GET(request: NextRequest) {
     const message =
       error instanceof ApiError
         ? error.message
-        : "Unable to reach the attendance service.";
+        : SYSTEM_UNREACHABLE;
 
     return Response.json({ message }, { status });
   }

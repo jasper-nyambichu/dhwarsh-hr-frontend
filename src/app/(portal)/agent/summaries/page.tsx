@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/lib/api-error";
 import Link from "next/link";
 
 import { requirePermission } from "@/app/lib/dal";
@@ -21,7 +22,7 @@ export default async function AgentSummariesPage() {
       <DataUnavailable
         title="Payment Summaries"
         subject="Your payment summaries"
-        reason={error instanceof Error ? error.message : undefined}
+        reason={error instanceof ApiError ? error.message : undefined}
       />
     );
   }
@@ -46,7 +47,7 @@ export default async function AgentSummariesPage() {
               <thead>
                 <tr>
                   <th className="py-4 pl-2 font-table-header text-table-header uppercase text-on-surface-variant">Period</th>
-                  <th className="py-4 font-table-header text-table-header uppercase text-on-surface-variant">Staff</th>
+                  <th className="py-4 font-table-header text-table-header uppercase text-on-surface-variant">Employees</th>
                   <th className="py-4 text-right font-table-header text-table-header uppercase text-on-surface-variant">Days Pay</th>
                   <th className="py-4 text-right font-table-header text-table-header uppercase text-on-surface-variant">Agent Fee</th>
                   <th className="py-4 text-center font-table-header text-table-header uppercase text-on-surface-variant">VAT</th>

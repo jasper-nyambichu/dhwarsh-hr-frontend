@@ -61,7 +61,7 @@ export function toDateInput(value: string | null | undefined): string {
   return date ? format(date, DATE_INPUT) : "";
 }
 
-/** "1 Aug – 31 Aug 2026" — payroll period display. */
+/** "01 Aug 2026 – 31 Aug 2026" — always the full date on both sides, so a period reads the same everywhere. */
 export function formatDateRange(
   start: string | null | undefined,
   end: string | null | undefined,
@@ -70,9 +70,7 @@ export function formatDateRange(
   const to = safeParse(end);
   if (!from || !to) return "—";
 
-  const sameYear = from.getFullYear() === to.getFullYear();
-  const left = format(from, sameYear ? "d MMM" : "d MMM yyyy");
-  return `${left} – ${format(to, "d MMM yyyy")}`;
+  return `${format(from, "dd MMM yyyy")} – ${format(to, "dd MMM yyyy")}`;
 }
 
 /**

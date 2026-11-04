@@ -8,6 +8,7 @@ import {
 } from "@/app/actions/employee-request";
 import { ConfirmForm } from "@/components/shared/confirm-form";
 import { Icon } from "@/components/ui/icon";
+import { withToast } from "@/hooks/use-action-toast";
 import { refreshNotifications } from "@/lib/notification-events";
 import { cn } from "@/lib/utils";
 import type { ActionState } from "@/types";
@@ -27,11 +28,11 @@ export function RequestReviewPanel({
   fullName: string;
 }) {
   const [approveState, approveAction, approvePending] = useActionState(
-    approveEmployeeRequestAction,
+    withToast(approveEmployeeRequestAction, `${fullName} approved.`),
     INITIAL,
   );
   const [rejectState, rejectAction, rejectPending] = useActionState(
-    rejectEmployeeRequestAction,
+    withToast(rejectEmployeeRequestAction, `${fullName} rejected.`),
     INITIAL,
   );
 
@@ -70,7 +71,7 @@ export function RequestReviewPanel({
 
       {/* Reject toggle */}
       {!showReject ? (
-        <button
+        <button data-live=""
           type="button"
           disabled={busy}
           onClick={() => setShowReject(true)}
@@ -106,7 +107,7 @@ export function RequestReviewPanel({
             </p>
           )}
           <div className="flex gap-2">
-            <button
+            <button data-live=""
               type="button"
               onClick={() => setShowReject(false)}
               className="flex-1 rounded-xl border border-outline-variant/40 px-4 py-2 font-body-md text-body-md font-semibold text-on-surface-variant transition-colors hover:bg-surface-container"

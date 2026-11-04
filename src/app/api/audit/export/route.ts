@@ -1,11 +1,12 @@
 import type { NextRequest } from "next/server";
 
 import { ApiError } from "@/app/lib/api-error";
+import { SYSTEM_UNREACHABLE } from "@/lib/api-messages";
 import { getSession } from "@/app/lib/session";
 import { hasPermission } from "@/config/roles";
 import { getAuditLogs, type AuditCategory } from "@/lib/api/audit";
 import { parseDate, parseId } from "@/lib/search-params";
-import { parseDetails } from "@/lib/audit-format";
+import { formatTimestamp, parseDetails } from "@/lib/audit-format";
 
 /**
  * Exports the (filtered) audit log as CSV — "filterable and exportable" per the proposal.
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
         const details = parseDetails(log.detailsJson);
         rows.push(
           [
-            log.createdAt,
+            formatTimestamp(log.createdAt),
             log.performedByUsername,
             log.performedByUserId,
             log.action,
@@ -79,7 +80,7 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     const status = error instanceof ApiError ? error.status : 502;
-    return fail(error instanceof ApiError ? error.message : "Unable to reach the audit service.", status);
+    return fail(error instanceof ApiError ? error.message : SYSTEM_UNREACHABLE, status);
   }
 
   const stamp = new Date().toISOString().slice(0, 10);

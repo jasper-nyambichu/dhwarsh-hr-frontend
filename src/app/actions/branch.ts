@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission, requireRole } from "@/app/lib/dal";
+import { flashToast } from "@/app/lib/flash";
 import {
   activateBranch,
   createBranch,
@@ -65,6 +66,7 @@ export async function createBranchAction(
   }
 
   revalidatePath("/admin/branches");
+  await flashToast("success", "Branch created.");
   redirect("/admin/branches");
 }
 
@@ -109,7 +111,7 @@ export async function deleteBranchAction(
   }
 
   revalidatePath("/admin", "layout");
-  redirect("/admin/branches");
+  return { status: "success", data: undefined };
 }
 
 /** Admin: activate or deactivate a branch. */

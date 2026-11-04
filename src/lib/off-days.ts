@@ -63,6 +63,30 @@ export function offDaysByDate(offDays: OffDayResponse[], month: string): Map<str
   return byDate;
 }
 
+export function isOffOn(offDay: OffDayResponse, date: string): boolean {
+  return offDay.startDate <= date && date <= offDay.endDate;
+}
+
+export type BranchOffSummary = {
+  employeesOff: number;
+  daysOff: number;
+  /** Null when the month on screen is not this month, since only that month's off days were read. */
+  offToday: number | null;
+  /** Everyone off this month, by name, with how many days. */
+  people: { employeeId: number; name: string; days: number }[];
+};
+
+/** A branch card's figures, from that one branch's off days in the month. */
+export function branchOffSummary(offDays: OffDayResponse[], month: string, today: string): BranchOffSummary {
+  const groups = groupByEmployee(offDays, month);
+  return {
+    employeesOff: groups.length,
+    daysOff: groups.reduce((sum, group) => sum + group.totalDays, 0),
+    offToday: today.startsWith(month) ? new Set(offDays.filter((offDay) => isOffOn(offDay, today)).map((offDay) => offDay.employeeId)).size : null,
+    people: groups.map((group) => ({ employeeId: group.employeeId, name: group.employeeName, days: group.totalDays })),
+  };
+}
+
 export type EmployeeOffDays = {
   employeeId: number;
   employeeName: string;

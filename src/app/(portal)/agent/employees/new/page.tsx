@@ -45,7 +45,7 @@ export default async function AgentNewEmployeePage() {
         departments={data.departments.map((department) => ({ id: department.id, name: department.name }))}
         agents={[]}
         today={format(new Date(), "yyyy-MM-dd")}
-        cancelHref="/agent/staff"
+        cancelHref="/agent/employees"
       />
     </>
   );

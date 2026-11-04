@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ApiError } from "@/app/lib/api-error";
 import { requireAnyPermission } from "@/app/lib/dal";
 import { QuickAccessGroups, type QuickAccessItem } from "@/components/features/dashboard/quick-access";
+import { OffListCard } from "@/components/features/off-days/off-list-card";
 import { AlertSpotlight } from "@/components/shared/alert-spotlight";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
@@ -11,7 +12,6 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { SegmentStrip } from "@/components/shared/segment-strip";
 import { StatCard } from "@/components/shared/stat-card";
 import { Icon } from "@/components/ui/icon";
-import { format } from "date-fns";
 import { navigationFor } from "@/config/navigation";
 import { getAgents } from "@/lib/api/agent";
 import { getAdvances, getLoans, getPaymentRequests } from "@/lib/api/agent-money";
@@ -21,6 +21,7 @@ import { getEmployeesByBranch } from "@/lib/api/employee";
 import { getEmployeeRequests } from "@/lib/api/employee-request";
 import { getOffDays } from "@/lib/api/off-day";
 import { formatNumber, formatPercent } from "@/lib/format";
+import { groupByEmployee, monthLabel, monthRange, parseMonth } from "@/lib/off-days";
 import type { AttendanceDeviceItem, BranchResponse } from "@/types";
 
 /**
@@ -100,7 +101,7 @@ export default async function AdminDashboardPage() {
   // Secondary reads are independent of each other and of the branch directory.
   // `allSettled` throughout: one unavailable panel must not blank the page, and
   // an empty slot is a truthful rendering of "could not read this".
-  const today = format(new Date(), "yyyy-MM-dd");
+  const month = parseMonth(undefined);
   const [summaryResult, agentsResult, devicesResult, employeeRequestsResult, paymentsResult, advancesResult, loansResult, offDaysResult] = await Promise.allSettled([
     getAttendanceSummary(),
     getAgents(),
@@ -109,7 +110,7 @@ export default async function AdminDashboardPage() {
     getPaymentRequests(),
     getAdvances(),
     getLoans("PENDING"),
-    getOffDays({ from: today, to: today }),
+    getOffDays(monthRange(month)),
   ]);
 
   const countResults = await Promise.allSettled(
@@ -131,7 +132,8 @@ export default async function AdminDashboardPage() {
   const toRelease = count(paymentsResult, (request) => request.status === "APPROVED");
   const pendingAdvances = count(advancesResult, (advance) => advance.status === "PENDING");
   const pendingLoans = count(loansResult);
-  const offToday = offDaysResult.status === "fulfilled" ? new Set(offDaysResult.value.map((offDay) => offDay.employeeId)).size : null;
+  const offList = offDaysResult.status === "fulfilled" ? groupByEmployee(offDaysResult.value, month) : null;
+  const offThisMonth = offList === null ? null : offList.length;
   const pendingMoney = (pendingPayments ?? 0) + (pendingAdvances ?? 0) + (pendingLoans ?? 0);
 
   // A queue that could not be read must not read as "nothing waiting".
@@ -161,7 +163,7 @@ export default async function AdminDashboardPage() {
     "/admin/employees": { hint: `${formatNumber(totalEmployees)} employees` },
     "/admin/employee-requests": { hint: `${shown(pendingEmployees)} employees to approve`, attention: pendingEmployees ?? 0 },
     "/admin/money-requests": { hint: `${formatNumber(pendingMoney)} to decide · ${shown(toRelease)} to release`, attention: pendingMoney + (toRelease ?? 0) },
-    "/admin/off-days": { hint: `${shown(offToday)} off today` },
+    "/admin/off-days": { hint: `${shown(offThisMonth)} off this month` },
     "/admin/attendance": { hint: summary ? `${formatNumber(summary.currentlyIn)} clocked in now` : "Live attendance board" },
     "/admin/days-worked": { hint: "Locked by the Back Office" },
     "/admin/branches": { hint: `${formatNumber(activeBranches)} active of ${formatNumber(branches.length)}` },
@@ -257,16 +259,25 @@ export default async function AdminDashboardPage() {
         <Link href="/admin/off-days/calendar" className={`${CARD_LINK} sm:col-span-2 xl:col-span-1`}>
           <StatCard
             className="w-full"
-            label="Off Today"
-            value={shown(offToday)}
+            label="Off This Month"
+            value={shown(offThisMonth)}
             icon="calendar_month"
             badgeIcon="arrow_forward"
-            hint="Open the month's off days calendar"
+            hint={`${monthLabel(month)} · open the calendar`}
           />
         </Link>
       </div>
 
       <QuickAccessGroups groups={quickAccessGroups} />
+
+      <OffListCard
+        groups={offList}
+        month={month}
+        href="/admin/off-days"
+        showBranch
+        wide
+        emptyDescription="Days agents give their employees off appear here."
+      />
 
       {/* ───────────────────────── performance and attendance ───────────── */}
       <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">

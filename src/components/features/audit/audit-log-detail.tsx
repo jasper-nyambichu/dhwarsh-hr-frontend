@@ -18,6 +18,8 @@ const DETAIL_LABELS: Record<string, string> = {
   surface: "Sign-in surface",
   identifier: "Identifier used",
   reason: "Reason",
+  fromBranch: "Moved from",
+  toBranch: "Moved to",
 };
 
 /** One audit event, plus everything else that happened to the same record. */

@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { getAttendanceRecords } from "@/lib/api/attendance";
+import { DateInput } from "@/components/shared/date-input";
 import { formatDate, formatNumber } from "@/lib/format";
 import { buildHref, first, parseDate, parsePage } from "@/lib/search-params";
 
@@ -45,7 +46,7 @@ export default async function BranchAttendancePage({
       <PageHeader title="Attendance" description="How your employees are moving through the working day." />
 
       <form method="get" action="/branch/attendance" className="mb-4 flex flex-wrap items-end gap-3 rounded-card bg-surface-container-lowest p-3 shadow-ambient-1">
-        <input type="date" name="date" defaultValue={date} max={today} aria-label="Date" className={FIELD} />
+        <DateInput name="date" defaultValue={date} max={today} aria-label="Date" className={FIELD} />
         <select name="type" defaultValue={type ?? ""} aria-label="Check-out type" className={`${FIELD} min-w-0 max-w-full`}>
           <option value="">All check-out types</option>
           {CHECKOUT_FILTERS.map((option) => (

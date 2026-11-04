@@ -1,11 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { credentialsSchema } from "@/app/lib/definitions";
-import { assignUserBranch, changeCredentials, createAgentLogin, createBranchLogin, deleteUser, setRunPayments } from "@/lib/api/user";
+import { flashToast } from "@/app/lib/flash";
+import { assignUserBranch, changeCredentials, createAgentLogin, createBranchLogin, deleteUser } from "@/lib/api/user";
 import type { ActionState } from "@/types";
 
 /** Returned so the Admin can share them. `password` is empty when it was left unchanged. */
@@ -28,6 +30,7 @@ export async function saveCredentialsAction(
   const parsed = credentialsSchema.safeParse({
     username: usernameField ? formData.get(usernameField) : "",
     password: formData.get("password") || undefined,
+    email: formData.get("email") ?? "",
   });
   if (!parsed.success) {
     return { status: "error", message: "Check the fields below.", fieldErrors: parsed.error.flatten().fieldErrors };
@@ -57,26 +60,6 @@ export async function saveCredentialsAction(
   return { status: "success", data: credentials };
 }
 
-/** Admin: lets a Branch Manager run the agent payment calculation, or takes it back. */
-export async function setRunPaymentsAction(
-  _previous: ActionState,
-  formData: FormData,
-): Promise<ActionState> {
-  await requirePermission("user:manage");
-
-  const userId = Number(formData.get("userId"));
-  if (!Number.isInteger(userId) || userId <= 0) return { status: "error", message: "Unknown account." };
-
-  try {
-    await setRunPayments(userId, formData.get("allowed") === "true");
-  } catch (error) {
-    return toActionError(error);
-  }
-
-  revalidatePath("/admin/pay-settings");
-  return { status: "success", data: undefined };
-}
-
 /** Admin: delete an account. The backend refuses your own account and the last active Admin. */
 export async function deleteUserAction(
   _previous: ActionState,
@@ -96,6 +79,37 @@ export async function deleteUserAction(
   revalidatePath("/admin/users", "layout");
   revalidatePath("/admin/branches", "layout");
   return { status: "success", data: undefined };
+}
+
+/**
+ * Admin: move a Branch Manager to another branch, then open that branch's page, where they now appear.
+ * A branch has one Branch Manager, so choosing a taken branch swaps the two. The backend refuses the same branch.
+ */
+export async function moveBranchManagerAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("user:manage");
+
+  const userId = Number(formData.get("userId"));
+  const branchId = Number(formData.get(`branchId-${userId}`));
+
+  if (!Number.isInteger(userId) || userId <= 0) return { status: "error", message: "Unknown account." };
+  if (!Number.isInteger(branchId) || branchId <= 0) return { status: "error", message: "Choose a branch." };
+
+  const swap = formData.get("swap") === "1";
+
+  try {
+    await assignUserBranch(userId, branchId, swap);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/branch", "layout");
+  const branchName = formData.get("branchName") || "the new branch";
+  await flashToast("success", swap ? `Branch Managers swapped. This one now runs ${branchName}.` : `Branch Manager moved to ${branchName}.`);
+  redirect(`/admin/users/branches/${branchId}`);
 }
 
 /** Admin: which branch a Back Office officer works at. The backend refuses any other role, or a branch that already has one. */

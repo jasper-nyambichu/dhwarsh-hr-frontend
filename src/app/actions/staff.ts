@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission, requireRole } from "@/app/lib/dal";
+import { flashToast } from "@/app/lib/flash";
 import { deleteEmployee, moveEmployeeBranch, terminateEmployee } from "@/lib/api/employee";
 import {
   assignEmployeeDepartment,
@@ -90,6 +91,7 @@ export async function addEmployeeAction(
   }
 
   revalidatePath("/admin/employees", "layout");
+  await flashToast("success", "Employee added.");
   redirect(`/admin/employees/${employeeId}`);
 }
 
@@ -115,6 +117,7 @@ export async function requestEmployeeAction(
 
   revalidatePath("/branch", "layout");
   revalidatePath("/agent", "layout");
+  await flashToast("success", "Request sent for approval.");
   redirect(session.role === "AGENT" ? "/agent/requests?sent=1" : "/branch/approvals?sent=1");
 }
 
@@ -163,10 +166,11 @@ export async function deleteStaffAction(
   revalidatePath("/admin", "layout");
   revalidatePath("/agent", "layout");
   revalidatePath("/branch", "layout");
+  await flashToast("success", "Employee deleted.");
   redirect("/admin/employees");
 }
 
-/** Admin: move an employee to another branch. */
+/** Admin: move an employee to another branch. Both branches' portals change, not just the Admin's. */
 export async function moveStaffBranchAction(
   _previous: ActionState,
   formData: FormData,
@@ -185,6 +189,9 @@ export async function moveStaffBranchAction(
   }
 
   revalidatePath("/admin", "layout");
+  revalidatePath("/branch", "layout");
+  revalidatePath("/agent", "layout");
+  revalidatePath("/backoffice", "layout");
   return { status: "success", data: undefined };
 }
 

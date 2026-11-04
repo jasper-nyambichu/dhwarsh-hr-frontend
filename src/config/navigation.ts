@@ -46,6 +46,7 @@ const ADMIN_NAV: readonly NavItem[] = [
   { title: "Pay Rates", href: "/admin/pay-settings", icon: "request_quote" },
   { title: "Payslips", href: "/admin/payslips", icon: "receipt_long" },
   { title: "Settings", href: "/admin/settings", icon: "settings" },
+  { title: "Profile", href: "/admin/profile", icon: "account_circle" },
 ];
 
 export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
@@ -58,11 +59,12 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Attendance", href: "/branch/attendance", icon: "schedule" },
     { title: "Approvals", href: "/branch/approvals", icon: "checklist" },
     { title: "Payslips", href: "/branch/payslips", icon: "receipt_long" },
+    { title: "Profile", href: "/branch/profile", icon: "account_circle" },
   ],
 
   AGENT: [
     { title: "Dashboard", href: "/agent/dashboard", icon: "dashboard" },
-    { title: "Staff", href: "/agent/staff", icon: "group" },
+    { title: "Employees", href: "/agent/employees", icon: "group" },
     { title: "Requests", href: "/agent/requests", icon: "pending_actions" },
     { title: "Off Days", href: "/agent/off-days", icon: "event_busy" },
     { title: "Summaries", href: "/agent/summaries", icon: "summarize" },
@@ -79,17 +81,13 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Dashboard", href: "/backoffice/dashboard", icon: "dashboard" },
     { title: "Attendance", href: "/backoffice/attendance", icon: "schedule" },
     { title: "Devices", href: "/backoffice/devices", icon: "fingerprint" },
+    { title: "Profile", href: "/backoffice/profile", icon: "account_circle" },
   ],
 
 };
 
-export function navigationFor(role: Role, canRunPayments = false): readonly NavItem[] {
-  if (!canRunPayments) return ROLE_NAVIGATION[role];
-
-  // Only while the Admin allows it, so it sits outside the fixed list.
-  const items = [...ROLE_NAVIGATION[role]];
-  items.splice(items.length - 1, 0, { title: "Agent Payments", href: "/branch/agent-payments", icon: "calculate" });
-  return items;
+export function navigationFor(role: Role): readonly NavItem[] {
+  return ROLE_NAVIGATION[role];
 }
 
 /**

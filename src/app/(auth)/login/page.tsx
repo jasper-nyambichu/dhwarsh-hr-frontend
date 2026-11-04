@@ -7,15 +7,12 @@ import { BrandLockup, BrandMark } from "@/components/shared/brand-logo";
 import { StaffLoginForm } from "@/components/features/auth/staff-login-form";
 
 export const metadata: Metadata = {
-  title: "Staff Login",
+  title: "Admin Login",
 };
 
 /**
- * Staff sign-in. Entry point for every STAFF-principal role:
- * SUPER_ADMIN, ADMIN, BRANCH_MANAGER, BACK_OFFICE.
- *
- * After authentication the action redirects to ROLE_HOME[role], so they all
- * share one door but land in their own namespace.
+ * The main sign-in: the Admin and the Back Office. Branch Managers have
+ * `/branch-login` and agents have `/agent-login`.
  */
 export default function StaffLoginPage() {
   return (
@@ -126,6 +123,10 @@ export default function StaffLoginPage() {
         </div>
 
         <div className="absolute bottom-8 flex w-full justify-center gap-6 px-6 text-[10px] font-medium text-on-surface-variant">
+          <Link href="/branch-login" className="group flex items-center gap-1 transition-colors hover:text-primary">
+            Branch Portal
+            <Icon name="arrow_forward" className="text-[12px] transition-transform group-hover:translate-x-0.5" />
+          </Link>
           <Link
             href="/agent-login"
             className="group flex items-center gap-1 transition-colors hover:text-primary"

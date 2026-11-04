@@ -4,6 +4,7 @@ import { useActionState } from "react";
 
 import { ConfirmForm } from "@/components/shared/confirm-form";
 import { Icon } from "@/components/ui/icon";
+import { withToast } from "@/hooks/use-action-toast";
 import type { ActionState } from "@/types";
 
 /**
@@ -28,7 +29,7 @@ export function ConfirmDeleteButton({
   label?: string;
   compact?: boolean;
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(action, { status: "idle" });
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(withToast(action, `${name} deleted.`), { status: "idle" });
 
   return (
     <ConfirmForm

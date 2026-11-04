@@ -55,6 +55,15 @@ export type AgentSettlementResponse = {
 };
 
 /** The body of `POST /agent-settlements/calculate`. Leaving out `agentIds` means every active agent. */
+/** `dto/response/settlement/AgentPaymentReadinessResponse`. */
+export type AgentPaymentReadiness = {
+  periodStart: string;
+  periodEnd: string;
+  ready: boolean;
+  branches: { branchId: number; branchName: string; employeeCount: number; lockedCount: number }[];
+  alreadyPaidAgents: string[];
+};
+
 export type AgentSettlementRunPayload = {
   periodStart: string;
   periodEnd: string;

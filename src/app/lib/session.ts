@@ -40,6 +40,8 @@ export type SessionPayload = {
   agentId: number | null;
   branchId: number | null;
   mustChangePassword: boolean;
+  /** Null without a profile photo. Changes when the photo does, so browsers fetch the new one. */
+  photoVersion?: number | null;
   /** Backend JWT. Server-side only — never send to a Client Component. */
   accessToken: string;
   /**

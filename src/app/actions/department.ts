@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission, requireRole } from "@/app/lib/dal";
+import { flashToast } from "@/app/lib/flash";
 import {
   createDepartment,
   deleteDepartment,
@@ -44,6 +45,7 @@ export async function createDepartmentAction(
   }
 
   revalidatePath("/admin/departments", "layout");
+  await flashToast("success", "Department created.");
   redirect("/admin/departments");
 }
 

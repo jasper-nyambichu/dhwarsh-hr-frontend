@@ -77,6 +77,10 @@ async function fetchSnapshot(
     signal,
     headers: { Accept: "application/json" },
     cache: "no-store",
+  }).catch((cause: unknown) => {
+    // A cancelled poll stays a cancel. A dropped connection must not show the browser's "Failed to fetch".
+    if (cause instanceof Error && cause.name === "AbortError") throw cause;
+    throw new Error("We can't refresh attendance right now.");
   });
 
   if (!response.ok) {
@@ -87,7 +91,7 @@ async function fetchSnapshot(
     } | null;
 
     throw new Error(
-      body?.message?.trim() || "Unable to refresh attendance right now.",
+      body?.message?.trim() || "We can't refresh attendance right now.",
     );
   }
 
@@ -202,7 +206,7 @@ export function LiveActivityCard({
           <Icon name="cloud_off" className="text-[16px]" />
           {error instanceof Error
             ? error.message
-            : "Unable to refresh attendance right now."}{" "}
+            : "We can't refresh attendance right now."}{" "}
           Displaying the last values received at {formatTime(fetchedAt)}.
         </p>
       ) : null}

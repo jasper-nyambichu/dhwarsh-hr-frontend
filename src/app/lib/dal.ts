@@ -72,13 +72,14 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser> => {
   return {
     id: session.userId,
     username: session.username,
-    displayName: session.username,
+    displayName: session.displayName ?? session.username,
     role: session.role,
     employeeId: session.employeeId,
     agentId: session.agentId,
     branchId: session.branchId,
     active: true,
     mustChangePassword: session.mustChangePassword,
+    photoVersion: session.photoVersion ?? null,
   };
 });
 

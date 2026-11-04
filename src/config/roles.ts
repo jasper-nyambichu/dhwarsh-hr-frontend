@@ -84,6 +84,15 @@ export const ROLE_HOME: Record<Role, string> = {
   BACK_OFFICE: "/backoffice/dashboard",
 };
 
+/** Each kind of account's own login page. */
+export const ROLE_LOGIN: Record<Role, string> = {
+  SUPER_ADMIN: "/login",
+  ADMIN: "/login",
+  BRANCH_MANAGER: "/branch-login",
+  AGENT: "/agent-login",
+  BACK_OFFICE: "/login",
+};
+
 export const ROLE_LABEL: Record<Role, string> = {
   SUPER_ADMIN: "Administrator",
   ADMIN: "Administrator",
@@ -187,7 +196,6 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "branch:read:own", "department:read",
     "employee:read:branch", "employee:request", "employee:export",
     "offday:read:branch",
-    "agentpayment:run",
     "payslip:read:branch",
     "attendance:read:branch", "attendance:write",
     "shift:read:branch", "shift:assign",

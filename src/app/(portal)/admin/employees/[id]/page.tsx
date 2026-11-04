@@ -14,6 +14,7 @@ import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
+import { countEmployeeFingerprints } from "@/lib/api/biometric";
 import { getBranches } from "@/lib/api/branch";
 import { getEmployeeDamages } from "@/lib/api/damage";
 import { getDepartments } from "@/lib/api/department";
@@ -47,6 +48,9 @@ export default async function AdminEmployeeDetailPage({ params }: { params: Prom
     if (error instanceof ApiError && error.isNotFound) notFound();
     return <DataUnavailable title="Employee" subject="This employee" reason={error instanceof ApiError ? error.message : undefined} />;
   }
+
+  // An extra: if it cannot be read, the page still works and the card makes no promise about the fingerprint.
+  const fingerprints = await countEmployeeFingerprints(employee.id).catch(() => 0);
 
   const openDamages = damages.filter((damage) => damage.status === "APPROVED" || damage.status === "PENDING_CONSENT");
 
@@ -114,11 +118,15 @@ export default async function AdminEmployeeDetailPage({ params }: { params: Prom
             currentDepartmentId={employee.departmentId}
             departments={departments.map((department) => ({ id: department.id, name: department.name }))}
           />
-          <MoveEmployeeBranchForm
-            employeeId={employee.id}
-            currentBranchId={employee.branchId}
-            branches={branches.filter((branch) => branch.status === "ACTIVE" || branch.id === employee.branchId).map((branch) => ({ id: branch.id, name: branch.name }))}
-          />
+          {employee.employmentStatus === "ACTIVE" ? (
+            <MoveEmployeeBranchForm
+              employeeId={employee.id}
+              employeeName={employee.fullName}
+              fingerprintSaved={fingerprints > 0}
+              currentBranchId={employee.branchId}
+              branches={branches.filter((branch) => branch.status === "ACTIVE" || branch.id === employee.branchId).map((branch) => ({ id: branch.id, name: branch.name }))}
+            />
+          ) : null}
           {employee.employmentStatus === "ACTIVE" ? <TerminateEmployeeButton employeeId={employee.id} name={employee.fullName} /> : null}
           <BentoCard title="Delete employee" subtitle="Removes them from every list and closes up the employee codes. Refused while they have unpaid days, an unpaid loan or an approved damage not yet deducted. Their payslips, payments, loans and damages stay on record.">
             <ConfirmDeleteButton

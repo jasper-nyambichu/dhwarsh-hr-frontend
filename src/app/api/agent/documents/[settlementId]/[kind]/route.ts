@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { fetchDocument } from "@/app/lib/api-client";
 import { ApiError } from "@/app/lib/api-error";
+import { SYSTEM_UNREACHABLE } from "@/lib/api-messages";
 import { getSession, refreshSession } from "@/app/lib/session";
 import { hasPermission } from "@/config/roles";
 
@@ -87,7 +88,7 @@ export async function GET(
     const message =
       error instanceof ApiError
         ? error.message
-        : "Unable to reach the service.";
+        : SYSTEM_UNREACHABLE;
 
     return fail(message, status);
   }

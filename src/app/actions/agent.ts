@@ -5,7 +5,8 @@ import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { createAgent, getAgent, updateAgent, uploadDirectorId, type AgentInput } from "@/lib/api/agent";
+import { flashToast } from "@/app/lib/flash";
+import { createAgent, deactivateAgent, getAgent, updateAgent, uploadDirectorId, type AgentInput } from "@/lib/api/agent";
 import type { ActionState, ChargeType } from "@/types";
 
 const FEE_TYPES: ChargeType[] = ["FIXED_MONTHLY", "PER_EMPLOYEE", "PERCENTAGE_OF_GROSS", "CUSTOM"];
@@ -92,6 +93,7 @@ export async function createAgentAction(
     }
   }
 
+  await flashToast("success", "Agent registered.");
   redirect(`/admin/agents/${agentId}`);
 }
 
@@ -127,5 +129,26 @@ export async function updateAgentAction(
   }
 
   revalidatePath("/admin/agents", "layout");
+  await flashToast("success", "Agent saved.");
   redirect(`/admin/agents/${id}`);
+}
+
+/** Admin: mark an agent inactive. The backend also disables their login. */
+export async function deactivateAgentAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("agent:write");
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown agent." };
+
+  try {
+    await deactivateAgent(id);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin/agents", "layout");
+  return { status: "success", data: undefined };
 }

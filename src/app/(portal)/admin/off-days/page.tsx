@@ -1,32 +1,22 @@
+import { format } from "date-fns";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { EmployeeOffDayCards } from "@/components/features/off-days/employee-off-day-cards";
+import { BranchOffCards } from "@/components/features/off-days/branch-off-cards";
 import { MonthNav } from "@/components/features/off-days/off-day-calendar";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
-import { EmptyState } from "@/components/shared/empty-state";
-import { FilterSelect } from "@/components/shared/filter-select";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
+import { getBranches } from "@/lib/api/branch";
 import { getOffDays } from "@/lib/api/off-day";
 import { formatNumber } from "@/lib/format";
-import { groupByEmployee, monthLabel, monthRange, parseMonth } from "@/lib/off-days";
+import { branchOffSummary, groupByEmployee, monthLabel, monthRange, parseMonth } from "@/lib/off-days";
 import { buildHref, first, parseId } from "@/lib/search-params";
 
-/** Unique id and label pairs, by label, for a filter dropdown. */
-function options(rows: { id: number | null; label: string | null }[]): { value: string; label: string }[] {
-  const unique = new Map<number, string>();
-  for (const row of rows) {
-    if (row.id !== null && row.label) unique.set(row.id, row.label);
-  }
-  return [...unique.entries()]
-    .sort(([, a], [, b]) => a.localeCompare(b))
-    .map(([id, label]) => ({ value: String(id), label }));
-}
-
-/** The days agents gave employees off in a month, per employee. */
+/** Off days by branch: a card per branch, each opening that branch's calendar. */
 export default async function AdminOffDaysPage({
   searchParams,
 }: {
@@ -36,96 +26,64 @@ export default async function AdminOffDaysPage({
 
   const params = await searchParams;
   const month = parseMonth(first(params.month));
-  const employee = parseId(first(params.employee));
-  const branch = parseId(first(params.branch));
-  const agent = parseId(first(params.agent));
+  const oldBranchLink = parseId(first(params.branch));
 
-  let offDays: Awaited<ReturnType<typeof getOffDays>>;
+  // Links written before off days moved inside each branch.
+  if (oldBranchLink !== undefined) {
+    redirect(buildHref(`/admin/off-days/branches/${oldBranchLink}`, { month }));
+  }
+
+  let data: { branches: Awaited<ReturnType<typeof getBranches>>; offDays: Awaited<ReturnType<typeof getOffDays>> };
   try {
-    offDays = await getOffDays(monthRange(month));
+    const [branches, offDays] = await Promise.all([getBranches(), getOffDays(monthRange(month))]);
+    data = { branches, offDays };
   } catch (error) {
     return <DataUnavailable title="Off Days" subject="The off days" reason={error instanceof ApiError ? error.message : undefined} />;
   }
 
-  const shown = offDays.filter(
-    (row) =>
-      (employee === undefined || row.employeeId === employee) &&
-      (branch === undefined || row.branchId === branch) &&
-      (agent === undefined || row.agentId === agent),
-  );
-  const groups = groupByEmployee(shown, month);
+  const today = format(new Date(), "yyyy-MM-dd");
+  const groups = groupByEmployee(data.offDays, month);
   const totalDays = groups.reduce((sum, group) => sum + group.totalDays, 0);
-  const filters = { month, employee, branch, agent };
-  const hasFilters = employee !== undefined || branch !== undefined || agent !== undefined;
+
+  const items = data.branches
+    .map((branch) => ({
+      id: branch.id,
+      name: branch.name,
+      code: branch.code,
+      status: branch.status,
+      summary: branchOffSummary(data.offDays.filter((offDay) => offDay.branchId === branch.id), month, today),
+      href: buildHref(`/admin/off-days/branches/${branch.id}`, { month }),
+    }))
+    // A closed branch only earns a card while it still has someone off.
+    .filter((item) => item.status === "ACTIVE" || item.summary.employeesOff > 0)
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <>
       <PageHeader
         title="Off Days"
-        description="The days agents have given their employees off."
+        description="Open a branch to see its employees on the calendar."
         actions={
-          <Link
-            href={buildHref("/admin/off-days/calendar", { month })}
-            className="flex min-h-11 items-center gap-2 rounded-lg bg-primary px-5 py-2 font-body-md text-body-md font-semibold text-on-primary transition-colors hover:bg-primary-container"
-          >
-            <Icon name="calendar_month" className="text-[18px]" />
-            Month Calendar
-          </Link>
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <MonthNav month={month} hrefFor={(target) => buildHref("/admin/off-days", { month: target })} />
+            <Link
+              href={buildHref("/admin/off-days/calendar", { month })}
+              className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-low sm:w-auto"
+            >
+              <Icon name="calendar_month" className="text-[18px]" />
+              All branches
+            </Link>
+          </div>
         }
       />
 
       <div className="flex flex-col gap-gutter">
-        <div className="bento-card flex flex-col gap-3 p-3 lg:flex-row lg:items-center">
-          <MonthNav month={month} hrefFor={(target) => buildHref("/admin/off-days", { ...filters, month: target })} />
-          <form method="get" action="/admin/off-days" className="grid min-w-0 flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <input type="hidden" name="month" value={month} />
-            <FilterSelect
-              name="employee"
-              label="Employee"
-              defaultValue={employee ? String(employee) : ""}
-              options={[{ value: "", label: "All employees" }, ...options(offDays.map((row) => ({ id: row.employeeId, label: row.employeeName })))]}
-            />
-            <FilterSelect
-              name="branch"
-              label="Branch"
-              defaultValue={branch ? String(branch) : ""}
-              options={[{ value: "", label: "All branches" }, ...options(offDays.map((row) => ({ id: row.branchId, label: row.branchName })))]}
-            />
-            <FilterSelect
-              name="agent"
-              label="Agent"
-              defaultValue={agent ? String(agent) : ""}
-              options={[{ value: "", label: "All agents" }, ...options(offDays.map((row) => ({ id: row.agentId, label: row.agentName })))]}
-            />
-            <div className="flex gap-2">
-              <button type="submit" className="h-10 flex-1 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary-container">
-                Apply
-              </button>
-              {hasFilters ? (
-                <Link href={buildHref("/admin/off-days", { month })} className="flex h-10 items-center rounded-lg border border-outline-variant px-3 text-sm text-on-surface-variant hover:bg-surface-container-low">
-                  Reset
-                </Link>
-              ) : null}
-            </div>
-          </form>
-        </div>
-
         <div className="grid grid-cols-2 gap-gutter">
-          <MetricCard label="Employees given off" value={formatNumber(groups.length)} icon="group" hint={monthLabel(month)} />
+          <MetricCard label="Employees off" value={formatNumber(groups.length)} icon="group" hint={monthLabel(month)} />
           <MetricCard label="Days off" value={formatNumber(totalDays)} icon="event_busy" tone="tertiary" hint={monthLabel(month)} />
         </div>
 
-        {groups.length === 0 ? (
-          <div className="bento-card p-4 sm:p-card-padding">
-            <EmptyState
-              symbol="event_available"
-              title={hasFilters ? "No off days match" : "No off days this month"}
-              description={hasFilters ? "Try clearing a filter." : "Days an agent gives an employee off appear here."}
-            />
-          </div>
-        ) : (
-          <EmployeeOffDayCards groups={groups} />
-        )}
+        <BranchOffCards items={items} emptyDescription="Branches appear here once they have been created." />
       </div>
     </>
   );

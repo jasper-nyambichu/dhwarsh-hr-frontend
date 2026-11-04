@@ -6,16 +6,16 @@ import { RequestList } from "@/components/features/staff/request-list";
 import { LiveAttendanceBoard } from "@/components/features/attendance/live-attendance-board";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
-import { EmptyState } from "@/components/shared/empty-state";
 import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
+import { OffListCard } from "@/components/features/off-days/off-list-card";
 import { getAttendanceActivity, getAttendanceSummary } from "@/lib/api/attendance";
 import { getMyBranch } from "@/lib/api/branch";
 import { getEmployeesByBranch } from "@/lib/api/employee";
 import { getMyBranchOffDays } from "@/lib/api/off-day";
 import { getMyStaffRequests } from "@/lib/api/staff";
-import { formatDateRange, formatNumber } from "@/lib/format";
-import { groupByEmployee, monthLabel, monthRange, parseMonth } from "@/lib/off-days";
+import { formatNumber } from "@/lib/format";
+import { groupByEmployee, monthRange, parseMonth } from "@/lib/off-days";
 
 const CARD_LINK =
   "flex rounded-card transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
@@ -86,33 +86,12 @@ export default async function BranchDashboardPage() {
       </div>
 
       <div className="mt-gutter grid grid-cols-1 gap-gutter lg:grid-cols-2">
-        <BentoCard
-          title="Off List This Month"
-          subtitle={monthLabel(month)}
-          action={<Link href="/branch/off-days" className="text-[10px] font-semibold text-primary hover:underline">Open</Link>}
-        >
-          {offList === null ? (
-            <p className="py-2 text-sm text-on-surface-variant">The off list could not be read.</p>
-          ) : offList.length === 0 ? (
-            <EmptyState symbol="event_available" title="Nobody is off this month" description="Days an agent gives your employees off appear here." />
-          ) : (
-            <ul className="flex flex-col divide-y divide-outline-variant/20">
-              {offList.slice(0, 6).map((group) => (
-                <li key={group.employeeId} className="flex items-start justify-between gap-3 py-2.5">
-                  <span className="min-w-0">
-                    <span className="block break-words text-sm font-medium text-on-surface">{group.employeeName}</span>
-                    <span className="block text-xs text-on-surface-variant">
-                      {group.offDays.map((offDay) => formatDateRange(offDay.startDate, offDay.endDate)).join(", ")}
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-xs font-semibold tabular-nums text-on-surface">
-                    {group.totalDays} day{group.totalDays === 1 ? "" : "s"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </BentoCard>
+        <OffListCard
+          groups={offList}
+          month={month}
+          href="/branch/off-days"
+          emptyDescription="Days an agent gives your employees off appear here."
+        />
 
         <BentoCard
           title="Approvals"

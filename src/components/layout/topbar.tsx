@@ -1,13 +1,14 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 
-import { ROLE_LABEL } from "@/config/roles";
+import { ROLE_LABEL, ROLE_NAMESPACE } from "@/config/roles";
 import { Icon } from "@/components/ui/icon";
 import { useNav } from "@/components/layout/nav-context";
 import { NotificationBell } from "@/components/layout/notification-bell";
-import { initials } from "@/lib/format";
+import { UserAvatar } from "@/components/shared/user-avatar";
 import { cn } from "@/lib/utils";
 import type { CurrentUser } from "@/types";
 
@@ -118,9 +119,12 @@ export function Topbar({
             <Icon name="mail" />
           </button>
 
-          {/* Profile. Initials rather than a photo — `employees.passport_photo_url`
-              is not on the session, and the rail already owns sign-out. */}
-          <div className="flex items-center gap-3 border-outline-variant/30 sm:border-l sm:pl-4">
+          {/* Opens their profile. The rail already owns sign-out. */}
+          <Link
+            href={`${ROLE_NAMESPACE[user.role]}/profile`}
+            aria-label="Your profile"
+            className="flex items-center gap-3 border-outline-variant/30 sm:border-l sm:pl-4"
+          >
             <div className="hidden text-right lg:block">
               <p className="max-w-[16ch] truncate font-body-md text-body-md font-semibold text-on-surface">
                 {label}
@@ -129,13 +133,8 @@ export function Topbar({
                 {ROLE_LABEL[user.role]}
               </p>
             </div>
-            <span
-              aria-hidden
-              className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-container text-[11px] font-bold text-on-primary sm:size-10"
-            >
-              {initials(label)}
-            </span>
-          </div>
+            <UserAvatar name={label} photoVersion={user.photoVersion} size={36} />
+          </Link>
         </div>
       </div>
 

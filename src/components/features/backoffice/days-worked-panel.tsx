@@ -11,7 +11,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { getBranches } from "@/lib/api/branch";
 import { getDaysWorked } from "@/lib/api/days-worked";
 import { formatDate, formatNumber } from "@/lib/format";
-import { first, parseDate, parseId } from "@/lib/search-params";
+import { DateInput } from "@/components/shared/date-input";
+import { Icon } from "@/components/ui/icon";
+import { buildHref, first, parseDate, parseId } from "@/lib/search-params";
 import type { DaysWorkedResponse } from "@/types/backoffice";
 
 const FIELD =
@@ -62,6 +64,16 @@ export async function DaysWorkedPanel({
         description="The days each employee reported, as locked by the Back Office in the desktop application. Agent payments only use locked figures."
       />
 
+      {first(params.returnTo) === "payments" ? (
+        <Link
+          href={`${buildHref("/admin/pay-settings", { periodStart: start, periodEnd: end })}#calculate`}
+          className="mb-4 inline-flex min-h-10 items-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low"
+        >
+          <Icon name="arrow_back" className="text-[18px]" />
+          Back to Calculate Agent Payments
+        </Link>
+      ) : null}
+
       <form
         method="get"
         action={basePath}
@@ -78,14 +90,14 @@ export async function DaysWorkedPanel({
             ))}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-outline">
-          From
-          <input type="date" name="start" defaultValue={start} className={FIELD} />
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-outline">
-          To
-          <input type="date" name="end" defaultValue={end} className={FIELD} />
-        </label>
+        <div className="flex flex-col gap-1 text-xs text-outline">
+          <span>From</span>
+          <DateInput name="start" defaultValue={start} aria-label="From" className={FIELD} />
+        </div>
+        <div className="flex flex-col gap-1 text-xs text-outline">
+          <span>To</span>
+          <DateInput name="end" defaultValue={end} aria-label="To" className={FIELD} />
+        </div>
         <div className="flex gap-2">
           <button
             type="submit"

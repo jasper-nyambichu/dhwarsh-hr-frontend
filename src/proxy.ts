@@ -18,6 +18,7 @@ import { decrypt } from "@/app/lib/session";
 /** Reachable without a session — one per principal type, plus recovery. */
 const PUBLIC_PATHS = [
   "/login",
+  "/branch-login",
   "/agent-login",
   "/forgot-password",
   "/reset-password",
@@ -45,8 +46,9 @@ export async function proxy(request: NextRequest) {
       return NextResponse.next();
     }
 
-    // Staff login is the default door; the footer links cover the others.
-    const loginUrl = new URL("/login", request.url);
+    // Each portal's own login page. The main login is the default door.
+    const door = pathname.startsWith("/branch") ? "/branch-login" : pathname.startsWith("/agent") ? "/agent-login" : "/login";
+    const loginUrl = new URL(door, request.url);
     if (pathname !== "/") {
       loginUrl.searchParams.set("next", pathname);
     }

@@ -1,6 +1,7 @@
 import "server-only";
 
 import { env } from "@/config/env";
+import { REQUEST_REFUSED, SESSION_EXPIRED, SYSTEM_UNREACHABLE } from "@/lib/api-messages";
 import type { Paginated } from "@/types";
 
 import { ApiError, toApiError } from "./api-error";
@@ -83,7 +84,7 @@ async function request<T>(
     const session = await getSession();
 
     if (!session) {
-      throw new ApiError(401, "Your session has expired. Please sign in again.");
+      throw new ApiError(401, SESSION_EXPIRED);
     }
 
     headers.set("Authorization", `Bearer ${session.accessToken}`);
@@ -146,7 +147,7 @@ async function request<T>(
   if (!payload.success) {
     throw new ApiError(
       response.status === 200 ? 400 : response.status,
-      payload.message?.trim() || "The request was rejected.",
+      payload.message?.trim() || REQUEST_REFUSED,
     );
   }
 
@@ -169,7 +170,8 @@ async function send(url: string, init: RequestInit): Promise<Response> {
     return await fetch(url, init);
   } catch (cause) {
     if (cause instanceof Error && cause.name === "AbortError") throw cause;
-    throw new ApiError(503, "Unable to reach the server.");
+    console.error(`Backend unreachable: ${url}`, cause);
+    throw new ApiError(503, SYSTEM_UNREACHABLE);
   }
 }
 
@@ -202,10 +204,10 @@ export async function fetchDocument(
   const session = await getSession();
 
   if (!session) {
-    throw new ApiError(401, "Your session has expired. Please sign in again.");
+    throw new ApiError(401, SESSION_EXPIRED);
   }
 
-  const response = await fetch(buildUrl(path, options.query), {
+  const response = await send(buildUrl(path, options.query), {
     headers: {
       Authorization: `Bearer ${session.accessToken}`,
       Accept: "*/*",

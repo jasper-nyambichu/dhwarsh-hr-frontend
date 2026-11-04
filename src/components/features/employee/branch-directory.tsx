@@ -21,6 +21,10 @@ export type BranchCardItem = {
   branch: BranchResponse;
   /** Null when this branch's list could not be read. */
   employeeCount: number | null;
+  /** One more figure on the card, such as what the employees there should receive. */
+  detail?: { label: string; value: string };
+  /** Kept when opening the branch, such as the chosen pay period. */
+  query?: string;
 };
 
 export function BranchCards({ items, basePath }: { items: BranchCardItem[]; basePath: string }) {
@@ -30,10 +34,10 @@ export function BranchCards({ items, basePath }: { items: BranchCardItem[]; base
 
   return (
     <div className="grid grid-cols-1 gap-gutter md:grid-cols-2 xl:grid-cols-3">
-      {items.map(({ branch, employeeCount }) => (
+      {items.map(({ branch, employeeCount, detail, query }) => (
         <Link
           key={branch.id}
-          href={`${basePath}/${branch.id}`}
+          href={`${basePath}/${branch.id}${query ?? ""}`}
           className="bento-card group flex min-w-0 flex-col gap-4 p-4 transition-colors hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary sm:p-card-padding"
         >
           <div className="flex items-start justify-between gap-3">
@@ -46,6 +50,12 @@ export function BranchCards({ items, basePath }: { items: BranchCardItem[]; base
             <h2 className="break-words text-lg font-bold text-on-surface group-hover:text-primary-container">{branch.name}</h2>
             <p className="font-mono text-xs text-outline">{branch.code}</p>
           </div>
+          {detail ? (
+            <div className="rounded-lg bg-surface-container-low p-3">
+              <p className="text-[11px] text-on-surface-variant">{detail.label}</p>
+              <p className="text-lg font-bold tabular-nums text-on-surface">{detail.value}</p>
+            </div>
+          ) : null}
           <p className="mt-auto flex items-center justify-between gap-2 border-t border-outline-variant/40 pt-3 text-sm text-on-surface-variant">
             <span>
               {employeeCount === null ? "Employees could not be read" : `${formatNumber(employeeCount)} employee${employeeCount === 1 ? "" : "s"}`}

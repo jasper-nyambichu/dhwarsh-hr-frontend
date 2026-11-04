@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { fetchDocument } from "@/app/lib/api-client";
 import { ApiError } from "@/app/lib/api-error";
+import { SYSTEM_UNREACHABLE } from "@/lib/api-messages";
 import { getSession, refreshSession } from "@/app/lib/session";
 import { hasAnyPermission } from "@/config/roles";
 
@@ -50,7 +51,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       }
     }
   } catch (error) {
-    return fail(error instanceof ApiError ? error.message : "Unable to reach the service.", error instanceof ApiError ? error.status : 502);
+    return fail(error instanceof ApiError ? error.message : SYSTEM_UNREACHABLE, error instanceof ApiError ? error.status : 502);
   }
 
   const disposition = request.nextUrl.searchParams.get("download") === "1" ? "attachment" : "inline";

@@ -12,10 +12,12 @@ export function offDayDates(offDay: OffDayResponse): string {
 export function EmployeeOffDayCards({
   groups,
   showAgent = true,
+  showBranch = true,
   action,
 }: {
   groups: EmployeeOffDays[];
   showAgent?: boolean;
+  showBranch?: boolean;
   action?: (offDay: OffDayResponse) => ReactNode;
 }) {
   return (
@@ -29,7 +31,7 @@ export function EmployeeOffDayCards({
             <div className="min-w-0 flex-1">
               <p className="break-words font-semibold text-on-surface">{group.employeeName}</p>
               <p className="break-words text-xs text-on-surface-variant">
-                {[group.employeeNumber, group.branchName, showAgent ? group.agentName : null].filter(Boolean).join(" · ") || "—"}
+                {[group.employeeNumber, showBranch ? group.branchName : null, showAgent ? group.agentName : null].filter(Boolean).join(" · ") || "—"}
               </p>
             </div>
             <span className="shrink-0 rounded-full bg-blue-soft px-2.5 py-0.5 text-xs font-bold tabular-nums text-primary-container">

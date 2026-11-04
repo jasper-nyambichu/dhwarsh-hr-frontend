@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useState, type ReactNode } from "react";
 
 import { deleteUserAction, saveCredentialsAction, type SavedCredentials } from "@/app/actions/user";
 import { BentoCard } from "@/components/shared/bento-card";
@@ -44,7 +44,7 @@ function ShareCredentials({ saved, signInPath }: { saved: SavedCredentials; sign
           </div>
         ))}
       </dl>
-      <button
+      <button data-live=""
         type="button"
         onClick={copy}
         className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-low"
@@ -69,21 +69,25 @@ export function CredentialCard({
   role,
   agentId,
   signInPath = "/login",
+  children,
 }: {
   title: string;
   subtitle?: string;
   /** Finishes "Whoever has these can sign in to …". */
   where: string;
-  account: { id: number; username: string; active: boolean } | null;
+  account: { id: number; username: string; email?: string | null; active: boolean } | null;
   branchId?: number;
   role?: Extract<Role, "BRANCH_MANAGER" | "BACK_OFFICE">;
   agentId?: number;
   signInPath?: string;
+  /** Anything else about this login, shown below its credentials. */
+  children?: ReactNode;
 }) {
   const [state, formAction, pending] = useActionState<ActionState<SavedCredentials>, FormData>(saveCredentialsAction, { status: "idle" });
   // Held here because React empties a form after its action, and a refused username should stay to be corrected.
   const [username, setUsername] = useState(account?.username ?? "");
   const [password, setPassword] = useState("");
+  const [email, setEmail] = useState(account?.email ?? "");
   const [lastState, setLastState] = useState(state);
   if (state !== lastState) {
     setLastState(state);
@@ -141,6 +145,18 @@ export function CredentialCard({
           error={errors?.username?.[0]}
         />
 
+        <TextField
+          label="Email"
+          name="email"
+          type="email"
+          maxLength={150}
+          autoComplete="off"
+          hint="Where their password reset code is sent. Without one they cannot reset it themselves."
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+          error={errors?.email?.[0]}
+        />
+
         <div>
           <label htmlFor={`password-${role ?? "agent"}-${branchId ?? agentId ?? account?.id}`} className="mb-1 block font-table-header text-table-header uppercase text-outline">
             {account ? "New password" : "Password"}
@@ -161,7 +177,7 @@ export function CredentialCard({
           {passwordError ? <p className="mt-1 text-xs text-error">{passwordError}</p> : null}
         </div>
 
-        {state.status === "error" ? <FormMessage state={state} /> : null}
+        <FormMessage state={state} successText="Credentials saved." />
 
         <button
           type="submit"
@@ -173,6 +189,7 @@ export function CredentialCard({
       </ConfirmForm>
 
       {state.status === "success" ? <ShareCredentials saved={state.data} signInPath={signInPath} /> : null}
+      {children}
     </BentoCard>
   );
 }

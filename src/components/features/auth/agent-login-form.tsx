@@ -30,7 +30,7 @@ export function AgentLoginForm() {
   const error = state.status === "error" ? state : undefined;
   const fieldErrors = error?.fieldErrors;
 
-  // Success redirects; only failures need announcing.
+  // Success redirects, and the login action queues its toast for the next page.
   useActionToast(state);
 
   return (
@@ -85,7 +85,7 @@ export function AgentLoginForm() {
             Password
           </label>
           <Link
-            href="/forgot-password"
+            href="/forgot-password?from=agent"
             className="font-label-rail text-label-rail text-primary transition-colors hover:text-on-primary-fixed-variant"
           >
             Forgot password?

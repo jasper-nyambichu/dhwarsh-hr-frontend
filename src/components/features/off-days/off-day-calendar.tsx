@@ -46,7 +46,18 @@ export function MonthNav({ month, hrefFor }: { month: string; hrefFor: (month: s
  * The whole month, Monday first. A phone has room for a count in each day, a wide screen for names;
  * the list underneath gives every name and reason at any width.
  */
-export function OffDayCalendar({ month, offDays }: { month: string; offDays: OffDayResponse[] }) {
+export function OffDayCalendar({
+  month,
+  offDays,
+  showBranch = true,
+  showAgent = true,
+}: {
+  month: string;
+  offDays: OffDayResponse[];
+  /** Left off once the page is already about one branch. */
+  showBranch?: boolean;
+  showAgent?: boolean;
+}) {
   const firstOfMonth = parse(`${month}-01`, "yyyy-MM-dd", new Date());
   const days = eachDayOfInterval({
     start: startOfWeek(startOfMonth(firstOfMonth), { weekStartsOn: 1 }),
@@ -112,7 +123,7 @@ export function OffDayCalendar({ month, offDays }: { month: string; offDays: Off
               <a
                 key={key}
                 href={`#off-${key}`}
-                aria-label={`${format(day, "d MMMM")}: ${people.length} off`}
+                aria-label={`${format(day, "dd MMMM yyyy")}: ${people.length} off`}
                 className={cn(cellClass, "transition-colors hover:bg-surface-container-low")}
               >
                 {content}
@@ -126,18 +137,18 @@ export function OffDayCalendar({ month, offDays }: { month: string; offDays: Off
 
       <BentoCard title="Who is off" subtitle={`${formatNumber(daysWithPeople.length)} day${daysWithPeople.length === 1 ? "" : "s"} with someone off in ${monthLabel(month)}`}>
         {daysWithPeople.length === 0 ? (
-          <EmptyState symbol="event_available" title="Nobody is off this month" description="Days an agent gives an employee off appear here." />
+          <EmptyState symbol="event_available" title="Nobody is off this month" description="Days given off appear here." />
         ) : (
           <ul className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {daysWithPeople.map(([key, people]) => (
               <li key={key} id={`off-${key}`} className="min-w-0 scroll-mt-24 rounded-lg border border-outline-variant/40 p-3">
-                <p className="font-semibold text-on-surface">{format(parse(key, "yyyy-MM-dd", new Date()), "EEE d MMM")}</p>
+                <p className="font-semibold text-on-surface">{format(parse(key, "yyyy-MM-dd", new Date()), "EEE, dd MMM yyyy")}</p>
                 <ul className="mt-2 flex flex-col gap-2">
                   {people.map((person) => (
                     <li key={person.id} className="min-w-0 text-sm">
                       <span className="block break-words font-medium text-on-surface">{person.employeeName ?? `Employee #${person.employeeId}`}</span>
                       <span className="block break-words text-xs text-on-surface-variant">
-                        {[person.branchName, person.agentName].filter(Boolean).join(" · ") || "—"}
+                        {[person.employeeNumber, showBranch ? person.branchName : null, showAgent ? person.agentName : null].filter(Boolean).join(" · ") || "—"}
                       </span>
                     </li>
                   ))}

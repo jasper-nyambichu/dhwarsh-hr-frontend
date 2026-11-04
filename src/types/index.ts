@@ -215,6 +215,7 @@ export type CurrentUser = {
   branchId: number | null;
   active: boolean;
   mustChangePassword: boolean;
+  photoVersion?: number | null;
 };
 
 export type UserAccount = CurrentUser & AuditFields;
@@ -993,9 +994,8 @@ export type UserSummaryResponse = {
   username: string;
   role: Role;
   displayName: string | null;
+  email: string | null;
   branchId: number | null;
   agentId: number | null;
   active: boolean;
-  /** A Branch Manager the Admin has allowed to run the agent payment calculation. */
-  canRunPayments: boolean;
 };

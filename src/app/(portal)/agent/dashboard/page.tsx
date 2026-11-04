@@ -1,7 +1,9 @@
+import { ApiError } from "@/app/lib/api-error";
 import Link from "next/link";
 
 import { requirePermission } from "@/app/lib/dal";
 import { QuickAccess, type QuickAccessItem } from "@/components/features/dashboard/quick-access";
+import { OffListCard } from "@/components/features/off-days/off-list-card";
 import { AlertSpotlight } from "@/components/shared/alert-spotlight";
 import { BarChart, type BarDatum } from "@/components/shared/bar-chart";
 import { BentoCard } from "@/components/shared/bento-card";
@@ -13,9 +15,10 @@ import { chargeSummary, settlementSubtotal } from "@/lib/agent-format";
 import { getMyAgent } from "@/lib/api/agent";
 import { getAgentLoans, getMyAdvances, getMyPaymentRequests } from "@/lib/api/agent-money";
 import { getMyAgentAttendanceToday } from "@/lib/api/attendance";
-import { getBranches } from "@/lib/api/branch";
+import { getMyOffDays } from "@/lib/api/off-day";
 import { getMyAgentPayments } from "@/lib/api/settlement";
 import { getMyStaffRequests } from "@/lib/api/staff";
+import { groupByEmployee, monthRange, parseMonth } from "@/lib/off-days";
 import {
   formatDate,
   formatDateRange,
@@ -62,18 +65,19 @@ export default async function AgentDashboardPage() {
       <DataUnavailable
         title="Dashboard"
         subject="Your dashboard"
-        reason={error instanceof Error ? error.message : undefined}
+        reason={error instanceof ApiError ? error.message : undefined}
       />
     );
   }
 
-  const [advancesResult, staffRequestsResult, paymentRequestsResult, loansResult, todayResult, branchesResult] = await Promise.allSettled([
+  const month = parseMonth(undefined);
+  const [advancesResult, staffRequestsResult, paymentRequestsResult, loansResult, todayResult, offDaysResult] = await Promise.allSettled([
     getMyAdvances(),
     getMyStaffRequests(),
     getMyPaymentRequests(),
     getAgentLoans(),
     getMyAgentAttendanceToday(),
-    getBranches(),
+    getMyOffDays(monthRange(month)),
   ]);
 
   const { agent, summaries } = core;
@@ -82,7 +86,8 @@ export default async function AgentDashboardPage() {
   const paymentRequests = value(paymentRequestsResult);
   const loans = value(loansResult);
   const today = value(todayResult);
-  const branches = value(branchesResult);
+  const offDays = value(offDaysResult);
+  const offList = offDays ? groupByEmployee(offDays, month) : null;
 
   const latest = summaries[0];
 
@@ -98,9 +103,9 @@ export default async function AgentDashboardPage() {
   const toRecord = (paymentRequests ?? []).filter((r) => r.status === "RELEASED" && r.remaining > 0).length;
 
   const hints: Record<string, Pick<QuickAccessItem, "hint" | "attention">> = {
-    "/agent/staff": { hint: `${formatNumber(agent.employeeCount)} deployed` },
+    "/agent/employees": { hint: `${formatNumber(agent.employeeCount)} employees` },
     "/agent/requests": { hint: `${formatNumber(pendingStaff)} awaiting approval`, attention: pendingStaff },
-    "/agent/off-days": { hint: "Give your employees days off" },
+    "/agent/off-days": { hint: offList ? `${formatNumber(offList.length)} off this month` : "Give your employees days off" },
     "/agent/summaries": { hint: `${formatNumber(summaries.length)} statements` },
     "/agent/invoices": { hint: `${formatNumber(summaries.length)} invoices` },
     "/agent/payslips": { hint: "What each employee is paid" },
@@ -111,8 +116,7 @@ export default async function AgentDashboardPage() {
   };
 
   const quickAccess: QuickAccessItem[] = [
-    { href: "/agent/dashboard/branches", title: "Branches", icon: "location_city", hint: branches ? `${formatNumber(branches.length)} branches` : "Your employees by branch" },
-    { href: "/agent/staff/new", title: "Add Employee", icon: "person_add", hint: "Sent to an Admin to approve" },
+    { href: "/agent/employees/new", title: "Add Employee", icon: "person_add", hint: "Sent to an Admin to approve" },
     ...navigationFor(session.role)
       .filter((item) => item.href !== "/agent/dashboard")
       .map((item) => ({ href: item.href, title: item.title, icon: item.icon, ...(hints[item.href] ?? { hint: `Open ${item.title}` }) })),
@@ -139,21 +143,21 @@ export default async function AgentDashboardPage() {
             icon="pending_actions"
             tone={awaiting > 0 ? "amber" : "primary"}
             accent={awaiting > 0}
-            hint={`${formatNumber(pendingStaff)} staff · ${formatNumber(pendingMoney + pendingAdvances + pendingLoans)} money`}
+            hint={`${formatNumber(pendingStaff)} employees · ${formatNumber(pendingMoney + pendingAdvances + pendingLoans)} money`}
           />
         </Link>
-        <Link href="/agent/staff" className={CARD_LINK}>
+        <Link href="/agent/employees" className={CARD_LINK}>
           <MetricCard
             className="w-full hover:bg-surface-container-low"
             label="Clocked In Now"
             value={today ? formatNumber(today.currentlyIn) : "—"}
             icon="schedule"
             tone="primary"
-            hint={today ? `${formatNumber(today.reported)} of ${formatNumber(today.employees)} of your staff reported today` : "Could not be read"}
+            hint={today ? `${formatNumber(today.reported)} of ${formatNumber(today.employees)} of your employees reported today` : "Could not be read"}
           />
         </Link>
-        <Link href="/agent/staff" className={CARD_LINK}>
-          <MetricCard className="w-full hover:bg-surface-container-low" label="Deployed Staff" value={formatNumber(agent.employeeCount)} icon="group" tone="primary" />
+        <Link href="/agent/employees" className={CARD_LINK}>
+          <MetricCard className="w-full hover:bg-surface-container-low" label="Employees" value={formatNumber(agent.employeeCount)} icon="group" tone="primary" />
         </Link>
         <Link href="/agent/summaries" className={CARD_LINK}>
           <MetricCard
@@ -178,6 +182,15 @@ export default async function AgentDashboardPage() {
       ) : null}
 
       <QuickAccess items={quickAccess} />
+
+      <OffListCard
+        groups={offList}
+        month={month}
+        href="/agent/off-days"
+        showBranch
+        wide
+        emptyDescription="Days you give your employees off appear here."
+      />
 
       <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
         <BentoCard className="flex min-h-64 flex-col lg:col-span-8" title="Amount Payable Trend" subtitle="Last 6 periods" bodyClassName="flex flex-1 flex-col rounded-lg bg-surface-container-low/50 p-2">
@@ -219,7 +232,7 @@ export default async function AgentDashboardPage() {
               <thead>
                 <tr>
                   <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Period</th>
-                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Staff</th>
+                  <th className="pb-3 font-table-header text-table-header uppercase text-outline">Employees</th>
                   <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Before VAT</th>
                   <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Payable</th>
                 </tr>

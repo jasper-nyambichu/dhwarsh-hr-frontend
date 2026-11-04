@@ -5,8 +5,9 @@ import { revalidatePath } from "next/cache";
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { updatePaySettings } from "@/lib/api/pay-settings";
-import { calculateAgentPayments } from "@/lib/api/settlement";
+import { calculateAgentPayments, getAgentPaymentReadiness } from "@/lib/api/settlement";
 import type { ActionState } from "@/types";
+import type { AgentPaymentReadiness } from "@/types/agent-portal";
 import {
   CONTRIBUTION_MODES,
   type ContributionMode,
@@ -100,6 +101,20 @@ export async function savePaySettingsAction(
   return { status: "success", data: undefined };
 }
 
+/** Admin: reads what each branch still needs for a period, before anything is calculated. */
+export async function checkAgentPaymentPeriodAction(
+  periodStart: string,
+  periodEnd: string,
+): Promise<ActionState<AgentPaymentReadiness>> {
+  await requirePermission("agentpayment:run");
+
+  try {
+    return { status: "success", data: await getAgentPaymentReadiness(periodStart, periodEnd) };
+  } catch (error) {
+    return toActionError(error);
+  }
+}
+
 /**
  * Admin: work out what each agent is paid for a period. All or nothing: if one employee has no locked
  * days, or an agent was already paid for part of the period, nothing changes and the reason is shown.
@@ -108,7 +123,6 @@ export async function calculateAgentPaymentsAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  // A Branch Manager reaches this role check too; the backend refuses one the Admin has not allowed.
   await requirePermission("agentpayment:run");
 
   const periodStart = String(formData.get("periodStart") ?? "");
@@ -131,6 +145,5 @@ export async function calculateAgentPaymentsAction(
 
   revalidatePath("/admin", "layout");
   revalidatePath("/agent", "layout");
-  revalidatePath("/branch", "layout");
   return { status: "success", data: undefined };
 }

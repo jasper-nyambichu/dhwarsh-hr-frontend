@@ -6,6 +6,7 @@ import {
   QueryClientProvider,
   isServer,
 } from "@tanstack/react-query";
+import { FlashToastListener } from "@/components/shared/flash-toast-listener";
 import { Toaster } from "@/components/ui/toaster";
 
 function makeQueryClient() {
@@ -48,6 +49,7 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
+      <FlashToastListener />
       <Toaster />
     </QueryClientProvider>
   );

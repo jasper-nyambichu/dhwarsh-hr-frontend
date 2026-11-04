@@ -18,20 +18,26 @@ import type { ActionState } from "@/types";
  * "Username" and posted as `username` so the form matches what the backend
  * can actually authenticate. Revert to email only once a column exists.
  */
-export function StaffLoginForm() {
+export function StaffLoginForm({
+  action = login,
+  forgotHref = "/forgot-password",
+}: {
+  action?: (previous: ActionState, formData: FormData) => Promise<ActionState>;
+  forgotHref?: string;
+}) {
   const searchParams = useSearchParams();
   const next = searchParams.get("next") ?? "";
 
   const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    login,
+    action,
     { status: "idle" },
   );
 
   const error = state.status === "error" ? state : undefined;
   const fieldErrors = error?.fieldErrors;
 
-  // Success redirects, so only failures are announced. The inline banner stays
-  // — the toast is the version a user on a small screen actually sees.
+  // Success redirects, and the login action queues its toast for the next page.
+  // The inline banner stays — the toast is what a user on a small screen sees.
   useActionToast(state);
 
   return (
@@ -107,7 +113,7 @@ export function StaffLoginForm() {
         </label>
 
         <Link
-          href="/forgot-password"
+          href={forgotHref}
           className="font-body-md text-body-md font-semibold text-primary transition-colors hover:text-primary-container"
         >
           Forgot password?

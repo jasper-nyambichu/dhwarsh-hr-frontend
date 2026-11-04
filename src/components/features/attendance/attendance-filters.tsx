@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 
+import { DateInput } from "@/components/shared/date-input";
 import { Icon } from "@/components/ui/icon";
 import { cn } from "@/lib/utils";
 import type { AttendanceBranchSummary } from "@/types";
@@ -115,19 +116,12 @@ export function AttendanceFilters({
       </label>
       ) : null}
 
-      <label className="relative flex items-center">
-        <span className="sr-only">Attendance date</span>
-        <Icon
-          name="calendar_month"
-          className="pointer-events-none absolute left-2.5 text-[18px] text-primary"
-        />
-        <input
-          type="date"
-          value={date}
-          onChange={(event) => navigate({ date: event.target.value })}
-          className="rounded-lg border border-outline-variant bg-surface-container-lowest py-1.5 pl-9 pr-3 font-body-md text-body-md text-on-surface transition-colors hover:bg-surface-container-low focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
-        />
-      </label>
+      <DateInput
+        aria-label="Attendance date"
+        value={date}
+        onChange={(next) => navigate({ date: next })}
+        className="rounded-lg border border-outline-variant bg-surface-container-lowest px-3 py-1.5 font-body-md text-body-md text-on-surface transition-colors hover:bg-surface-container-low focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+      />
 
       {hasFilter ? (
         <Link

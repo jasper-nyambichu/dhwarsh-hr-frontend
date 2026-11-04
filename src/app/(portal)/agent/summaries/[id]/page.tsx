@@ -1,3 +1,4 @@
+import { ApiError } from "@/app/lib/api-error";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
@@ -53,7 +54,7 @@ export default async function AgentSummaryDetailPage({ params }: { params: Promi
       <DataUnavailable
         title="Payment Summary"
         subject="This payment summary"
-        reason={error instanceof Error ? error.message : undefined}
+        reason={error instanceof ApiError ? error.message : undefined}
       />
     );
   }

@@ -31,10 +31,17 @@ export function getDevicesByBranch(
 /**
  * Deactivates a terminal. SUPER_ADMIN and ADMIN.
  *
- * Registration (`POST /attendance/devices`) is deliberately absent: it mints a
- * device token that is shown exactly once, so it belongs with the enrolment
- * flow rather than here.
  */
+/** Registers a terminal. The token comes back this once: only its scrambled form is stored. */
+export function registerDevice(branchId: number, deviceSerial: string): Promise<{ id: number; deviceSerial: string; plaintextToken: string }> {
+  return api.post(`/attendance/devices`, { branchId, deviceSerial });
+}
+
+/** How many of this employee's fingers are saved centrally, and so follow them to another branch. */
+export function countEmployeeFingerprints(employeeId: number): Promise<number> {
+  return api.get<number>(`/attendance/enrollment/employees/${employeeId}/fingerprints/count`);
+}
+
 export function deactivateDevice(deviceId: number): Promise<void> {
   return api.put<void>(`/attendance/devices/${deviceId}/deactivate`);
 }

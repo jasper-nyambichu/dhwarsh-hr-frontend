@@ -6,6 +6,24 @@ import { toast } from "@/lib/toast";
 import type { ActionState } from "@/types";
 
 /**
+ * Wraps a Server Action so its result is toasted as soon as it returns. Use it instead of the hook when
+ * success removes the form from the page, such as deleting a row: nothing is left to run an effect.
+ */
+export function withToast<T>(
+  action: (previous: ActionState<T>, formData: FormData) => Promise<ActionState<T>>,
+  successText: string,
+) {
+  return async (previous: ActionState<T>, formData: FormData): Promise<ActionState<T>> => {
+    const result = await action(previous, formData);
+
+    if (result?.status === "success") toast.success(successText);
+    else if (result?.status === "error" && !result.fieldErrors) toast.error(result.message);
+
+    return result;
+  };
+}
+
+/**
  * Announces the result of a Server Action as a toast.
  *
  * Every wired form in the app returns `ActionState` from `useActionState`, so

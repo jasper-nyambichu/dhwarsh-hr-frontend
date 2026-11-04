@@ -4,11 +4,12 @@ import { useActionState } from "react";
 
 import { cancelDamageAction } from "@/app/actions/damage";
 import { ConfirmForm } from "@/components/shared/confirm-form";
+import { withToast } from "@/hooks/use-action-toast";
 import type { ActionState } from "@/types";
 
 /** Admin: cancel one damage that has not been deducted. It asks first, because it cannot be brought back. */
 export function CancelDamageButton({ id, amount, description }: { id: number; amount: string; description: string }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(cancelDamageAction, { status: "idle" });
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(withToast(cancelDamageAction, "Damage cancelled."), { status: "idle" });
 
   return (
     <ConfirmForm

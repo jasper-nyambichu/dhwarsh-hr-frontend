@@ -70,7 +70,7 @@ export function PasswordField({
         )}
       />
 
-      <button
+      <button data-live=""
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? "Hide password" : "Show password"}

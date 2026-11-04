@@ -22,16 +22,6 @@ import type { Role, UserSummaryResponse } from "@/types";
  * no paging on this endpoint, so a paged table here would be theatre.
  */
 
-/** The signed-in account as it stands now. */
-export function getMe(signal?: AbortSignal): Promise<UserSummaryResponse> {
-  return api.get<UserSummaryResponse>("/users/me", { signal });
-}
-
-/** Admin: lets a Branch Manager run the agent payment calculation, or takes it back. */
-export function setRunPayments(userId: number, allowed: boolean): Promise<UserSummaryResponse> {
-  return api.put<UserSummaryResponse>(`/users/${userId}/run-payments`, { allowed });
-}
-
 /** Every account. SUPER_ADMIN and ADMIN. */
 export function getUsers(signal?: AbortSignal): Promise<UserSummaryResponse[]> {
   return api.get<UserSummaryResponse[]>("/users", { signal });
@@ -42,7 +32,7 @@ export function deleteUser(userId: number): Promise<void> {
   return api.delete<void>(`/users/${userId}`);
 }
 
-export type Credentials = { username: string; password?: string };
+export type Credentials = { username: string; password?: string; email?: string };
 
 /** The Admin sets a branch's Branch Manager or Back Office login. Refused if the branch already has one. */
 export function createBranchLogin(branchId: number, role: Role, credentials: Credentials): Promise<UserSummaryResponse> {
@@ -59,9 +49,9 @@ export function changeCredentials(userId: number, credentials: Credentials): Pro
   return api.put<UserSummaryResponse>(`/users/${userId}/credentials`, credentials);
 }
 
-/** Which branch a Back Office officer works at. Their dashboard then shows that branch only. */
-export function assignUserBranch(userId: number, branchId: number): Promise<UserSummaryResponse> {
-  return api.put<UserSummaryResponse>(`/users/${userId}/branch`, { branchId });
+/** Moves a Branch Manager or Back Office login to a branch. From their next request they see that branch only. */
+export function assignUserBranch(userId: number, branchId: number, swap = false): Promise<UserSummaryResponse> {
+  return api.put<UserSummaryResponse>(`/users/${userId}/branch`, { branchId, swap });
 }
 
 /**

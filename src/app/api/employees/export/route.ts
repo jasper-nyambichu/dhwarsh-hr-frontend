@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 
 import { fetchDocument } from "@/app/lib/api-client";
 import { ApiError } from "@/app/lib/api-error";
+import { SYSTEM_UNREACHABLE } from "@/lib/api-messages";
 import { getSession, refreshSession } from "@/app/lib/session";
 import { hasPermission } from "@/config/roles";
 
@@ -61,7 +62,7 @@ export async function GET(request: NextRequest) {
       }
     }
   } catch (error) {
-    return fail(error instanceof ApiError ? error.message : "Unable to reach the service.", error instanceof ApiError ? error.status : 502);
+    return fail(error instanceof ApiError ? error.message : SYSTEM_UNREACHABLE, error instanceof ApiError ? error.status : 502);
   }
 
   return new Response(file.blob, {

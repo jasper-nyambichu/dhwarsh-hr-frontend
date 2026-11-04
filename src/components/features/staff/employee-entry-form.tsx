@@ -62,7 +62,6 @@ export function EmployeeEntryForm({
             <option value="Female">Female</option>
             <option value="Other">Other</option>
           </SelectField>
-          <TextField label="Date of birth" name="dateOfBirth" type="date" />
           <TextField label="Phone" name="phone" type="tel" />
           <TextField className="sm:col-span-2" label="Email" name="email" type="email" error={errors?.email?.[0]} />
         </div>

@@ -5,11 +5,12 @@ import { useActionState } from "react";
 import { deleteDepartmentAction } from "@/app/actions/department";
 import { ConfirmForm } from "@/components/shared/confirm-form";
 import { Icon } from "@/components/ui/icon";
+import { withToast } from "@/hooks/use-action-toast";
 import type { ActionState } from "@/types";
 
 /** Delete a department. The backend refuses while employees are still assigned, and says so. */
 export function DeleteDepartmentButton({ id, name }: { id: number; name: string }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(deleteDepartmentAction, {
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(withToast(deleteDepartmentAction, `${name} deleted.`), {
     status: "idle",
   });
 

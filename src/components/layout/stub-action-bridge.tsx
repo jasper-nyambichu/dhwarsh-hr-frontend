@@ -49,6 +49,10 @@ export function StubActionBridge() {
       const control = target?.closest?.("button, a, [role='button']");
       if (!(control instanceof HTMLElement)) return;
 
+      // Its own click removed it from the page (a calendar day closing the calendar), so something
+      // handled that click. Once detached it has also lost the form and ancestors checked below.
+      if (!control.isConnected) return;
+
       if (isLive(control)) return;
 
       // An <a href="#"> would otherwise jump the scroll position to the top,

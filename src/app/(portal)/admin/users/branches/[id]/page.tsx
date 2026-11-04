@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { CredentialCard } from "@/components/features/users/credential-card";
+import { MoveBranchManagerForm } from "@/components/features/users/move-branch-manager-form";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
@@ -34,6 +35,14 @@ export default async function UserBranchPage({ params }: { params: Promise<{ id:
 
   const branch = branches.find((item) => item.id === branchId);
   if (!branch) notFound();
+
+  const moveOptions = branches
+    .filter((other) => other.status === "ACTIVE" && other.id !== branchId)
+    .map((other) => ({
+      id: other.id,
+      name: other.name,
+      manager: users.find((user) => user.role === "BRANCH_MANAGER" && user.branchId === other.id)?.username ?? null,
+    }));
 
   return (
     <>
@@ -68,7 +77,11 @@ export default async function UserBranchPage({ params }: { params: Promise<{ id:
               account={user}
               branchId={branchId}
               role={role}
-            />
+            >
+              {role === "BRANCH_MANAGER" && user?.active ? (
+                <MoveBranchManagerForm userId={user.id} username={user.username} currentBranch={branch.name} branches={moveOptions} />
+              ) : null}
+            </CredentialCard>
           ));
         })}
       </div>

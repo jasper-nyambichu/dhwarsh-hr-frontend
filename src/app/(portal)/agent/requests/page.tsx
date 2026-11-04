@@ -29,5 +29,5 @@ export default async function AgentRequestsPage({
     );
   }
 
-  return <StaffRequestsView requests={requests} basePath="/agent/requests" addHref="/agent/staff/new" sent={sent} />;
+  return <StaffRequestsView requests={requests} basePath="/agent/requests" addHref="/agent/employees/new" sent={sent} />;
 }
