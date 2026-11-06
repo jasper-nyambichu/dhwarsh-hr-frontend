@@ -16,6 +16,7 @@ import {
   getAttendanceSyncFailures,
 } from "@/lib/api/attendance";
 import { getBranches } from "@/lib/api/branch";
+import { DEVICE_STATE_META, deviceDetail, deviceState, type DeviceState } from "@/lib/device-state";
 import { formatNumber, formatRelativeTime } from "@/lib/format";
 import type { AttendanceDeviceItem, AttendanceSyncFailure } from "@/types";
 
@@ -35,19 +36,6 @@ import type { AttendanceDeviceItem, AttendanceSyncFailure } from "@/types";
  * it needs no client boundary.
  */
 
-/** A terminal is one of three things, all derived from two real fields. */
-type FleetState = "online" | "stale" | "inactive";
-
-function fleetState(device: AttendanceDeviceItem): FleetState {
-  if (device.status !== "ACTIVE") return "inactive";
-  return device.online ? "online" : "stale";
-}
-
-const STATE_META: Record<FleetState, { label: string; dot: string }> = {
-  online: { label: "Online", dot: "bg-emerald-500" },
-  stale: { label: "Not reporting", dot: "bg-red-500" },
-  inactive: { label: "Deactivated", dot: "bg-slate-400" },
-};
 
 export default async function BiometricDevicesPage({
   searchParams,
@@ -90,10 +78,12 @@ export default async function BiometricDevicesPage({
       )
     : devices;
 
-  const counts: Record<FleetState, number> = {
-    online: devices.filter((d) => fleetState(d) === "online").length,
-    stale: devices.filter((d) => fleetState(d) === "stale").length,
-    inactive: devices.filter((d) => fleetState(d) === "inactive").length,
+  const count = (state: DeviceState) => devices.filter((d) => deviceState(d) === state).length;
+  const counts = {
+    online: count("online"),
+    unplugged: count("reader_unplugged"),
+    stale: count("offline"),
+    inactive: count("inactive"),
   };
 
   return (
@@ -112,8 +102,8 @@ export default async function BiometricDevicesPage({
         <div className="grid grid-cols-2 gap-gutter lg:grid-cols-4">
           <MetricCard label="Terminals" value={formatNumber(devices.length)} icon="fingerprint" />
           <MetricCard label="Online" value={formatNumber(counts.online)} icon="wifi" tone="tertiary" />
-          <MetricCard label="Not reporting" value={formatNumber(counts.stale)} icon="wifi_off" tone="error" accent={counts.stale > 0} />
-          <MetricCard label="Deactivated" value={formatNumber(counts.inactive)} icon="power_settings_new" tone="amber" />
+          <MetricCard label="Reader not detected" value={formatNumber(counts.unplugged)} icon="usb_off" tone="amber" accent={counts.unplugged > 0} />
+          <MetricCard label="PC offline" value={formatNumber(counts.stale)} icon="wifi_off" tone="error" accent={counts.stale > 0} />
         </div>
 
         <div className="grid grid-cols-1 gap-gutter xl:grid-cols-12">
@@ -157,7 +147,7 @@ export default async function BiometricDevicesPage({
             ) : (
               <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 {rows.map((device) => {
-                  const meta = STATE_META[fleetState(device)];
+                  const meta = DEVICE_STATE_META[deviceState(device)];
 
                   return (
                     <li key={device.id} className="flex min-w-0 flex-col gap-3 rounded-lg border border-outline-variant/40 p-3">
@@ -182,13 +172,14 @@ export default async function BiometricDevicesPage({
                         ) : null}
                       </div>
                       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-outline-variant/30 pt-2 text-xs">
-                        <span className="inline-flex items-center gap-1.5 font-medium text-on-surface-variant">
+                        <span className={`inline-flex items-center gap-1.5 font-medium ${meta.text}`}>
                           <span className={`inline-block size-2 rounded-full ${meta.dot}`} />
                           {meta.label}
                         </span>
                         <span className={device.lastSyncAt ? "text-on-surface-variant" : "text-error"}>
-                          {device.lastSyncAt ? `Synced ${formatRelativeTime(device.lastSyncAt)}` : "Never synced"}
+                          {device.lastSyncAt ? `Last scan ${formatRelativeTime(device.lastSyncAt)}` : "No scans yet"}
                         </span>
+                        <span className="w-full break-words text-[11px] text-outline">{deviceDetail(device)}</span>
                       </div>
                     </li>
                   );

@@ -7,7 +7,8 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { getAttendanceDevices, getAttendanceSyncFailures } from "@/lib/api/attendance";
 import { formatTimestamp } from "@/lib/audit-format";
-import { formatNumber, humanizeEnum } from "@/lib/format";
+import { DEVICE_STATE_META, deviceDetail, deviceState } from "@/lib/device-state";
+import { formatNumber } from "@/lib/format";
 
 /** The biometric devices the clock-in/out application reads from, and anything that failed to sync. */
 export default async function BackOfficeDevicesPage() {
@@ -27,15 +28,17 @@ export default async function BackOfficeDevicesPage() {
     );
   }
 
-  const online = devices.filter((device) => device.online).length;
+  const online = devices.filter((device) => deviceState(device) === "online").length;
+  const unplugged = devices.filter((device) => deviceState(device) === "reader_unplugged").length;
 
   return (
     <>
       <PageHeader title="Devices" description="Biometric devices and their sync status." />
 
-      <div className="grid grid-cols-1 gap-gutter md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-gutter md:grid-cols-4">
         <MetricCard label="Devices" value={formatNumber(devices.length)} icon="fingerprint" tone="primary" />
-        <MetricCard label="Online" value={formatNumber(online)} icon="wifi" tone="primary" hint="Synced in the last few minutes" />
+        <MetricCard label="Online" value={formatNumber(online)} icon="wifi" tone="primary" hint="PC and reader working" />
+        <MetricCard label="Reader not detected" value={formatNumber(unplugged)} icon="usb_off" tone={unplugged > 0 ? "error" : "primary"} />
         <MetricCard label="Sync Failures" value={formatNumber(failures.length)} icon="sync_problem" tone={failures.length > 0 ? "error" : "primary"} />
       </div>
 
@@ -60,10 +63,11 @@ export default async function BackOfficeDevicesPage() {
                     <td className="py-3 font-mono text-xs text-on-surface-variant">{device.deviceSerial}</td>
                     <td className="py-3 text-on-surface-variant">{device.lastSyncAt ? formatTimestamp(device.lastSyncAt) : "Never"}</td>
                     <td className="py-3 pr-2 text-right">
-                      <span className="inline-flex items-center gap-2 text-xs font-medium">
-                        <span className={`size-2 rounded-full ${device.online ? "bg-tertiary-container" : "bg-error"}`} />
-                        {device.online ? "Online" : "Offline"} · {humanizeEnum(device.status)}
+                      <span className={`inline-flex items-center gap-2 text-xs font-medium ${DEVICE_STATE_META[deviceState(device)].text}`}>
+                        <span className={`size-2 rounded-full ${DEVICE_STATE_META[deviceState(device)].dot}`} />
+                        {DEVICE_STATE_META[deviceState(device)].label}
                       </span>
+                      <span className="block text-[11px] text-outline">{deviceDetail(device)}</span>
                     </td>
                   </tr>
                 ))}

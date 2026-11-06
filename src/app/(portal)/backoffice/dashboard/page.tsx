@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { getAttendanceActivity, getAttendanceDevices, getAttendanceSummary } from "@/lib/api/attendance";
 import { getBranches } from "@/lib/api/branch";
+import { DEVICE_STATE_META, deviceState } from "@/lib/device-state";
 import { formatTimestamp } from "@/lib/audit-format";
 
 /**
@@ -73,11 +74,15 @@ export default async function BackOfficeDashboardPage() {
             {devices.slice(0, 6).map((device) => (
               <li key={device.id} className="flex items-center justify-between gap-3 py-2.5">
                 <span className="flex items-center gap-2">
-                  <span className={`size-2 rounded-full ${device.online ? "bg-tertiary-container" : "bg-error"}`} />
+                  <span className={`size-2 rounded-full ${DEVICE_STATE_META[deviceState(device)].dot}`} title={DEVICE_STATE_META[deviceState(device)].label} />
                   <span className="text-sm font-medium text-on-surface">{device.branchName ?? `Branch #${device.branchId}`}</span>
                   <span className="font-mono text-[11px] text-outline">{device.deviceSerial}</span>
                 </span>
-                <span className="text-xs text-on-surface-variant">{device.lastSyncAt ? `Synced ${formatTimestamp(device.lastSyncAt)}` : "Never synced"}</span>
+                <span className={`text-xs ${DEVICE_STATE_META[deviceState(device)].text}`}>
+                  {deviceState(device) === "online"
+                    ? device.lastSyncAt ? `Last scan ${formatTimestamp(device.lastSyncAt)}` : "Online"
+                    : DEVICE_STATE_META[deviceState(device)].label}
+                </span>
               </li>
             ))}
           </ul>

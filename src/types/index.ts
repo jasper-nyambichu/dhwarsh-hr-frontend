@@ -568,8 +568,8 @@ export type AttendanceActivityType = (typeof ATTENDANCE_ACTIVITY_TYPES)[number];
 export const ATTENDANCE_RECORD_STATUSES = ["IN_PROGRESS", "COMPLETED"] as const;
 export type AttendanceRecordStatus = (typeof ATTENDANCE_RECORD_STATUSES)[number];
 
-/** A device that has never reported. Distinct from OFFLINE, which has. */
-export const BRANCH_DEVICE_STATUSES = ["ONLINE", "OFFLINE", "NO_DEVICE"] as const;
+/** NO_DEVICE: none registered. READER_DISCONNECTED: the PC reports, but its fingerprint reader is unplugged. */
+export const BRANCH_DEVICE_STATUSES = ["ONLINE", "OFFLINE", "NO_DEVICE", "READER_DISCONNECTED"] as const;
 export type BranchDeviceStatus = (typeof BRANCH_DEVICE_STATUSES)[number];
 
 export type AttendanceDashboardSummary = {
@@ -686,8 +686,16 @@ export type AttendanceDeviceItem = {
   deviceSerial: string;
   status: string;
   lastSyncAt: string | null;
-  /** Reported inside the backend's 5-minute freshness window. */
+  /** The PC reported (or, for an older app, a scan arrived) inside the backend's 5-minute window. */
   online: boolean;
+  /** The PC's last heartbeat. Null for an app too old to send one. */
+  lastSeenAt?: string | null;
+  /** Whether the fingerprint reader was plugged in at that heartbeat. Null: never reported. */
+  readerConnected?: boolean | null;
+  readerChangedAt?: string | null;
+  appVersion?: string | null;
+  /** Scans saved on the PC and not yet received by the server. */
+  pendingScans?: number | null;
 };
 
 /**
