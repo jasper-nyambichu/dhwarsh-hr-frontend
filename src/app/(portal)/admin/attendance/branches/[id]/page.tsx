@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { AttendanceAutoRefresh } from "@/components/features/attendance/attendance-auto-refresh";
+import { AttendanceDayTable, type AttendanceDayRow } from "@/components/features/attendance/attendance-day-table";
 import { AttendanceFilters } from "@/components/features/attendance/attendance-filters";
 import { AttendanceStatisticCard, AttendanceTiles, TerminalsBanner } from "@/components/features/attendance/attendance-panels";
 import { LiveActivityCard } from "@/components/features/attendance/live-attendance-board";
@@ -12,7 +13,6 @@ import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterTabs } from "@/components/shared/filter-tabs";
 import { PageHeader } from "@/components/shared/page-header";
-import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
 import {
   getAttendanceActivity,
@@ -24,7 +24,7 @@ import {
 import { getBranch } from "@/lib/api/branch";
 import { getEmployeesByBranch } from "@/lib/api/employee";
 import { getOffDays } from "@/lib/api/off-day";
-import { formatDate, formatHours, formatNumber, formatRelativeTime, formatTime, initials } from "@/lib/format";
+import { formatDate, formatNumber, formatRelativeTime } from "@/lib/format";
 import { first, parseDate } from "@/lib/search-params";
 import type { AttendanceRecordItem } from "@/types";
 
@@ -52,15 +52,7 @@ type Row = {
   off: boolean;
 };
 
-function NoScanBadge({ off, label, offLabel }: { off: boolean; label: string; offLabel: string }) {
-  return off ? (
-    <span className="shrink-0 rounded-full bg-blue-soft px-2 py-0.5 text-[11px] font-medium text-primary-container">{offLabel}</span>
-  ) : (
-    <span className="shrink-0 rounded-full bg-amber-main/10 px-2 py-0.5 text-[11px] font-medium text-amber-main">{label}</span>
-  );
-}
-
-/** Attendance inside one branch: everyone who works here, with who came and when. */
+/** Attendance inside one branch: everyone who works here, with the same day's events the Branch Manager sees. */
 export default async function BranchAttendancePage({
   params,
   searchParams,
@@ -140,7 +132,13 @@ export default async function BranchAttendancePage({
   const branchFailures = failures.filter((failure) => failure.deviceSerial && serials.has(failure.deviceSerial)).slice(0, 5);
   const dateParam = live ? undefined : summary.date;
   const lastScan = summary.branches.find((item) => item.branchId === branchId)?.lastActivityAt;
-  const header = "whitespace-nowrap pb-3 pl-4 font-table-header text-table-header uppercase text-outline";
+  const tableRows: AttendanceDayRow[] = rows.map((row) => ({
+    key: row.key,
+    name: row.name,
+    code: row.code,
+    record: row.record,
+    absence: row.record ? undefined : { label: row.off ? offLabel : absentLabel, off: row.off },
+  }));
 
   return (
     <>
@@ -181,103 +179,6 @@ export default async function BranchAttendancePage({
             </dl>
           </BentoCard>
 
-          <BentoCard title="Employees" subtitle={`${formatNumber(rows.length)} shown`}>
-            <FilterTabs
-              className="mb-4"
-              basePath={basePath}
-              active={filter}
-              preserve={{ date: dateParam }}
-              tabs={[
-                { label: "All", count: allRows.length },
-                { label: "On site", value: "open", count: onSite.length },
-                { label: "Clocked out", value: "out", count: left.length },
-                { label: absentLabel, value: "none", count: absent.length },
-                { label: offLabel, value: "off", count: off.length },
-              ]}
-            />
-
-            {rows.length === 0 ? (
-              <EmptyState symbol="group_off" title="Nobody here" description="No employee in this branch matches this view." />
-            ) : (
-              <>
-                <ul className="flex flex-col gap-3 md:hidden">
-                  {rows.map((row) => (
-                    <li key={row.key} className="min-w-0 rounded-lg border border-outline-variant/40 p-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <span aria-hidden className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary-container text-[11px] font-bold text-on-primary">
-                          {initials(row.name)}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words font-semibold text-on-surface">{row.name}</p>
-                          <p className="font-mono text-[10px] text-outline">{row.code ?? "—"}</p>
-                        </div>
-                        {row.record ? (
-                          <StatusBadge status={row.record.status} />
-                        ) : (
-                          <NoScanBadge off={row.off} label={absentLabel} offLabel={offLabel} />
-                        )}
-                      </div>
-                      {row.record ? (
-                        <dl className="mt-2 grid grid-cols-3 gap-2 border-t border-outline-variant/30 pt-2 text-xs">
-                          <div><dt className="text-outline">In</dt><dd className="tabular-nums text-on-surface">{formatTime(row.record.clockIn)}</dd></div>
-                          <div><dt className="text-outline">Out</dt><dd className="tabular-nums text-on-surface">{formatTime(row.record.clockOut)}</dd></div>
-                          <div><dt className="text-outline">Hours</dt><dd className="tabular-nums text-on-surface">{formatHours(row.record.hoursWorked)}</dd></div>
-                        </dl>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="hidden w-full overflow-x-auto md:block">
-                  <table className="data-table w-full border-collapse text-left">
-                    <thead>
-                      <tr>
-                        <th className={`${header} !pl-2`}>Employee</th>
-                        <th className={header}>In</th>
-                        <th className={header}>Out</th>
-                        <th className={`${header} text-right`}>Hours</th>
-                        <th className={`${header} pr-2 text-right`}>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="font-body-md text-body-md text-on-surface">
-                      {rows.map((row) => (
-                        <tr key={row.key} className="border-b border-outline-variant/20 last:border-0 hover:bg-surface">
-                          <td className="py-3 pl-2">
-                            <span className="flex min-w-0 items-center gap-3">
-                              <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-primary-container text-[11px] font-bold text-on-primary">
-                                {initials(row.name)}
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block font-medium">{row.name}</span>
-                                <span className="block font-mono text-[10px] text-outline">{row.code ?? "—"}</span>
-                              </span>
-                            </span>
-                          </td>
-                          <td className="py-3 pl-4 tabular-nums">{row.record ? formatTime(row.record.clockIn) : "—"}</td>
-                          <td className="py-3 pl-4 tabular-nums text-outline">{row.record ? formatTime(row.record.clockOut) : "—"}</td>
-                          <td className="whitespace-nowrap py-3 pl-4 text-right tabular-nums">{row.record ? formatHours(row.record.hoursWorked) : "—"}</td>
-                          <td className="whitespace-nowrap py-3 pl-4 pr-2 text-right">
-                            {row.record ? (
-                              <StatusBadge status={row.record.status} />
-                            ) : (
-                              <NoScanBadge off={row.off} label={absentLabel} offLabel={offLabel} />
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </BentoCard>
-        </div>
-
-        <div className="flex min-w-0 flex-col gap-gutter lg:col-span-5">
-          <AttendanceStatisticCard initialSnapshot={snapshot} branchId={branchId} live={live} />
-          <AttendanceTiles initialSnapshot={snapshot} branchId={branchId} live={live} />
-          <TerminalsBanner initialSnapshot={snapshot} branchId={branchId} live={live} />
-
           {branchFailures.length > 0 ? (
             <BentoCard title="Rejected scans" subtitle="Scans at this branch that were refused">
               <ul className="flex flex-col gap-3">
@@ -296,7 +197,36 @@ export default async function BranchAttendancePage({
 
           {live ? <LiveActivityCard initialSnapshot={snapshot} branchId={branchId} /> : null}
         </div>
+
+        <div className="flex min-w-0 flex-col gap-gutter lg:col-span-5">
+          <AttendanceStatisticCard initialSnapshot={snapshot} branchId={branchId} live={live} />
+          <AttendanceTiles initialSnapshot={snapshot} branchId={branchId} live={live} />
+          <TerminalsBanner initialSnapshot={snapshot} branchId={branchId} live={live} />
+
+        </div>
       </div>
+
+      <BentoCard className="mt-gutter" title="Employees" subtitle={`${formatNumber(rows.length)} shown · check-in, lunch break, temporary check-out and check-out`}>
+        <FilterTabs
+          className="mb-4"
+          basePath={basePath}
+          active={filter}
+          preserve={{ date: dateParam }}
+          tabs={[
+            { label: "All", count: allRows.length },
+            { label: "On site", value: "open", count: onSite.length },
+            { label: "Clocked out", value: "out", count: left.length },
+            { label: absentLabel, value: "none", count: absent.length },
+            { label: offLabel, value: "off", count: off.length },
+          ]}
+        />
+
+        {rows.length === 0 ? (
+          <EmptyState symbol="group_off" title="Nobody here" description="No employee in this branch matches this view." />
+        ) : (
+          <AttendanceDayTable rows={tableRows} />
+        )}
+      </BentoCard>
     </>
   );
 }

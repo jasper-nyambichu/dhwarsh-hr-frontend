@@ -10,21 +10,14 @@ import { PageHeader } from "@/components/shared/page-header";
 import { getAttendanceActivity, getAttendanceDevices, getAttendanceSummary } from "@/lib/api/attendance";
 import { getBranches } from "@/lib/api/branch";
 import { formatTimestamp } from "@/lib/audit-format";
-import { parseId } from "@/lib/search-params";
 
 /**
  * Back Office dashboard — who is clocked in right now, and whether the biometric devices feeding it
  * are online. A login with a branch sees that branch alone. Updates live.
  */
-export default async function BackOfficeDashboardPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ branchId?: string }>;
-}) {
+export default async function BackOfficeDashboardPage() {
   const session = await requirePermission("attendance:read");
-  const { branchId: rawBranch } = await searchParams;
-  const ownBranchId = session.branchId;
-  const branchId = ownBranchId ?? parseId(rawBranch);
+  const branchId = session.branchId ?? undefined;
 
   let data: {
     summary: Awaited<ReturnType<typeof getAttendanceSummary>>;
@@ -53,41 +46,18 @@ export default async function BackOfficeDashboardPage({
   }
 
   const { summary, activity, devices, branches } = data;
-  const recordsHref = branchId ? `/backoffice/attendance?branchId=${branchId}` : "/backoffice/attendance";
 
   return (
     <>
       <PageHeader
-        title={branches.find((branch) => branch.id === ownBranchId)?.name ?? "Back Office"}
+        title={branches.find((branch) => branch.id === branchId)?.name ?? "Back Office"}
         description="Clock-in and clock-out activity from the biometric devices."
       />
-
-      {ownBranchId ? null : <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Link
-          href="/backoffice/dashboard"
-          className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-            !branchId ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
-          }`}
-        >
-          All branches
-        </Link>
-        {branches.map((branch) => (
-          <Link
-            key={branch.id}
-            href={`/backoffice/dashboard?branchId=${branch.id}`}
-            className={`rounded-full px-3 py-1.5 text-[11px] font-semibold transition-colors ${
-              branchId === branch.id ? "bg-primary text-on-primary" : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high"
-            }`}
-          >
-            {branch.name}
-          </Link>
-        ))}
-      </div>}
 
       <LiveAttendanceBoard
         initialSnapshot={{ summary, activity, fetchedAt: summary.generatedAt }}
         branchId={branchId}
-        recordsHref={recordsHref}
+        recordsHref="/backoffice/attendance"
       />
 
       <BentoCard

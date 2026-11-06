@@ -49,6 +49,21 @@ export function changeCredentials(userId: number, credentials: Credentials): Pro
   return api.put<UserSummaryResponse>(`/users/${userId}/credentials`, credentials);
 }
 
+/** A login the Admin set. `password` is null once its owner changed or reset it themselves. */
+export type SavedLogin = {
+  id: number;
+  username: string;
+  email: string | null;
+  password: string | null;
+  passwordSetAt: string | null;
+  changedByOwnerAt: string | null;
+};
+
+/** The saved username and password of a Branch Manager, Back Office or Agent login. SUPER_ADMIN, audited. */
+export function getSavedLogin(userId: number): Promise<SavedLogin> {
+  return api.get<SavedLogin>(`/users/${userId}/saved-login`);
+}
+
 /** Moves a Branch Manager or Back Office login to a branch. From their next request they see that branch only. */
 export function assignUserBranch(userId: number, branchId: number, swap = false): Promise<UserSummaryResponse> {
   return api.put<UserSummaryResponse>(`/users/${userId}/branch`, { branchId, swap });

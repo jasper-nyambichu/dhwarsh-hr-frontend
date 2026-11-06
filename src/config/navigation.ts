@@ -79,6 +79,7 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
   // Runs the clock-in/out application and biometric devices; records the days agents are paid on.
   BACK_OFFICE: [
     { title: "Dashboard", href: "/backoffice/dashboard", icon: "dashboard" },
+    { title: "Employees", href: "/backoffice/employees", icon: "group" },
     { title: "Attendance", href: "/backoffice/attendance", icon: "schedule" },
     { title: "Devices", href: "/backoffice/devices", icon: "fingerprint" },
     { title: "Profile", href: "/backoffice/profile", icon: "account_circle" },

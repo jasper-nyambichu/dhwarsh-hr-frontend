@@ -10,9 +10,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Pagination } from "@/components/shared/pagination";
 import { getAttendanceRecords } from "@/lib/api/attendance";
-import { getBranches } from "@/lib/api/branch";
 import { formatDate, formatNumber, humanizeEnum } from "@/lib/format";
-import { buildHref, first, parseDate, parseId, parsePage } from "@/lib/search-params";
+import { buildHref, first, parseDate, parsePage } from "@/lib/search-params";
 
 const FIELD = "h-10 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-sm text-on-surface focus:outline-none focus:ring-1 focus:ring-primary";
 
@@ -35,20 +34,15 @@ export default async function BackOfficeAttendancePage({
 
   const params = await searchParams;
   const today = new Date();
-  const ownBranchId = session.branchId;
-  const branchId = ownBranchId ?? parseId(first(params.branchId));
+  const branchId = session.branchId ?? undefined;
   const start = parseDate(first(params.start)) ?? format(startOfMonth(today), "yyyy-MM-dd");
   const end = parseDate(first(params.end)) ?? format(today, "yyyy-MM-dd");
   const openOnly = first(params.open) === "1";
   const page = parsePage(first(params.page));
 
   let records: Awaited<ReturnType<typeof getAttendanceRecords>>;
-  let branches: Awaited<ReturnType<typeof getBranches>>;
   try {
-    [records, branches] = await Promise.all([
-      getAttendanceRecords({ branchId, start, end, openOnly, page, size: 25 }),
-      getBranches(),
-    ]);
+    records = await getAttendanceRecords({ branchId, start, end, openOnly, page, size: 25 });
   } catch (error) {
     return (
       <DataUnavailable
@@ -59,19 +53,13 @@ export default async function BackOfficeAttendancePage({
     );
   }
 
-  const filters = { branchId, start, end, open: openOnly ? "1" : undefined };
+  const filters = { start, end, open: openOnly ? "1" : undefined };
 
   return (
     <>
       <PageHeader title="Attendance" description="Who reported to work, and when. Agent payments count days worked from these records." />
 
       <form method="get" action="/backoffice/attendance" className="mb-4 flex flex-wrap items-end gap-3 rounded-card bg-surface-container-lowest p-3 shadow-ambient-1">
-        {ownBranchId ? null : <select name="branchId" defaultValue={branchId ?? ""} aria-label="Branch" className={FIELD}>
-          <option value="">All branches</option>
-          {branches.map((branch) => (
-            <option key={branch.id} value={branch.id}>{branch.name}</option>
-          ))}
-        </select>}
         <DateInput name="start" defaultValue={start} aria-label="From date" className={FIELD} />
         <DateInput name="end" defaultValue={end} aria-label="To date" className={FIELD} />
         <label className="flex h-10 items-center gap-2 text-sm text-on-surface-variant">

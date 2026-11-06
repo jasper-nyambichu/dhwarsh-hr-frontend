@@ -57,14 +57,36 @@ function ErrorLine({ message }: { message: string | null }) {
   );
 }
 
-function NewPasswordStep({ token, backHref }: { token: string; backHref: string }) {
+/**
+ * Pops up over the code screen once the code is right. Escape and clicks outside are ignored, so a stray
+ * click cannot lose the verified code; Cancel starts over.
+ */
+function NewPasswordDialog({ token, onCancel }: { token: string; onCancel: () => void }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(resetPasswordAction, { status: "idle" });
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+  const dialogRef = useRef<HTMLDialogElement>(null);
   const errors = state.status === "error" ? state.fieldErrors : undefined;
 
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (dialog && !dialog.open) dialog.showModal();
+    return () => dialog?.close();
+  }, []);
+
   return (
-    <ResetCard title="Set a new password" description="Choose a password you have not used here before." backHref={backHref}>
+    <dialog
+      ref={dialogRef}
+      aria-labelledby="new-password-title"
+      onCancel={(event) => event.preventDefault()}
+      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md overflow-y-auto rounded-3xl bg-surface-container-lowest p-0 text-on-surface shadow-ambient-3 backdrop:bg-primary/70 backdrop:backdrop-blur-sm open:animate-in open:fade-in open:zoom-in-95 motion-reduce:open:animate-none"
+    >
+      <div className="p-6 sm:p-8">
+        <span className="mb-4 flex size-12 items-center justify-center rounded-full bg-tertiary-container/15 text-tertiary-container">
+          <Icon name="verified_user" />
+        </span>
+        <h2 id="new-password-title" className="mb-1 font-login-title text-login-title text-navy">Set a new password</h2>
+        <p className="mb-6 font-body-md text-body-md text-on-surface-variant">Code accepted. Choose a new password and type it again to confirm.</p>
       <form action={formAction} className="flex flex-col gap-4">
         <input type="hidden" name="token" value={token} />
         <div>
@@ -80,8 +102,17 @@ function NewPasswordStep({ token, backHref }: { token: string; backHref: string 
         </div>
         <button type="submit" disabled={pending} className={BUTTON}>{pending ? "Saving…" : "Save new password"}</button>
         <ErrorLine message={state.status === "error" && !errors ? state.message : null} />
+        <button
+          type="button"
+          disabled={pending}
+          onClick={onCancel}
+          className="font-body-md text-body-md font-semibold text-on-surface-variant hover:underline disabled:cursor-not-allowed"
+        >
+          Cancel
+        </button>
       </form>
-    </ResetCard>
+      </div>
+    </dialog>
   );
 }
 
@@ -197,8 +228,6 @@ export function PasswordResetFlow({
     return () => clearTimeout(timer);
   }, [resendIn]);
 
-  if (token) return <NewPasswordStep token={token} backHref={backHref} />;
-
   if (step === "identifier") {
     return (
       <ResetCard title="Forgot your password?" description="Enter your username or email, and we will send a code to the email on your account." backHref={backHref}>
@@ -254,6 +283,17 @@ export function PasswordResetFlow({
           {resendIn > 0 ? `Send a new code in ${resendIn}s` : "Send a new code"}
         </button>
       </form>
+      {token ? (
+        <NewPasswordDialog
+          token={token}
+          onCancel={() => {
+            setToken(null);
+            setCode("");
+            setError(null);
+            setStep("identifier");
+          }}
+        />
+      ) : null}
     </ResetCard>
   );
 }

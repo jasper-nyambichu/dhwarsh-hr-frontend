@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useState, useTransition, type ReactNode } from "react";
 
-import { deleteUserAction, saveCredentialsAction, type SavedCredentials } from "@/app/actions/user";
+import { deleteUserAction, revealSavedLoginAction, saveCredentialsAction, type SavedCredentials } from "@/app/actions/user";
 import { BentoCard } from "@/components/shared/bento-card";
 import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { ConfirmForm } from "@/components/shared/confirm-form";
@@ -10,18 +10,98 @@ import { FormMessage, TextField } from "@/components/shared/form-field";
 import { PasswordField } from "@/components/shared/password-field";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
+import type { SavedLogin as SavedLoginData } from "@/lib/api/user";
+import { formatDateTime } from "@/lib/format";
 import { toast } from "@/lib/toast";
 import type { ActionState, Role } from "@/types";
 
-/** The saved login, shown once: a password is stored scrambled, so it can never be read back. */
-function ShareCredentials({ saved, signInPath }: { saved: SavedCredentials; signInPath: string }) {
-  const signInAt = `${window.location.origin}${signInPath}`;
-  const rows: [string, string][] = [
-    ["Username", saved.username],
-    ["Password", saved.password ?? "Unchanged"],
-    ["Sign in at", signInAt],
-  ];
+const SECONDARY_BUTTON =
+  "inline-flex min-h-11 items-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-low disabled:cursor-not-allowed disabled:opacity-60";
 
+/** What was just saved, to share straight away. It can be looked up again later under Saved login. */
+function ShareCredentials({ saved, signInPath }: { saved: SavedCredentials; signInPath: string }) {
+  return (
+    <div role="status" className="mt-4 rounded-lg border border-tertiary-container/40 bg-tertiary-container/5 p-4">
+      <p className="text-sm font-semibold text-on-surface">Saved. Share these with them.</p>
+      <p className="mt-0.5 text-xs text-on-surface-variant">You can look them up again any time under Saved login.</p>
+      <CredentialRows
+        rows={[
+          ["Username", saved.username],
+          ["Password", saved.password ?? "Unchanged"],
+          ["Sign in at", `${window.location.origin}${signInPath}`],
+        ]}
+      />
+    </div>
+  );
+}
+
+/**
+ * The login as the Admin last set it, kept encrypted on the server so it is never lost. Hidden until asked
+ * for, and every look is written to the audit log. Once its owner changes or resets the password, only they
+ * know it, so this says so instead.
+ */
+function SavedLogin({ userId, signInPath }: { userId: number; signInPath: string }) {
+  const [login, setLogin] = useState<SavedLoginData | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function reveal() {
+    startTransition(async () => {
+      const result = await revealSavedLoginAction(userId);
+      if (result.status === "success") setLogin(result.data);
+      else if (result.status === "error") toast.error(result.message);
+    });
+  }
+
+  return (
+    <div className="mt-4 rounded-lg border border-outline-variant bg-surface-container-low/40 p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="flex items-center gap-2 text-sm font-semibold text-on-surface">
+          <Icon name="key" className="text-[18px] text-primary" />
+          Saved login
+        </p>
+        {login ? (
+          <button data-live="" type="button" onClick={() => setLogin(null)} className={SECONDARY_BUTTON}>
+            <Icon name="visibility_off" className="text-[18px]" />
+            Hide
+          </button>
+        ) : (
+          <button data-live="" type="button" onClick={reveal} disabled={pending} className={SECONDARY_BUTTON}>
+            <Icon name="visibility" className="text-[18px]" />
+            {pending ? "Loading…" : "Show login"}
+          </button>
+        )}
+      </div>
+
+      {login ? (
+        <>
+          <CredentialRows
+            rows={[
+              ["Username", login.username],
+              ["Password", login.password ?? "Only they know it"],
+              ...(login.email ? [["Email", login.email] as [string, string]] : []),
+              ["Sign in at", `${window.location.origin}${signInPath}`],
+            ]}
+          />
+          {login.password && login.passwordSetAt ? (
+            <p className="mt-2 text-xs text-on-surface-variant">Set by an Admin on {formatDateTime(login.passwordSetAt)}.</p>
+          ) : null}
+          {!login.password ? (
+            <p className="mt-2 text-xs text-on-surface-variant">
+              {login.changedByOwnerAt
+                ? `They changed their password themselves on ${formatDateTime(login.changedByOwnerAt)}, so it is no longer kept here.`
+                : "This password was set before logins were saved here."}{" "}
+              If they have forgotten it, they can use Forgot password on the sign-in page, or you can set a new one above.
+            </p>
+          ) : null}
+        </>
+      ) : (
+        <p className="mt-1 text-xs text-on-surface-variant">The username and password you set are kept here, encrypted. Each look is recorded in the audit log.</p>
+      )}
+    </div>
+  );
+}
+
+function CredentialRows({ rows }: { rows: [string, string][] }) {
   async function copy() {
     const text = rows.map(([label, value]) => `${label}: ${value}`).join("\n");
     try {
@@ -33,9 +113,7 @@ function ShareCredentials({ saved, signInPath }: { saved: SavedCredentials; sign
   }
 
   return (
-    <div role="status" className="mt-4 rounded-lg border border-tertiary-container/40 bg-tertiary-container/5 p-4">
-      <p className="text-sm font-semibold text-on-surface">Saved. Share these now.</p>
-      {saved.password ? <p className="mt-0.5 text-xs text-on-surface-variant">The password cannot be shown again after you leave this page.</p> : null}
+    <>
       <dl className="mt-3 flex flex-col gap-2">
         {rows.map(([label, value]) => (
           <div key={label} className="min-w-0">
@@ -52,7 +130,7 @@ function ShareCredentials({ saved, signInPath }: { saved: SavedCredentials; sign
         <Icon name="content_copy" className="text-[18px]" />
         Copy
       </button>
-    </div>
+    </>
   );
 }
 
@@ -89,9 +167,13 @@ export function CredentialCard({
   const [password, setPassword] = useState("");
   const [email, setEmail] = useState(account?.email ?? "");
   const [lastState, setLastState] = useState(state);
+  const [saves, setSaves] = useState(0);
   if (state !== lastState) {
     setLastState(state);
-    if (state.status === "success") setPassword("");
+    if (state.status === "success") {
+      setPassword("");
+      setSaves((count) => count + 1);
+    }
   }
 
   const errors = state.status === "error" ? state.fieldErrors : undefined;
@@ -189,6 +271,8 @@ export function CredentialCard({
       </ConfirmForm>
 
       {state.status === "success" ? <ShareCredentials saved={state.data} signInPath={signInPath} /> : null}
+      {/* A new key after each save, so an open panel never shows the password from before. */}
+      {account ? <SavedLogin key={saves} userId={account.id} signInPath={signInPath} /> : null}
       {children}
     </BentoCard>
   );

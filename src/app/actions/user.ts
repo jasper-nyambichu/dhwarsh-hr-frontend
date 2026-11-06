@@ -7,7 +7,7 @@ import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { credentialsSchema } from "@/app/lib/definitions";
 import { flashToast } from "@/app/lib/flash";
-import { assignUserBranch, changeCredentials, createAgentLogin, createBranchLogin, deleteUser } from "@/lib/api/user";
+import { assignUserBranch, changeCredentials, createAgentLogin, createBranchLogin, deleteUser, getSavedLogin, type SavedLogin } from "@/lib/api/user";
 import type { ActionState } from "@/types";
 
 /** Returned so the Admin can share them. `password` is empty when it was left unchanged. */
@@ -58,6 +58,18 @@ export async function saveCredentialsAction(
   revalidatePath("/admin/users", "layout");
   revalidatePath("/admin/branches", "layout");
   return { status: "success", data: credentials };
+}
+
+/** Admin: look up a login's saved username and password again, to share it. Each look is audited. */
+export async function revealSavedLoginAction(userId: number): Promise<ActionState<SavedLogin>> {
+  await requirePermission("user:manage");
+  if (!Number.isInteger(userId) || userId <= 0) return { status: "error", message: "Unknown account." };
+
+  try {
+    return { status: "success", data: await getSavedLogin(userId) };
+  } catch (error) {
+    return toActionError(error);
+  }
 }
 
 /** Admin: delete an account. The backend refuses your own account and the last active Admin. */
