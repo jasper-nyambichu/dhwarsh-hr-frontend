@@ -201,17 +201,21 @@ export async function fetchDocument(
   path: string,
   options: ApiRequestOptions = {},
 ): Promise<{ blob: Blob; filename: string }> {
-  const session = await getSession();
+  const headers: Record<string, string> = { Accept: "*/*" };
 
-  if (!session) {
-    throw new ApiError(401, SESSION_EXPIRED);
+  // Anonymous only for public files, such as the organisation logo the sign-in pages show.
+  if (!options.anonymous) {
+    const session = await getSession();
+
+    if (!session) {
+      throw new ApiError(401, SESSION_EXPIRED);
+    }
+
+    headers.Authorization = `Bearer ${session.accessToken}`;
   }
 
   const response = await send(buildUrl(path, options.query), {
-    headers: {
-      Authorization: `Bearer ${session.accessToken}`,
-      Accept: "*/*",
-    },
+    headers,
     cache: "no-store",
   });
 

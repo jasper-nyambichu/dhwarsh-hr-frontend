@@ -48,7 +48,7 @@ export default async function AdminSettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" description="Company profile, logo and the rules agent payments use." />
+      <PageHeader title="Settings" description="Your organisation's name and logo, which the whole system and every document carry, and the rules agent payments use." />
 
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-gutter">
         {!company && !canWrite ? (

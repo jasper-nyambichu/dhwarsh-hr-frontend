@@ -5,6 +5,8 @@ import { NavProvider, SIDEBAR_COOKIE } from "@/components/layout/nav-context";
 import { StubActionBridge } from "@/components/layout/stub-action-bridge";
 import { Topbar } from "@/components/layout/topbar";
 import { getCurrentUser } from "@/app/lib/dal";
+import { DevelopedBy } from "@/components/shared/organisation-brand";
+import { getOrganisationBranding } from "@/lib/api/organisation";
 
 /**
  * Protected shell for all 9 role portals.
@@ -31,7 +33,7 @@ export default async function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [user, cookieStore] = await Promise.all([getCurrentUser(), cookies()]);
+  const [user, cookieStore, branding] = await Promise.all([getCurrentUser(), cookies(), getOrganisationBranding()]);
 
   // Picked on the server so the first paint is already the right width — a
   // client-side read would flash the collapsed rail on every navigation.
@@ -43,7 +45,7 @@ export default async function PortalLayout({
       <div className="flex h-dvh w-full overflow-hidden bg-surface-bright">
         {/* Chrome is interactive by construction — exempt from the stub net. */}
         <div data-live-region className="contents">
-          <AppRail role={user.role} />
+          <AppRail role={user.role} branding={branding} />
         </div>
 
         <main className="relative z-0 flex h-full min-w-0 flex-1 flex-col overflow-hidden">
@@ -51,6 +53,14 @@ export default async function PortalLayout({
 
           <div className="no-scrollbar flex-1 overflow-y-auto px-4 pb-8 pt-4 sm:px-6 lg:px-container-margin">
             <div className="mx-auto w-full max-w-content">{children}</div>
+
+            {/* The system's footer: whose it is (from Settings) and who built it. */}
+            <footer className="mx-auto mt-10 flex w-full max-w-content flex-col items-center gap-1 border-t border-outline-variant/30 pt-4 text-center sm:flex-row sm:justify-between">
+              <p className="text-[11px] text-on-surface-variant">
+                © {new Date().getFullYear()} {branding.name ?? "Your organisation"}
+              </p>
+              <DevelopedBy />
+            </footer>
           </div>
         </main>
       </div>

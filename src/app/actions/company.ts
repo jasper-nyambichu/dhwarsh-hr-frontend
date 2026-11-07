@@ -61,6 +61,8 @@ export async function saveCompanyAction(
   }
 
   revalidatePath("/admin/settings");
+  // The name and logo also head the sign-in pages, the sidebar and the tab title.
+  revalidatePath("/", "layout");
   revalidatePath("/admin/companies");
   return { status: "success", data: undefined };
 }
@@ -87,6 +89,8 @@ export async function uploadCompanyLogoAction(
   }
 
   revalidatePath("/admin/settings");
+  // The name and logo also head the sign-in pages, the sidebar and the tab title.
+  revalidatePath("/", "layout");
   return { status: "success", data: undefined };
 }
 
@@ -103,6 +107,8 @@ export async function removeCompanyLogoAction(
   }
 
   revalidatePath("/admin/settings");
+  // The name and logo also head the sign-in pages, the sidebar and the tab title.
+  revalidatePath("/", "layout");
   return { status: "success", data: undefined };
 }
 
@@ -144,5 +150,7 @@ export async function saveSettingsAction(
   }
 
   revalidatePath("/admin/settings");
+  // The name and logo also head the sign-in pages, the sidebar and the tab title.
+  revalidatePath("/", "layout");
   return { status: "success", data: undefined };
 }

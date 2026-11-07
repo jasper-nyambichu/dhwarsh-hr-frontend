@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 
 import { Icon } from "@/components/ui/icon";
-import { BrandLockup } from "@/components/shared/brand-logo";
+import { DevelopedBy, OrganisationLogo } from "@/components/shared/organisation-brand";
+import { getOrganisationBranding } from "@/lib/api/organisation";
 import { SetPasswordForm } from "@/components/features/auth/set-password-form";
 import { verifySessionAllowingPasswordChange } from "@/app/lib/dal";
 
@@ -17,12 +18,13 @@ export const metadata: Metadata = {
  */
 export default async function SetPasswordPage() {
   const session = await verifySessionAllowingPasswordChange();
+  const branding = await getOrganisationBranding();
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-background p-4 font-body-md text-on-surface">
       <div className="flex w-full max-w-md flex-col items-center">
-        <div className="mb-6 w-28 overflow-hidden rounded-3xl border-4 border-surface-container-lowest bg-white shadow-ambient-1">
-          <BrandLockup eager sizes="112px" />
+        <div className="mb-6 flex justify-center">
+          <OrganisationLogo branding={branding} className="h-20 w-auto max-w-[220px] rounded-xl" />
         </div>
 
         <div className="w-full rounded-card bg-surface-container-lowest p-card-padding shadow-ambient-1">
@@ -49,6 +51,7 @@ export default async function SetPasswordPage() {
           For your security, this step is required before you can access the
           portal.
         </p>
+        <DevelopedBy className="mt-4" />
       </div>
     </div>
   );

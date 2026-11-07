@@ -7,10 +7,10 @@ import { useEffect } from "react";
 import { logout } from "@/app/actions/auth";
 import { isNavItemActive, navigationFor } from "@/config/navigation";
 import { ROLE_LABEL, type Role } from "@/config/roles";
-import { siteConfig } from "@/config/site";
 import { Icon } from "@/components/ui/icon";
 import { useNav } from "@/components/layout/nav-context";
-import { BrandMark } from "@/components/shared/brand-logo";
+import { OrganisationLogo } from "@/components/shared/organisation-brand";
+import type { OrganisationBranding } from "@/lib/api/organisation";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
@@ -35,7 +35,7 @@ import { cn } from "@/lib/utils";
  * SUPER_ADMIN owns eight routes and the rail must not push its own footer
  * off-screen on a short viewport.
  */
-export function AppRail({ role }: { role: Role }) {
+export function AppRail({ role, branding }: { role: Role; branding: OrganisationBranding }) {
   const pathname = usePathname();
   const { open, close, expanded, toggleExpanded } = useNav();
   const items = navigationFor(role);
@@ -85,14 +85,20 @@ export function AppRail({ role }: { role: Role }) {
               showLabels ? "" : "md:flex-col md:gap-1 md:text-center",
             )}
           >
-            {/* Emblem only: the rail collapses to 96px, where the lockup's
-                wordmark would be unreadable. The adjacent text names the
-                brand, so the mark itself is decorative. */}
-            <BrandMark
-              eager
-              sizes="44px"
-              className="size-11 rounded-xl shadow-sm ring-1 ring-white/25"
-            />
+            {/* The organisation's logo from Admin → Settings, on a white tile so any logo (dark or light)
+                stays readable on the blue rail. Contained, never cropped, so a wide logo shows whole. */}
+            <span
+              className={cn(
+                "flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-white/25",
+                showLabels ? "h-16 w-[88px]" : "h-16 w-[88px] md:h-14 md:w-[76px]",
+              )}
+            >
+              {branding.hasLogo ? (
+                <OrganisationLogo branding={branding} className="h-full w-full rounded-lg" />
+              ) : (
+                <span className="text-base font-extrabold text-primary">{initials(branding.name)}</span>
+              )}
+            </span>
             <span
               className={cn(
                 "flex min-w-0 flex-col",
@@ -105,7 +111,7 @@ export function AppRail({ role }: { role: Role }) {
                   showLabels ? "" : "md:font-label-rail md:text-label-rail",
                 )}
               >
-                {siteConfig.shortName}
+                {branding.name ?? "Staff portal"}
               </span>
               <span className="truncate text-[10px] leading-tight text-on-primary/70">
                 {ROLE_LABEL[role]}
@@ -256,4 +262,10 @@ export function AppRail({ role }: { role: Role }) {
       </nav>
     </>
   );
+}
+
+/** "Kisii Matt Supermarket" -> "KM", for the rail tile when no logo has been uploaded. */
+function initials(name: string | null): string {
+  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
+  return words.length === 0 ? "•" : words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join("");
 }

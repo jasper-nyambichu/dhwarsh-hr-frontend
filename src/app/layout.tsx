@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Be_Vietnam_Pro } from "next/font/google";
 
 import { siteConfig } from "@/config/site";
+import { getOrganisationBranding } from "@/lib/api/organisation";
 
 import { Providers } from "./providers";
 import "./globals.css";
@@ -20,13 +21,16 @@ const beVietnamPro = Be_Vietnam_Pro({
   display: "swap",
 });
 
-export const metadata: Metadata = {
-  title: {
-    default: siteConfig.name,
-    template: `%s · ${siteConfig.shortName}`,
-  },
-  description: siteConfig.description,
-};
+/** The tab title carries the organisation's name from Admin → Settings, so each client sees its own. */
+export async function generateMetadata(): Promise<Metadata> {
+  const { name } = await getOrganisationBranding();
+  const organisation = name ?? siteConfig.name;
+  return {
+    title: { default: organisation, template: `%s · ${organisation}` },
+    description: siteConfig.description,
+    applicationName: organisation,
+  };
+}
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (

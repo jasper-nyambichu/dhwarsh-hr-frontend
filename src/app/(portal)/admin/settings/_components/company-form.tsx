@@ -28,7 +28,7 @@ export function CompanyForm({
         ? { title: "Save the company profile?", message: "The company's details will be updated.", confirmLabel: "Save", icon: "save" }
         : { title: "Create the company profile?", message: "The company will be set up with the details you entered.", confirmLabel: "Create", icon: "save" }}
     >
-      <BentoCard title="Company Profile" subtitle={initial ? undefined : "Not set up yet — fill this in first."}>
+      <BentoCard title="Organisation Profile" subtitle={initial ? "The name here is the one the whole system shows: sign-in pages, sidebar, documents and emails." : "Not set up yet — fill this in first."}>
         <fieldset disabled={readOnly || pending} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField className="sm:col-span-2" label="Registered name" name="name" required defaultValue={initial?.name} error={errors?.name?.[0]} />
           <TextField label="KRA PIN" name="kraPin" defaultValue={initial?.kraPin ?? undefined} />

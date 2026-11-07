@@ -20,7 +20,7 @@ export function LogoForm({ hasLogo, version }: { hasLogo: boolean; version: stri
   const [tooLarge, setTooLarge] = useState(false);
 
   return (
-    <BentoCard title="Company Logo" subtitle="Appears on payslips, employee lists, invoices and agent statements.">
+    <BentoCard title="Company Logo" subtitle="Your organisation's logo: shown on the sign-in pages and the sidebar, and printed on payslips, employee lists, invoices, statements and every other download.">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex h-24 w-44 shrink-0 items-center justify-center rounded-lg border border-outline-variant/50 bg-surface-container-low p-2">
           {hasLogo ? (
