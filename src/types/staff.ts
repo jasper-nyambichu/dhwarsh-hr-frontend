@@ -16,7 +16,7 @@ export type AgentOption = { id: number; name: string };
 /**
  * The body of `POST /employees` and `POST /employee-requests` (`EmployeeRequest`).
  *
- * Pay is worked out from the days the Back Office locks and the daily rate the Admin sets. Basic
+ * Pay is worked out from the days worked in attendance and the daily rate the Admin sets. Basic
  * salary is optional and for reference only; only an Admin's form offers it.
  */
 export type EmployeeEntryPayload = {

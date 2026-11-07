@@ -42,7 +42,7 @@ export type PayslipResponse = {
   employeeId: number;
   employeeName: string | null;
   employeeNumber: string | null;
-    /** Whole days locked by the Back Office for this pay period. 0 on payslips made before the days × rate model. */
+    /** Whole days worked in this pay period. 0 on payslips made before the days × rate model. */
   daysWorked: number;
   /** The daily rate in force for the run (KES per day). */
   dailyRate: number | null;

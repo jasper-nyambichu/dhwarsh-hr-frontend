@@ -7,7 +7,7 @@ import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { credentialsSchema } from "@/app/lib/definitions";
 import { flashToast } from "@/app/lib/flash";
-import { assignUserBranch, changeCredentials, createAgentLogin, createBranchLogin, deleteUser, getSavedLogin, type SavedLogin } from "@/lib/api/user";
+import { assignUserBranch, changeCredentials, createAgentLogin, createBranchLogin, deleteUser, getSavedLogin, linkUserEmployee, type SavedLogin } from "@/lib/api/user";
 import type { ActionState } from "@/types";
 
 /** Returned so the Admin can share them. `password` is empty when it was left unchanged. */
@@ -139,6 +139,35 @@ export async function assignUserBranchAction(
 
   try {
     await assignUserBranch(userId, branchId);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  revalidatePath("/admin/users", "layout");
+  return { status: "success", data: undefined };
+}
+
+/**
+ * Admin: link a Branch Manager or Back Office login to the employee record of the person behind it, or unlink it.
+ * The branch PC then shows them as such in its lists and lets them sign in there with their fingerprint.
+ */
+export async function linkUserEmployeeAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("user:manage");
+
+  const userId = Number(formData.get("userId"));
+  const raw = String(formData.get(`employeeId-${userId}`) ?? "");
+  const employeeId = raw === "" ? null : Number(raw);
+
+  if (!Number.isInteger(userId) || userId <= 0) return { status: "error", message: "Unknown account." };
+  if (employeeId !== null && (!Number.isInteger(employeeId) || employeeId <= 0)) {
+    return { status: "error", message: "Choose an employee." };
+  }
+
+  try {
+    await linkUserEmployee(userId, employeeId);
   } catch (error) {
     return toActionError(error);
   }

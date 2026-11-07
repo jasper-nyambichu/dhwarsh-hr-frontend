@@ -70,6 +70,14 @@ export function assignUserBranch(userId: number, branchId: number, swap = false)
 }
 
 /**
+ * Links a Branch Manager or Back Office login to that person's employee record (null unlinks). The branch PC
+ * then marks them in its lists and lets them sign in with their fingerprint. SUPER_ADMIN, audited.
+ */
+export function linkUserEmployee(userId: number, employeeId: number | null): Promise<UserSummaryResponse> {
+  return api.put<UserSummaryResponse>(`/users/${userId}/employee`, { employeeId });
+}
+
+/**
  * Deactivates an account. SUPER_ADMIN only.
  *
  * There is no matching reactivate endpoint — reactivation is not currently a

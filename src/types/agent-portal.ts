@@ -60,7 +60,7 @@ export type AgentPaymentReadiness = {
   periodStart: string;
   periodEnd: string;
   ready: boolean;
-  branches: { branchId: number; branchName: string; employeeCount: number; lockedCount: number }[];
+  branches: { branchId: number; branchName: string; employeeCount: number; daysWorked: number }[];
   alreadyPaidAgents: string[];
 };
 

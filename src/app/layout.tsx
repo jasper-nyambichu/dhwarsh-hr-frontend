@@ -40,13 +40,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           href="https://fonts.gstatic.com"
           crossOrigin="anonymous"
         />
-        {/* eslint-disable-next-line @next/next/no-page-custom-font --
-            the rule warns about fonts added outside pages/_document.js, which
+        {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display --
+            the first rule warns about fonts added outside pages/_document.js, which
             does not apply here: this is the App Router root layout, so the
-            stylesheet is emitted on every page, not one. */}
+            stylesheet is emitted on every page, not one. The second prefers
+            display=swap, which suits text fonts; for an icon font it shows each
+            icon's name as text until the font arrives, so block is deliberate. */}
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block"
         />
       </head>
       <body className="min-h-full antialiased">

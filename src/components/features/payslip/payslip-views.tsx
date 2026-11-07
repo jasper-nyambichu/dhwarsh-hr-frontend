@@ -43,8 +43,46 @@ export function PayslipList({
         {payslips.length === 0 ? (
           <EmptyState symbol="receipt_long" title="No payslips yet" description="Payslips appear here once the Administrator calculates agent payments for a period." />
         ) : (
-          <div className="w-full overflow-x-auto">
-            <table className="data-table w-full min-w-[820px] border-collapse text-left">
+          <>
+          {/* Phones: one card per payslip */}
+          <ul className="flex flex-col gap-3 md:hidden">
+            {payslips.map((payslip) => (
+              <li key={payslip.id} className="rounded-lg border border-outline-variant/50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <Link href={`${basePath}/${payslip.id}`} className="min-w-0">
+                    <span className="block break-words font-semibold text-primary">{payslip.employeeName}</span>
+                    <span className="block font-mono text-[11px] text-outline">{payslip.employeeNumber}</span>
+                    <span className="block text-xs text-on-surface-variant">{formatDateRange(payslip.periodStart, payslip.periodEnd)}</span>
+                  </Link>
+                  <PdfLink payslipId={payslip.id} label={`Download payslip of ${payslip.employeeName}`} />
+                </div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <dt className="text-on-surface-variant">Paid to agent</dt>
+                    <dd className="font-semibold tabular-nums text-on-surface">{formatMoney(payslip.amountDue)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-on-surface-variant">Deductions</dt>
+                    <dd className="tabular-nums text-error">{formatMoney(payslip.loan + payslip.damage)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-on-surface-variant">Branch</dt>
+                    <dd className="break-words text-on-surface">{payslip.branchName ?? "—"}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-on-surface-variant">Not recorded</dt>
+                    <dd className={`tabular-nums ${payslip.amountNotRecorded > 0 ? "font-semibold text-amber-main" : "text-on-surface"}`}>
+                      {formatMoney(payslip.amountNotRecorded)}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            ))}
+          </ul>
+
+          {/* Tablets and desktops: a table */}
+          <div className="hidden w-full overflow-x-auto md:block">
+            <table className="data-table w-full min-w-[900px] border-collapse text-left">
               <thead>
                 <tr>
                   <th className={`${header} pl-2`}>Employee</th>
@@ -53,7 +91,9 @@ export function PayslipList({
                   <th className={header}>Agent</th>
                   <th className={`${header} text-right`}>Paid to Agent</th>
                   <th className={`${header} text-right`}>Recorded</th>
-                  <th className={`${header} pr-2 text-right`}>Not Recorded</th>
+                  <th className={`${header} text-right`}>Deductions</th>
+                  <th className={`${header} text-right`}>Not Recorded</th>
+                  <th className={`${header} pr-2 text-right`}>PDF</th>
                 </tr>
               </thead>
               <tbody className="font-body-md text-body-md text-on-surface">
@@ -70,14 +110,21 @@ export function PayslipList({
                     <td className="py-3 text-on-surface-variant">{payslip.agentName ?? "—"}</td>
                     <td className="py-3 text-right font-semibold tabular-nums">{formatMoney(payslip.amountDue, { showCurrency: false })}</td>
                     <td className="py-3 text-right tabular-nums">{formatMoney(payslip.amountRecorded, { showCurrency: false })}</td>
-                    <td className={`py-3 pr-2 text-right tabular-nums ${payslip.amountNotRecorded > 0 ? "font-semibold text-amber-main" : "text-on-surface-variant"}`}>
+                    <td className="py-3 text-right tabular-nums text-error">
+                      {formatMoney(payslip.loan + payslip.damage, { showCurrency: false })}
+                    </td>
+                    <td className={`py-3 text-right tabular-nums ${payslip.amountNotRecorded > 0 ? "font-semibold text-amber-main" : "text-on-surface-variant"}`}>
                       {formatMoney(payslip.amountNotRecorded, { showCurrency: false })}
+                    </td>
+                    <td className="py-2 pr-2 text-right">
+                      <PdfLink payslipId={payslip.id} label={`Download payslip of ${payslip.employeeName}`} />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+          </>
         )}
       </BentoCard>
     </>
@@ -86,12 +133,37 @@ export function PayslipList({
 
 function Line({ label, amount, negative = false }: { label: string; amount: number; negative?: boolean }) {
   return (
-    <div className="flex items-center justify-between border-b border-outline-variant/20 py-3 last:border-0">
-      <span className="font-body-md text-body-md text-on-surface-variant">{label}</span>
-      <span className={`font-mono text-sm tabular-nums ${negative ? "text-error" : "text-on-surface"}`}>
+    <div className="flex items-start justify-between gap-3 border-b border-outline-variant/20 py-3 last:border-0">
+      <span className="min-w-0 break-words font-body-md text-body-md text-on-surface-variant">{label}</span>
+      <span className={`shrink-0 font-mono text-sm tabular-nums ${negative ? "text-error" : "text-on-surface"}`}>
         {negative ? `(${formatMoney(amount, { showCurrency: false })})` : formatMoney(amount, { showCurrency: false })}
       </span>
     </div>
+  );
+}
+
+function Subtotal({ label, amount, negative = false }: { label: string; amount: number; negative?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-3">
+      <span className="font-semibold text-on-surface">{label}</span>
+      <span className={`shrink-0 font-mono text-sm font-bold tabular-nums ${negative ? "text-error" : "text-on-surface"}`}>
+        {negative ? `(${formatMoney(amount, { showCurrency: false })})` : formatMoney(amount, { showCurrency: false })}
+      </span>
+    </div>
+  );
+}
+
+/** Downloads the payslip PDF, which itemises every loan and damage taken off. */
+function PdfLink({ payslipId, label }: { payslipId: number; label: string }) {
+  return (
+    <a
+      href={`/api/payslips/${payslipId}?download=1`}
+      aria-label={label}
+      title="Download PDF"
+      className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg border border-outline-variant text-primary transition-colors hover:bg-surface-container-low"
+    >
+      <Icon name="download" className="text-[20px]" />
+    </a>
   );
 }
 
@@ -104,6 +176,11 @@ export function PayslipDetail({
   backHref: string;
   hasLogo: boolean;
 }) {
+  const income = payslip.pay + payslip.paye + payslip.nssf + payslip.nita;
+  const deductions = payslip.loan + payslip.damage;
+  const loanItems = payslip.loanItems ?? [];
+  const damageItems = payslip.damageItems ?? [];
+
   return (
     <>
       <PageHeader
@@ -142,16 +219,41 @@ export function PayslipDetail({
           }
         >
           <div className="flex flex-col">
+            <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-outline">Income</p>
             <Line label={`${formatNumber(payslip.daysWorked)} days × ${formatMoney(payslip.dailyRate)}`} amount={payslip.pay} />
             <Line label="PAYE" amount={payslip.paye} />
             <Line label="NSSF" amount={payslip.nssf} />
             <Line label="NITA" amount={payslip.nita} />
-            <Line label="Less: Loans" amount={payslip.loan} negative />
-            <Line label="Less: Damages" amount={payslip.damage} negative />
+            <Subtotal label="Total income" amount={income} />
+
+            <p className="pt-4 text-xs font-semibold uppercase tracking-wide text-outline">Deductions</p>
+            {loanItems.length > 0 ? (
+              loanItems.map((item) => <Line key={`loan-${item.id}`} label={item.label} amount={item.amount} negative />)
+            ) : (
+              <Line label="Loans" amount={payslip.loan} negative />
+            )}
+            {damageItems.length > 0 ? (
+              damageItems.map((item) => (
+                <Line
+                  key={`damage-${item.id}`}
+                  label={item.date ? `${item.label} (${formatDate(item.date)})` : item.label}
+                  amount={item.amount}
+                  negative
+                />
+              ))
+            ) : (
+              <Line label="Damages" amount={payslip.damage} negative />
+            )}
+            <Subtotal label="Total deductions" amount={deductions} negative />
+
+            <p className="mt-3 rounded-lg bg-surface-container-low px-3 py-2 font-mono text-xs text-on-surface-variant">
+              {formatMoney(income, { showCurrency: false })} − {formatMoney(deductions, { showCurrency: false })} ={" "}
+              {formatMoney(payslip.amountDue, { showCurrency: false })}
+            </p>
 
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary-fixed bg-primary-fixed-dim/20 px-4 py-4">
-              <span className="font-page-title text-page-title text-primary">Amount Paid to the Agent for This Employee</span>
-              <span className="font-page-title text-page-title font-bold text-primary">{formatMoney(payslip.amountDue)}</span>
+              <span className="text-base font-semibold text-primary sm:font-page-title sm:text-page-title">Amount Paid to the Agent for This Employee</span>
+              <span className="text-lg font-bold tabular-nums text-primary sm:font-page-title sm:text-page-title">{formatMoney(payslip.amountDue)}</span>
             </div>
           </div>
         </BentoCard>

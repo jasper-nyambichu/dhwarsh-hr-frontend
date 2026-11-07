@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { ApiError } from "@/app/lib/api-error";
 import { SYSTEM_UNREACHABLE } from "@/lib/api-messages";
 import { getSession } from "@/app/lib/session";
-import { hasPermission } from "@/config/roles";
+import { hasAnyPermission } from "@/config/roles";
 import { getAttendanceActivity, getAttendanceSummary } from "@/lib/api/attendance";
 import type { AttendanceLiveSnapshot } from "@/types";
 
@@ -47,7 +47,8 @@ export async function GET(request: NextRequest) {
 
   // The DAL's `requirePermission` redirects, which is right for a page and
   // wrong for a JSON endpoint — so the check is repeated here, without it.
-  if (!hasPermission(session.role, "attendance:read")) {
+  // A Branch Manager holds the branch-scoped permission; the backend limits them to their own branch.
+  if (!hasAnyPermission(session.role, ["attendance:read", "attendance:read:branch"])) {
     return Response.json(
       { message: "You do not have permission to view attendance." },
       { status: 403 },

@@ -92,7 +92,7 @@ export function EmployeePayTable({
                 </div>
               </div>
               {payslip ? (
-                <dl className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5 border-t border-outline-variant/30 pt-3 text-xs">
+                <dl className="mt-3 grid grid-cols-1 gap-x-3 gap-y-1.5 border-t border-outline-variant/30 pt-3 text-xs min-[400px]:grid-cols-2">
                   {[
                     ["Days worked", formatNumber(payslip.daysWorked)],
                     ["Pay", money(payslip.pay)],

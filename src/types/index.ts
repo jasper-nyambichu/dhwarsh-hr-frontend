@@ -1006,4 +1006,6 @@ export type UserSummaryResponse = {
   branchId: number | null;
   agentId: number | null;
   active: boolean;
+  /** The employee record of the person behind a Branch Manager or Back Office login, when linked. */
+  employeeId?: number | null;
 };

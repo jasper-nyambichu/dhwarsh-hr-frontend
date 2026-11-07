@@ -54,7 +54,7 @@ export default async function AgentProfilePage() {
                 </span>
               </span>
               <span className="mt-1 block text-sm text-on-surface-variant">
-                {formatNumber(agent.employeeCount)} active employeeff
+                {formatNumber(agent.employeeCount)} active employees
               </span>
             </span>
           </span>

@@ -1,6 +1,6 @@
 import { DaysWorkedPanel } from "@/components/features/backoffice/days-worked-panel";
 
-/** Admin sits outside the /backoffice namespace but can review, and is the only role that can unlock a period. */
+/** Admin reviews the days worked per branch, counted live from attendance. */
 export default async function AdminDaysWorkedPage({
   searchParams,
 }: {

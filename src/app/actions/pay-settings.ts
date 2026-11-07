@@ -116,8 +116,8 @@ export async function checkAgentPaymentPeriodAction(
 }
 
 /**
- * Admin: work out what each agent is paid for a period. All or nothing: if one employee has no locked
- * days, or an agent was already paid for part of the period, nothing changes and the reason is shown.
+ * Admin: work out what each agent is paid for a period, from the days in attendance. All or nothing:
+ * if an agent was already paid for part of the period, nothing changes and the reason is shown.
  */
 export async function calculateAgentPaymentsAction(
   _previous: ActionState,

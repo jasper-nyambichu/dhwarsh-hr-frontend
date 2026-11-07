@@ -111,8 +111,12 @@ export function ProfileForm({
     setPassword("");
   }
 
+  // The password pop-up sits OUTSIDE this form: its fields are required, and inside the form the browser
+  // refused to submit the profile while they were empty and hidden, so Save silently did nothing.
+  // The buttons below reach the form through its id.
   return (
-    <form action={formAction} className="flex flex-col">
+    <div className="flex flex-col">
+    <form id="profile-form" action={formAction} className="flex flex-col">
       <div className="grid grid-cols-1 gap-5 py-6 sm:grid-cols-2">
         <div>
           <label htmlFor="firstName" className={FIELD_LABEL}>First Name</label>
@@ -156,14 +160,15 @@ export function ProfileForm({
           <FormMessage state={state} successText="Profile saved." />
         </div>
       </div>
+    </form>
 
       <PasswordSection />
 
       <div className="flex justify-end gap-3 border-t border-outline-variant/40 pt-5">
         <button type="button" data-live="" onClick={cancel} disabled={!dirty || pending} className={SECONDARY_BUTTON}>Cancel</button>
-        <button type="submit" disabled={!dirty || pending} className={PRIMARY_BUTTON}>{pending ? "Saving…" : "Save"}</button>
+        <button type="submit" form="profile-form" disabled={!dirty || pending} className={PRIMARY_BUTTON}>{pending ? "Saving…" : "Save"}</button>
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -194,7 +199,7 @@ function PasswordSection() {
   );
 }
 
-// Not a <form>: this dialog sits inside the profile form, and forms cannot nest. The password fields have
+// Not a <form>: kept self-contained so it can never block another form again. The password fields have
 // no name, so saving the profile never sends them, and they are submitted from here instead.
 function ChangePasswordBody({ onDone }: { onDone: () => void }) {
   const [state, setState] = useState<ActionState>({ status: "idle" });

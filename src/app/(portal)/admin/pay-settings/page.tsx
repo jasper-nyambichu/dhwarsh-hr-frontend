@@ -46,7 +46,7 @@ export default async function PaySettingsPage({
 }) {
   await requirePermission("settings:manage");
 
-  // Coming back from locking a branch's days keeps the period that was being checked.
+  // Coming back from the days-worked page keeps the period that was being checked.
   const params = await searchParams;
   const periodStart = parseDate(first(params.periodStart));
   const periodEnd = parseDate(first(params.periodEnd));
@@ -81,7 +81,7 @@ export default async function PaySettingsPage({
     <>
       <PageHeader
         title="Pay rates"
-        description="The agent is paid from these rates and the days the Back Office locks, then pays their own employees."
+        description="The agent is paid from these rates and the days worked in attendance, then pays their own employees."
       />
 
       {notSetUp ? (

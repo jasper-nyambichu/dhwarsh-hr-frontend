@@ -165,7 +165,7 @@ export default async function AdminDashboardPage() {
     "/admin/money-requests": { hint: `${formatNumber(pendingMoney)} to decide · ${shown(toRelease)} to release`, attention: pendingMoney + (toRelease ?? 0) },
     "/admin/off-days": { hint: `${shown(offThisMonth)} off this month` },
     "/admin/attendance": { hint: summary ? `${formatNumber(summary.currentlyIn)} clocked in now` : "Live attendance board" },
-    "/admin/days-worked": { hint: "Locked by the Back Office" },
+    "/admin/days-worked": { hint: "Counted from attendance" },
     "/admin/branches": { hint: `${formatNumber(activeBranches)} active of ${formatNumber(branches.length)}` },
     "/admin/departments": { hint: "Company-wide departments" },
     "/admin/agents": { hint: agents ? `${formatNumber(agents.length)} agents · ${formatNumber(agents.reduce((sum, a) => sum + (a.employeeCount ?? 0), 0))} staff` : "Agent directory" },

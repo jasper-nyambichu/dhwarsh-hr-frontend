@@ -19,8 +19,8 @@ type Check = { period: string; result: ActionState<AgentPaymentReadiness> };
 
 /**
  * Starts the calculation for a period. It moves real balances (loans, damages, advances) and a period
- * can only be paid once, so it asks first. As soon as both dates are chosen it shows what each branch
- * still needs, because agent payments only use days locked for exactly this period.
+ * can only be paid once, so it asks first. As soon as both dates are chosen it shows the days each
+ * branch has worked, counted from attendance. Nothing needs locking first.
  */
 export function AgentPaymentForm({ initialStart = "", initialEnd = "" }: { initialStart?: string; initialEnd?: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(calculateAgentPaymentsAction, {
@@ -74,7 +74,7 @@ export function AgentPaymentForm({ initialStart = "", initialEnd = "" }: { initi
   return (
     <BentoCard
       title="Calculate agent payments"
-      subtitle="Choose the period. Each branch's days must be locked for exactly these dates. Each agent's amount then waits under Money Requests for you to release."
+      subtitle="Choose the period. Days worked are counted from attendance, so you can calculate at any time. Each agent's amount then waits under Money Requests for you to release."
     >
       <ConfirmForm
         action={formAction}
@@ -135,8 +135,8 @@ function PeriodChecklist({ readiness }: { readiness: AgentPaymentReadiness }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-outline-variant/40 p-3" role="status">
       <p className="flex items-center gap-2 text-sm font-semibold text-on-surface">
-        <Icon name={ready ? "check_circle" : "pending"} filled className={ready ? "text-[20px] text-tertiary" : "text-[20px] text-amber-main"} />
-        {ready ? "Ready to calculate" : "Not ready yet"}
+        <Icon name={ready ? "check_circle" : "error"} filled className={ready ? "text-[20px] text-tertiary" : "text-[20px] text-error"} />
+        {ready ? "Ready to calculate" : "Cannot calculate this period"}
       </p>
 
       {alreadyPaidAgents.length > 0 ? (
@@ -149,31 +149,26 @@ function PeriodChecklist({ readiness }: { readiness: AgentPaymentReadiness }) {
         <p className="text-sm text-on-surface-variant">No active agent has active employees to pay.</p>
       ) : (
         <ul className="flex flex-col divide-y divide-outline-variant/30">
-          {branches.map((branch) => {
-            const done = branch.lockedCount === branch.employeeCount;
-            return (
-              <li key={branch.branchId} className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
-                <span className="flex min-w-0 items-center gap-2">
-                  <Icon name={done ? "lock" : "lock_open"} className={done ? "text-[18px] text-tertiary" : "text-[18px] text-amber-main"} />
-                  <span className="min-w-0">
-                    <span className="block break-words text-sm font-medium text-on-surface">{branch.branchName}</span>
-                    <span className="block text-xs text-on-surface-variant">
-                      {formatNumber(branch.lockedCount)} of {formatNumber(branch.employeeCount)} employees locked
-                    </span>
+          {branches.map((branch) => (
+            <li key={branch.branchId} className="flex flex-wrap items-center justify-between gap-2 py-2 first:pt-0 last:pb-0">
+              <span className="flex min-w-0 items-center gap-2">
+                <Icon name="location_city" className="text-[18px] text-primary-container" />
+                <span className="min-w-0">
+                  <span className="block break-words text-sm font-medium text-on-surface">{branch.branchName}</span>
+                  <span className="block text-xs text-on-surface-variant">
+                    {formatNumber(branch.employeeCount)} employees · {formatNumber(branch.daysWorked)} days worked
                   </span>
                 </span>
-                {done ? null : (
-                  <Link
-                    href={buildHref("/admin/days-worked", { branchId: branch.branchId, start: periodStart, end: periodEnd, returnTo: "payments" })}
-                    className="flex min-h-9 items-center gap-1 rounded-lg border border-outline-variant px-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low"
-                  >
-                    Review and lock
-                    <Icon name="arrow_forward" className="text-[16px]" />
-                  </Link>
-                )}
-              </li>
-            );
-          })}
+              </span>
+              <Link
+                href={buildHref("/admin/days-worked", { branchId: branch.branchId, start: periodStart, end: periodEnd, returnTo: "payments" })}
+                className="flex min-h-9 items-center gap-1 rounded-lg border border-outline-variant px-3 text-sm font-semibold text-primary transition-colors hover:bg-surface-container-low"
+              >
+                Review days
+                <Icon name="arrow_forward" className="text-[16px]" />
+              </Link>
+            </li>
+          ))}
         </ul>
       )}
     </div>

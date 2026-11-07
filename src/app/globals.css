@@ -190,13 +190,24 @@
     font-family: var(--font-body-md);
   }
 
-  /* Material Symbols defaults, matching the Stitch <style> block. */
+  /* Material Symbols defaults, matching the Stitch <style> block.
+     Each icon is a fixed 1em square that never shrinks: until the font arrives (or if it cannot load on a
+     slow phone connection) the ligature's name is clipped instead of spilling out as text, so rows keep
+     their layout and icons stay in line with their labels. */
   .material-symbols-outlined {
     font-variation-settings:
       "FILL" 0,
       "wght" 400,
       "GRAD" 0,
       "opsz" 24;
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    overflow: hidden;
+    flex-shrink: 0;
+    vertical-align: middle;
+    white-space: nowrap;
+    user-select: none;
   }
 }
 

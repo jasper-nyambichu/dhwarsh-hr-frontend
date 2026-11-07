@@ -3,7 +3,6 @@ import { endOfMonth, format, startOfMonth } from "date-fns";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { DaysWorkedLockForm, DaysWorkedUnlockForm } from "@/components/features/backoffice/days-worked-forms";
 import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -20,8 +19,8 @@ const FIELD =
   "min-h-11 rounded-lg border border-outline-variant bg-surface-container-lowest px-3 text-base text-on-surface focus:outline-none focus:ring-1 focus:ring-primary md:text-sm";
 
 /**
- * Days worked per branch for a pay period. The Back Office reviews and locks them in the desktop
- * application; here an Admin can see the figures, lock them, and reopen a period if it must change.
+ * Days worked per branch for a pay period, counted live from attendance. Nothing needs locking:
+ * the agent payment calculation reads the same count whenever the Admin runs it.
  */
 export async function DaysWorkedPanel({
   params,
@@ -30,8 +29,7 @@ export async function DaysWorkedPanel({
   params: Record<string, string | string[] | undefined>;
   basePath: string;
 }) {
-  const session = await requirePermission("dayswork:read");
-  const canUnlock = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
+  await requirePermission("dayswork:read");
 
   const today = new Date();
   const branchId = parseId(first(params.branchId));
@@ -53,7 +51,6 @@ export async function DaysWorkedPanel({
     );
   }
 
-  const locked = rows.length > 0 && rows.every((row) => row.locked);
   const totalDays = rows.reduce((sum, row) => sum + row.daysWorked, 0);
   const branchName = branches.find((branch) => branch.id === branchId)?.name;
 
@@ -61,7 +58,7 @@ export async function DaysWorkedPanel({
     <>
       <PageHeader
         title="Days worked"
-        description="The days each employee reported, as locked by the Back Office in the desktop application. Agent payments only use locked figures."
+        description="The days each employee clocked in, counted from attendance. Agent payments use these figures whenever the Admin calculates."
       />
 
       {first(params.returnTo) === "payments" ? (
@@ -129,18 +126,8 @@ export async function DaysWorkedPanel({
       ) : (
         <BentoCard
           title={`${branchName ?? "Branch"} · ${formatDate(start)} to ${formatDate(end)}`}
-          subtitle={
-            locked
-              ? `Locked · ${formatNumber(totalDays)} days across ${rows.length} employees`
-              : `Not locked yet · ${formatNumber(totalDays)} days so far`
-          }
+          subtitle={`${formatNumber(totalDays)} days across ${rows.length} employees`}
         >
-          {!locked ? (
-            <p role="status" className="mb-3 rounded-lg bg-error/10 p-3 text-sm text-error">
-              These figures are live from attendance and are not final. Agent payments cannot use them until the Back Office
-              or an Admin locks the period.
-            </p>
-          ) : null}
 
           {/* Phones: one card per employee */}
           <ul className="flex flex-col gap-3 md:hidden">
@@ -191,18 +178,6 @@ export async function DaysWorkedPanel({
               </tbody>
             </table>
           </div>
-
-          {!locked && canUnlock && branchId ? (
-            <div className="mt-4 sm:flex sm:justify-end">
-              <DaysWorkedLockForm branchId={branchId} periodStart={start} periodEnd={end} />
-            </div>
-          ) : null}
-
-          {locked && canUnlock && branchId ? (
-            <div className="mt-4 sm:flex sm:justify-end">
-              <DaysWorkedUnlockForm branchId={branchId} periodStart={start} periodEnd={end} />
-            </div>
-          ) : null}
         </BentoCard>
       )}
     </>

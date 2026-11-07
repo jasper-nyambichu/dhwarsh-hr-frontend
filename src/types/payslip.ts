@@ -11,6 +11,14 @@ export type RecordedPayment = {
   paidOn: string;
 };
 
+/** One loan instalment or one damage taken off a payslip. `date` is the damage date; null for loans. */
+export type DeductionItem = {
+  id: number;
+  label: string;
+  date: string | null;
+  amount: number;
+};
+
 export type EmployeePayslip = {
   id: number;
   settlementId: number;
@@ -33,4 +41,7 @@ export type EmployeePayslip = {
   amountRecorded: number;
   amountNotRecorded: number;
   payments: RecordedPayment[];
+  /** Itemise `loan` and `damage`. Empty on a payslip from a server without itemising. */
+  loanItems?: DeductionItem[];
+  damageItems?: DeductionItem[];
 };

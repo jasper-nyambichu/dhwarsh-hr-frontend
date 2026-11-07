@@ -38,10 +38,10 @@ export default async function AgentAdvancesPage() {
         description="Ask for an advance and see what you still owe. Advances are recovered from your payroll once approved."
       />
 
-      <div className="mb-6 grid grid-cols-2 gap-3 sm:max-w-xl">
+      <div className="mb-6 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:max-w-xl">
         <div className="rounded-card bg-surface-container-lowest p-4 shadow-ambient-1">
           <p className="text-xs text-outline">Still owed</p>
-          <p className="mt-1 text-xl font-bold tabular-nums text-on-surface">{formatKes(owed)}</p>
+          <p className="mt-1 break-words text-lg font-bold tabular-nums text-on-surface sm:text-xl">{formatKes(owed)}</p>
         </div>
         <div className="rounded-card bg-surface-container-lowest p-4 shadow-ambient-1">
           <p className="text-xs text-outline">Waiting for approval</p>

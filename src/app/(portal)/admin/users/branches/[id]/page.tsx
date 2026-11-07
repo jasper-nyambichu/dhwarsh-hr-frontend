@@ -4,12 +4,14 @@ import { notFound } from "next/navigation";
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { CredentialCard } from "@/components/features/users/credential-card";
+import { LinkEmployeeForm } from "@/components/features/users/link-employee-form";
 import { MoveBranchManagerForm } from "@/components/features/users/move-branch-manager-form";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
 import { getBranches } from "@/lib/api/branch";
+import { getEmployeesByBranch } from "@/lib/api/employee";
 import { getUsers } from "@/lib/api/user";
 import type { BranchResponse, UserSummaryResponse } from "@/types";
 
@@ -35,6 +37,13 @@ export default async function UserBranchPage({ params }: { params: Promise<{ id:
 
   const branch = branches.find((item) => item.id === branchId);
   if (!branch) notFound();
+
+  // Only decides the employee choices on the cards, so a failure must not hide the logins.
+  const staff = await getEmployeesByBranch(branchId).catch(() => null);
+  const employeeOptions = (staff ?? [])
+    .filter((person) => person.employmentStatus === "ACTIVE")
+    .map((person) => ({ id: person.id, name: person.fullName, number: person.employeeNumber }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   const moveOptions = branches
     .filter((other) => other.status === "ACTIVE" && other.id !== branchId)
@@ -78,6 +87,14 @@ export default async function UserBranchPage({ params }: { params: Promise<{ id:
               branchId={branchId}
               role={role}
             >
+              {user?.active ? (
+                <LinkEmployeeForm
+                  userId={user.id}
+                  roleTitle={title}
+                  linkedEmployeeId={user.employeeId ?? null}
+                  employees={staff === null ? null : employeeOptions}
+                />
+              ) : null}
               {role === "BRANCH_MANAGER" && user?.active ? (
                 <MoveBranchManagerForm userId={user.id} username={user.username} currentBranch={branch.name} branches={moveOptions} />
               ) : null}

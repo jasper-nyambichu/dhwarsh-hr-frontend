@@ -26,6 +26,8 @@ export type DamageResponse = {
   overriddenAt: string | null;
   payrollRunId: number | null;
   createdAt: string;
+  /** When the agent payment calculation deducted it. Null until then. */
+  deductedAt?: string | null;
 };
 
 /** The body of `POST /damages` (`DamageRequest`). `damageDate` defaults to today server-side. */
@@ -46,25 +48,10 @@ export type DaysWorkedResponse = {
   periodEnd: string;
   /** What the attendance records say. */
   systemDays: number;
-  /** The final figure; equals `systemDays` until the Back Office adjusts it and locks the period. */
+  /** The figure agent payments use: `systemDays`, or a figure locked before locking was removed. */
   daysWorked: number;
   adjusted: boolean;
   adjustmentReason: string | null;
   locked: boolean;
   lockedAt: string | null;
-};
-
-/** One correction the officer makes before locking (`DaysWorkedAdjustmentRequest`). */
-export type DaysWorkedAdjustment = {
-  employeeId: number;
-  daysWorked: number;
-  reason: string;
-};
-
-/** The body of `POST /days-worked/lock` (`DaysWorkedLockRequest`). */
-export type DaysWorkedLockPayload = {
-  branchId: number;
-  periodStart: string;
-  periodEnd: string;
-  adjustments?: DaysWorkedAdjustment[];
 };

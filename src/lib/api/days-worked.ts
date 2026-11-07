@@ -6,12 +6,11 @@ import type { DaysWorkedResponse } from "@/types/backoffice";
 /**
  * `controller/dayswork/DaysWorkedController` — base `/days-worked`.
  *
- * Payroll's input under the days × rate model. The Back Office reviews and locks each branch's
- * days in the desktop application; the web only reads them (Payroll, Admin) and lets an Admin
- * reopen a locked period.
+ * Days worked, counted live from attendance. Nothing is locked: the agent payment calculation
+ * reads the same count whenever the Admin runs it.
  */
 
-/** Every active employee of the branch: the locked figure if the period is locked, else the live count. */
+/** Every active employee of the branch with the days counted from attendance. */
 export function getDaysWorked(
   branchId: number,
   periodStart: string,
@@ -21,21 +20,5 @@ export function getDaysWorked(
   return api.get<DaysWorkedResponse[]>("/days-worked", {
     query: { branchId, periodStart, periodEnd },
     signal,
-  });
-}
-
-/** Locks every active employee's days for one branch and period, at the figures attendance gives. */
-export function lockDaysWorked(branchId: number, periodStart: string, periodEnd: string): Promise<unknown> {
-  return api.post("/days-worked/lock", { branchId, periodStart, periodEnd });
-}
-
-/** Admin only: reopens a locked period so the Back Office can correct it and lock it again. */
-export function unlockDaysWorked(
-  branchId: number,
-  periodStart: string,
-  periodEnd: string,
-): Promise<void> {
-  return api.delete<void>("/days-worked/lock", {
-    query: { branchId, periodStart, periodEnd },
   });
 }
