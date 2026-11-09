@@ -195,7 +195,7 @@ export async function agentLogin(
     };
   }
 
-  const result = await authenticate("/agent-login", parsed.data);
+  const result = await authenticate("/agent/login", parsed.data);
 
   if ("error" in result) {
     return { status: "error", message: result.error };

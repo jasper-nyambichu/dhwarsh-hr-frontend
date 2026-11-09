@@ -11,6 +11,6 @@ export const siteConfig = {
 /** Login surface per principal type. Mirrors PRINCIPAL_TYPES in roles.ts. */
 export const LOGIN_ROUTES = {
   STAFF: "/login",
-  AGENT: "/agent-login",
+  AGENT: "/agent/login",
   DEVICE: "/kiosk/clock",
 } as const;

@@ -4,12 +4,12 @@ import path from "node:path";
 import { ImageResponse } from "next/og";
 
 /**
- * App-icon rendering for the `icon` / `apple-icon` file conventions: DhwarshHub's "DH" mark, the
+ * App-icon rendering for the `icon` / `apple-icon` file conventions: the Dhwarsh emblem of DhwarshHub, the
  * company behind the system. (The organisation's own logo heads the pages instead; it can be any
- * shape and is unreadable at favicon size.) The source is already a square PNG on white.
+ * shape and is unreadable at favicon size.) The source is a square transparent PNG, drawn on white.
  */
 export async function renderBrandIcon(edge: number) {
-  const bytes = await readFile(path.join(process.cwd(), "public", "brand", "dhwarshhub-mark.png"));
+  const bytes = await readFile(path.join(process.cwd(), "public", "brand", "dhwarsh-mark.png"));
   const source = `data:image/png;base64,${bytes.toString("base64")}`;
 
   return new ImageResponse(

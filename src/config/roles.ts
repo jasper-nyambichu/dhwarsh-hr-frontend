@@ -37,7 +37,7 @@ export const ACTIVE_ROLES = [
  *
  * Three surfaces, because the credential differs per population:
  *   STAFF    /login          username + password  (users.username)
- *   AGENT    /agent-login    agent code + password
+ *   AGENT    /agent/login    username + password
  *   DEVICE   /kiosk          device token         (biometric_devices)
  */
 export const PRINCIPAL_TYPES = ["STAFF", "AGENT", "DEVICE"] as const;
@@ -54,7 +54,7 @@ export const ROLE_PRINCIPAL: Record<Role, PrincipalType> = {
 /** Where to send an unauthenticated principal of each type. */
 export const PRINCIPAL_LOGIN_ROUTE: Record<PrincipalType, string> = {
   STAFF: "/login",
-  AGENT: "/agent-login",
+  AGENT: "/agent/login",
   DEVICE: "/kiosk/clock",
 };
 
@@ -88,8 +88,8 @@ export const ROLE_HOME: Record<Role, string> = {
 export const ROLE_LOGIN: Record<Role, string> = {
   SUPER_ADMIN: "/login",
   ADMIN: "/login",
-  BRANCH_MANAGER: "/branch-login",
-  AGENT: "/agent-login",
+  BRANCH_MANAGER: "/branch/login",
+  AGENT: "/agent/login",
   BACK_OFFICE: "/login",
 };
 

@@ -9,7 +9,7 @@ import { isNavItemActive, navigationFor } from "@/config/navigation";
 import { ROLE_LABEL, type Role } from "@/config/roles";
 import { Icon } from "@/components/ui/icon";
 import { useNav } from "@/components/layout/nav-context";
-import { OrganisationLogo } from "@/components/shared/organisation-brand";
+import { OrganisationBadge } from "@/components/shared/organisation-brand";
 import type { OrganisationBranding } from "@/lib/api/organisation";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -85,20 +85,8 @@ export function AppRail({ role, branding }: { role: Role; branding: Organisation
               showLabels ? "" : "md:flex-col md:gap-1 md:text-center",
             )}
           >
-            {/* The organisation's logo from Admin → Settings, on a white tile so any logo (dark or light)
-                stays readable on the blue rail. Contained, never cropped, so a wide logo shows whole. */}
-            <span
-              className={cn(
-                "flex shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white p-0.5 shadow-sm ring-1 ring-white/25",
-                showLabels ? "h-16 w-[88px]" : "h-16 w-[88px] md:h-14 md:w-[76px]",
-              )}
-            >
-              {branding.hasLogo ? (
-                <OrganisationLogo branding={branding} className="h-full w-full rounded-lg" />
-              ) : (
-                <span className="text-base font-extrabold text-primary">{initials(branding.name)}</span>
-              )}
-            </span>
+            {/* The organisation's logo from Admin → Settings, cropped to a circle like the sign-in pages. */}
+            <OrganisationBadge branding={branding} className="size-14" ringClassName="ring-white/30" />
             <span
               className={cn(
                 "flex min-w-0 flex-col",
@@ -262,10 +250,4 @@ export function AppRail({ role, branding }: { role: Role; branding: Organisation
       </nav>
     </>
   );
-}
-
-/** "Kisii Matt Supermarket" -> "KM", for the rail tile when no logo has been uploaded. */
-function initials(name: string | null): string {
-  const words = (name ?? "").trim().split(/\s+/).filter(Boolean);
-  return words.length === 0 ? "•" : words.slice(0, 2).map((word) => word[0]!.toUpperCase()).join("");
 }

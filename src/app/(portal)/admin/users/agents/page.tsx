@@ -60,7 +60,7 @@ export default async function UserAgentsPage() {
               where="this agent's portal"
               account={users.find((user) => user.role === "AGENT" && user.agentId === agent.id) ?? null}
               agentId={agent.id}
-              signInPath="/agent-login"
+              signInPath="/agent/login"
             />
           ))}
         </div>
