@@ -1,12 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requireRole } from "@/app/lib/dal";
 import {
   removeCompanyLogo,
   saveCompany,
+  sendTestEmail,
   uploadCompanyLogo,
   updateCompanySettings,
   type CompanyInput,
@@ -60,10 +61,9 @@ export async function saveCompanyAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/settings");
+  refresh();
   // The name and logo also head the sign-in pages, the sidebar and the tab title.
-  revalidatePath("/", "layout");
-  revalidatePath("/admin/companies");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -88,9 +88,9 @@ export async function uploadCompanyLogoAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/settings");
+  refresh();
   // The name and logo also head the sign-in pages, the sidebar and the tab title.
-  revalidatePath("/", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -106,9 +106,9 @@ export async function removeCompanyLogoAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/settings");
+  refresh();
   // The name and logo also head the sign-in pages, the sidebar and the tab title.
-  revalidatePath("/", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -149,8 +149,25 @@ export async function saveSettingsAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/settings");
+  refresh();
   // The name and logo also head the sign-in pages, the sidebar and the tab title.
-  revalidatePath("/", "layout");
+  refresh();
+  return { status: "success", data: undefined };
+}
+
+/** Admin: checks the server can send email (password reset codes depend on it), with the mail server's reason if not. */
+export async function sendTestEmailAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  await requireRole(["ADMIN", "SUPER_ADMIN"]);
+
+  const to = String(formData.get("to") ?? "").trim();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) {
+    return { status: "error", message: "Enter a valid email address." };
+  }
+
+  try {
+    await sendTestEmail(to);
+  } catch (error) {
+    return toActionError(error);
+  }
   return { status: "success", data: undefined };
 }

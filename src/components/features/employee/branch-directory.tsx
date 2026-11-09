@@ -1,6 +1,8 @@
 import Link from "next/link";
 
+import { deleteEmployeesAction } from "@/app/actions/staff";
 import { BentoCard } from "@/components/shared/bento-card";
+import { BulkDeleteBar, RowCheckbox, SelectAllCheckbox } from "@/components/shared/bulk-delete";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
@@ -68,11 +70,15 @@ export function BranchCards({ items, basePath }: { items: BranchCardItem[]; base
   );
 }
 
+/** Ties the employee tick boxes to the bulk-delete form above the list. */
+const BULK_FORM = "bulk-delete-employees";
+
 export function BranchEmployeesTable({
   employees,
   employeeHref,
   emptyDescription,
   showSalary = true,
+  bulkDelete = false,
 }: {
   employees: EmployeeDirectoryResponse[];
   /** Links each name to the employee's record. Leave out when the viewer has no such page. */
@@ -80,6 +86,8 @@ export function BranchEmployeesTable({
   emptyDescription: string;
   /** Branch Managers do not see pay. */
   showSalary?: boolean;
+  /** Admin: tick employees and delete them together. The boxes never print. */
+  bulkDelete?: boolean;
 }) {
   const existing = existingEmployees(employees);
 
@@ -92,11 +100,25 @@ export function BranchEmployeesTable({
 
   return (
     <BentoCard title="Employees" subtitle={`${formatNumber(existing.length)} in this branch`}>
+      {bulkDelete ? (
+        <BulkDeleteBar
+          formId={BULK_FORM}
+          action={deleteEmployeesAction}
+          noun="employee"
+          plural="employees"
+          warning="Each ticked employee is deleted and the other employee codes close up. Their payslips, loans and other money records are kept."
+        />
+      ) : null}
       <ul className="flex flex-col gap-3 md:hidden">
         {sorted.map((person) => (
           <li key={person.id} className="min-w-0 rounded-lg border border-outline-variant/40 p-3">
             <div className="flex min-w-0 items-start justify-between gap-3">
-              <p className="min-w-0 break-words font-semibold text-on-surface">
+              {bulkDelete ? (
+                <span className="pt-0.5">
+                  <RowCheckbox formId={BULK_FORM} id={person.id} label={person.fullName} />
+                </span>
+              ) : null}
+              <p className="min-w-0 flex-1 break-words font-semibold text-on-surface">
                 {employeeHref ? (
                   <Link href={employeeHref(person.id)} className="text-primary hover:underline">
                     {person.fullName}
@@ -134,6 +156,11 @@ export function BranchEmployeesTable({
         <table className="data-table w-full min-w-[640px] border-collapse text-left">
           <thead>
             <tr>
+              {bulkDelete ? (
+                <th className="w-10 pb-3 pl-2 print:hidden">
+                  <SelectAllCheckbox formId={BULK_FORM} label="Select all employees" />
+                </th>
+              ) : null}
               <th className={`${header} pl-2`}>Emp No</th>
               <th className={header}>Employee Name</th>
               <th className={header}>Phone No.</th>
@@ -145,6 +172,11 @@ export function BranchEmployeesTable({
           <tbody className="font-body-md text-body-md text-on-surface">
             {sorted.map((person) => (
               <tr key={person.id} className="border-b border-outline-variant/20 last:border-0 hover:bg-surface">
+                {bulkDelete ? (
+                  <td className="py-3 pl-2 print:hidden">
+                    <RowCheckbox formId={BULK_FORM} id={person.id} label={person.fullName} />
+                  </td>
+                ) : null}
                 <td className="py-3 pl-2 font-mono text-xs text-on-surface-variant">{person.employeeNumber}</td>
                 <td className="py-3 font-semibold">
                   {employeeHref ? (

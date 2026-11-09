@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
@@ -11,9 +11,11 @@ import {
   createBranch,
   deactivateBranch,
   deleteBranch,
+  getBranches,
   updateBranch,
   type BranchInput,
 } from "@/lib/api/branch";
+import type { BulkDeleteResult } from "@/components/shared/bulk-delete";
 import type { ActionState } from "@/types";
 
 function text(formData: FormData, name: string): string | undefined {
@@ -65,7 +67,7 @@ export async function createBranchAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/branches");
+  refresh();
   await flashToast("success", "Branch created.");
   redirect("/admin/branches");
 }
@@ -89,8 +91,7 @@ export async function updateBranchAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/branches");
-  revalidatePath(`/admin/branches/${id}`);
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -110,7 +111,7 @@ export async function deleteBranchAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -134,7 +135,45 @@ export async function setBranchStatusAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/branches");
-  revalidatePath(`/admin/branches/${id}`);
+  refresh();
   return { status: "success", data: undefined };
+}
+
+/** The ids ticked in a bulk-delete form: whole positive numbers, each once. */
+function tickedIds(formData: FormData): number[] {
+  return [...new Set(formData.getAll("ids").map(Number))].filter((id) => Number.isInteger(id) && id > 0);
+}
+
+function reasonOf(error: unknown): string {
+  const result = toActionError(error);
+  return result.status === "error" ? result.message : "Could not be deleted.";
+}
+
+/**
+ * Admin: delete the ticked branches, one after another (codes close up after each). The backend refuses a
+ * branch that still has employees or active terminals; those are reported by name and the rest still go.
+ */
+export async function deleteBranchesAction(
+  _previous: ActionState<BulkDeleteResult>,
+  formData: FormData,
+): Promise<ActionState<BulkDeleteResult>> {
+  await requirePermission("branch:write");
+
+  const ids = tickedIds(formData);
+  if (ids.length === 0) return { status: "error", message: "Tick the branches to delete." };
+
+  const names = new Map((await getBranches().catch(() => [])).map((branch) => [branch.id, branch.name]));
+  let deleted = 0;
+  const refused: BulkDeleteResult["refused"] = [];
+  for (const id of ids) {
+    try {
+      await deleteBranch(id);
+      deleted++;
+    } catch (error) {
+      refused.push({ name: names.get(id) ?? `Branch #${id}`, reason: reasonOf(error) });
+    }
+  }
+
+  refresh();
+  return { status: "success", data: { deleted, refused } };
 }

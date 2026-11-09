@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
@@ -25,8 +25,7 @@ function readText(formData: FormData, name: string): string | undefined {
 }
 
 function refreshMoneyScreens() {
-  revalidatePath("/admin", "layout");
-  revalidatePath("/agent", "layout");
+  refresh();
 }
 
 /** A rejection always says why, so the agent knows what to change. */

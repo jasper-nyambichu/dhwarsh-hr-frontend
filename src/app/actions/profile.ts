@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 
 import { toActionError } from "@/app/lib/api-error";
 import { verifySession } from "@/app/lib/dal";
@@ -35,7 +35,7 @@ export async function saveProfileAction(_previous: ActionState, formData: FormDa
   }
 
   await createSession({ ...session, displayName });
-  revalidatePath("/", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -79,7 +79,7 @@ export async function uploadMyPhotoAction(_previous: ActionState, formData: Form
   }
 
   await createSession({ ...session, photoVersion: Date.now() });
-  revalidatePath("/", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -93,6 +93,6 @@ export async function removeMyPhotoAction(): Promise<ActionState> {
   }
 
   await createSession({ ...session, photoVersion: null });
-  revalidatePath("/", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }

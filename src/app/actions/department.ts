@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
@@ -44,7 +44,7 @@ export async function createDepartmentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/departments", "layout");
+  refresh();
   await flashToast("success", "Department created.");
   redirect("/admin/departments");
 }
@@ -67,7 +67,7 @@ export async function updateDepartmentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/departments", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -87,6 +87,6 @@ export async function deleteDepartmentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/departments", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }

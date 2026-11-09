@@ -1,6 +1,7 @@
 import "server-only";
 
 import { connection } from "next/server";
+import { cache } from "react";
 
 import { api } from "@/app/lib/api-client";
 
@@ -20,8 +21,11 @@ export type OrganisationBranding = {
 
 const NONE: OrganisationBranding = { name: null, hasLogo: false, logoVersion: null };
 
-/** Never throws: if the server can't be reached, the pages still render, just without the client's logo. */
-export async function getOrganisationBranding(): Promise<OrganisationBranding> {
+/**
+ * Never throws: if the server can't be reached, the pages still render, just without the client's logo.
+ * Read once per page render, however many places (title, layout, page) ask for it.
+ */
+export const getOrganisationBranding = cache(async (): Promise<OrganisationBranding> => {
   // Read per request, never frozen into a build: Settings can change the name and logo at any time.
   // Outside the try, so the signal Next uses to stop prerendering is never swallowed.
   await connection();
@@ -30,4 +34,4 @@ export async function getOrganisationBranding(): Promise<OrganisationBranding> {
   } catch {
     return NONE;
   }
-}
+});

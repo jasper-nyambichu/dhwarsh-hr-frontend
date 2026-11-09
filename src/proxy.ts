@@ -84,7 +84,9 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // Excludes static assets, image optimization and public files, so auth
   // redirects never swallow CSS, JS or images.
+  // `icon` and `apple-icon` are the generated tab icons (app/icon.tsx): they have no file extension, so without
+  // them here a signed-in browser asking for its tab icon was redirected to, and rendered, the whole dashboard.
   matcher: [
-    "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|icon|apple-icon|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };

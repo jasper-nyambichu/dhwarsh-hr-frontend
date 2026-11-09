@@ -10,6 +10,7 @@ import type { CompanyResponse, CompanySettingsResponse } from "@/types";
 
 import { CompanyForm } from "./_components/company-form";
 import { LogoForm } from "./_components/logo-form";
+import { TestEmailForm } from "./_components/test-email-form";
 import { SettingsForm } from "./_components/settings-form";
 
 /**
@@ -60,6 +61,7 @@ export default async function AdminSettingsPage() {
         )}
 
         {company && canWrite ? <LogoForm hasLogo={company.logoUrl !== null} version={String(company.logoUrl)} /> : null}
+        {canWrite ? <TestEmailForm /> : null}
 
         {company ? (
           <SettingsForm

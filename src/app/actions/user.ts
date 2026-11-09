@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
@@ -55,8 +55,7 @@ export async function saveCredentialsAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/users", "layout");
-  revalidatePath("/admin/branches", "layout");
+  refresh();
   return { status: "success", data: credentials };
 }
 
@@ -88,8 +87,7 @@ export async function deleteUserAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/users", "layout");
-  revalidatePath("/admin/branches", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -117,8 +115,7 @@ export async function moveBranchManagerAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin", "layout");
-  revalidatePath("/branch", "layout");
+  refresh();
   const branchName = formData.get("branchName") || "the new branch";
   await flashToast("success", swap ? `Branch Managers swapped. This one now runs ${branchName}.` : `Branch Manager moved to ${branchName}.`);
   redirect(`/admin/users/branches/${branchId}`);
@@ -143,7 +140,7 @@ export async function assignUserBranchAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/users", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -172,6 +169,6 @@ export async function linkUserEmployeeAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/users", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }

@@ -69,3 +69,8 @@ export function updateCompanySettings(
 ): Promise<CompanySettingsResponse> {
   return api.put<CompanySettingsResponse>("/company/settings", payload);
 }
+
+/** Sends a test email at once; throws with the mail server's reason when it can't be sent. Admin only. */
+export function sendTestEmail(to: string): Promise<void> {
+  return api.post<void>("/company/test-email", { to });
+}

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
@@ -41,8 +41,7 @@ function invalid(fieldErrors: Record<string, string[]>): ActionState {
 
 /** Every screen that shows these figures is refreshed after a change. */
 function refreshMoneyScreens() {
-  revalidatePath("/agent", "layout");
-  revalidatePath("/admin", "layout");
+  refresh();
 }
 
 /** Agent: ask for a loan for one of THEIR employees. The Administrator reviews it and fixes the interest. */

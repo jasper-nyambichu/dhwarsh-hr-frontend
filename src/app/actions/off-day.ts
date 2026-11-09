@@ -1,16 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh as refreshPage } from "next/cache";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { grantOffDay, removeOffDay } from "@/lib/api/off-day";
 import type { ActionState } from "@/types";
 
+// Re-renders the page the person is on. Nothing here is cached, so there is nothing else to clear.
 function refresh(): void {
-  revalidatePath("/agent/off-days", "layout");
-  revalidatePath("/admin/off-days", "layout");
-  revalidatePath("/admin/dashboard");
+  refreshPage();
 }
 
 /** Agent: gives one of their own employees days off. A single day sends no end date. The backend checks the employee is theirs. */

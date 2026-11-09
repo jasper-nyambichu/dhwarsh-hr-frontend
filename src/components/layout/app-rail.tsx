@@ -6,7 +6,7 @@ import { useEffect } from "react";
 
 import { logout } from "@/app/actions/auth";
 import { isNavItemActive, navigationFor } from "@/config/navigation";
-import { ROLE_LABEL, type Role } from "@/config/roles";
+import { ROLE_HOME, ROLE_LABEL, type Role } from "@/config/roles";
 import { Icon } from "@/components/ui/icon";
 import { useNav } from "@/components/layout/nav-context";
 import { OrganisationBadge } from "@/components/shared/organisation-brand";
@@ -79,7 +79,9 @@ export function AppRail({ role, branding }: { role: Role; branding: Organisation
           )}
         >
           <Link
-            href="/"
+            // The role's own home, not "/": the server redirects "/" there, and following that redirect made
+            // every prefetch render the dashboard (the heaviest page) again after each save.
+            href={ROLE_HOME[role]}
             className={cn(
               "flex min-w-0 items-center gap-3",
               showLabels ? "" : "md:flex-col md:gap-1 md:text-center",

@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
@@ -81,7 +81,7 @@ export async function createAgentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/agents");
+  refresh();
 
   // The agent exists by now, so sending the form again would register them twice: a photo that
   // fails to save is retried from the edit page instead.
@@ -128,7 +128,7 @@ export async function updateAgentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/agents", "layout");
+  refresh();
   await flashToast("success", "Agent saved.");
   redirect(`/admin/agents/${id}`);
 }
@@ -149,6 +149,6 @@ export async function deactivateAgentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/agents", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }

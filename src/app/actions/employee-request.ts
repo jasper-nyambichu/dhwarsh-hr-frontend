@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { z } from "zod";
 
 import { toActionError } from "@/app/lib/api-error";
@@ -77,7 +77,7 @@ export async function submitEmployeeRequestAction(
       parsed.data,
     );
 
-    revalidatePath("/admin/employee-requests");
+    refresh();
 
     return { status: "success", data: request };
   } catch (error) {
@@ -106,8 +106,7 @@ export async function approveEmployeeRequestAction(
   try {
     const result = await approveEmployeeRequest(id);
 
-    revalidatePath("/admin/employee-requests");
-    revalidatePath(`/admin/employee-requests/${id}`);
+    refresh();
 
     return { status: "success", data: result };
   } catch (error) {
@@ -138,8 +137,7 @@ export async function rejectEmployeeRequestAction(
   try {
     const result = await rejectEmployeeRequest(parsed.data.id, parsed.data.reason);
 
-    revalidatePath("/admin/employee-requests");
-    revalidatePath(`/admin/employee-requests/${parsed.data.id}`);
+    refresh();
 
     return { status: "success", data: result };
   } catch (error) {

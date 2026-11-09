@@ -8,12 +8,13 @@ import { EmployeeExportButtons } from "@/components/features/employee/employee-e
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
+import { hasPermission } from "@/config/roles";
 import { getBranch } from "@/lib/api/branch";
 import { getBranchDirectory } from "@/lib/api/employee";
 
 /** One branch's employees, reached from the Employees page in the sidebar. */
 export default async function AdminBranchEmployeesPage({ params }: { params: Promise<{ id: string }> }) {
-  await requirePermission("employee:read");
+  const session = await requirePermission("employee:read");
 
   const branchId = Number((await params).id);
   if (!Number.isInteger(branchId) || branchId <= 0) notFound();
@@ -48,6 +49,7 @@ export default async function AdminBranchEmployeesPage({ params }: { params: Pro
         employees={data.employees}
         employeeHref={(employeeId) => `/admin/employees/${employeeId}`}
         emptyDescription="No employees in this branch yet."
+        bulkDelete={hasPermission(session.role, "employee:write")}
       />
     </>
   );

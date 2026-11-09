@@ -3,8 +3,9 @@ import { redirect } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { deleteBranchAction } from "@/app/actions/branch";
+import { deleteBranchAction, deleteBranchesAction } from "@/app/actions/branch";
 import { BentoCard } from "@/components/shared/bento-card";
+import { BulkDeleteBar, RowCheckbox, SelectAllCheckbox } from "@/components/shared/bulk-delete";
 import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { DonutChart } from "@/components/shared/charts";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
@@ -33,6 +34,9 @@ const STATUS_TABS: readonly FilterTab[] = [
   { label: "Active", value: "ACTIVE" },
   { label: "Inactive", value: "INACTIVE" },
 ];
+
+/** Ties the row tick boxes to the bulk-delete form above the table. */
+const BULK_FORM = "bulk-delete-branches";
 
 /** Shared palette for the headcount donut; cycles if there are more branches. */
 const DONUT_COLORS = [
@@ -125,10 +129,25 @@ export default async function BranchesPage({
                 }
               />
             ) : (
+              <>
+              {canWrite ? (
+                <BulkDeleteBar
+                  formId={BULK_FORM}
+                  action={deleteBranchesAction}
+                  noun="branch"
+                  plural="branches"
+                  warning="Each ticked branch is deleted and the other branch codes close up. A branch that still has employees or an active terminal is refused and kept."
+                />
+              ) : null}
               <div className="w-full overflow-x-auto">
                 <table className="data-table w-full border-collapse text-left">
                   <thead>
                     <tr>
+                      {canWrite ? (
+                        <th className="w-10 pb-3 pl-2 print:hidden">
+                          <SelectAllCheckbox formId={BULK_FORM} label="Select all branches" />
+                        </th>
+                      ) : null}
                       <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Branch</th>
                       <th className="pb-3 font-table-header text-table-header uppercase text-outline">Manager</th>
                       <th className="pb-3 font-table-header text-table-header uppercase text-outline">Contact</th>
@@ -142,6 +161,11 @@ export default async function BranchesPage({
                       const count = headcount.get(branch.id);
                       return (
                         <tr key={branch.id} className="group transition-colors">
+                          {canWrite ? (
+                            <td className="py-3 pl-2 print:hidden">
+                              <RowCheckbox formId={BULK_FORM} id={branch.id} label={branch.name} />
+                            </td>
+                          ) : null}
                           <td className="py-3 pl-2">
                             <Link href={`/admin/branches/${branch.id}`} className="flex items-center gap-2">
                               <span className="flex size-6 shrink-0 items-center justify-center rounded bg-primary-container/10 text-primary-container">
@@ -194,6 +218,7 @@ export default async function BranchesPage({
                   </tbody>
                 </table>
               </div>
+              </>
             )}
           </BentoCard>
         </div>

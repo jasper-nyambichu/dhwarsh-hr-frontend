@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requireAnyPermission, requirePermission } from "@/app/lib/dal";
@@ -57,7 +57,7 @@ export async function decideLeaveAction(
       rejectionReason: parsed.rejectionReason,
     });
 
-    revalidatePath("/branch/approvals");
+    refresh();
 
     return { status: "success", data: request };
   } catch (error) {
@@ -81,7 +81,7 @@ export async function decideLeaveFinalAction(
       rejectionReason: parsed.rejectionReason,
     });
 
-    revalidatePath("/branch/approvals");
+    refresh();
 
     return { status: "success", data: request };
   } catch (error) {
@@ -105,9 +105,7 @@ export async function decideLeaveByManagerAction(
       rejectionReason: parsed.rejectionReason,
     });
 
-    revalidatePath("/branch/approvals");
-    revalidatePath("/branch/dashboard");
-    revalidatePath("/branch/approvals");
+    refresh();
 
     return { status: "success", data: request };
   } catch (error) {
@@ -118,5 +116,5 @@ export async function decideLeaveByManagerAction(
 /** Refreshes the leave queue. */
 export async function refreshLeaveQueue(): Promise<void> {
   await requirePermission("leave:read");
-  revalidatePath("/branch/approvals");
+  refresh();
 }

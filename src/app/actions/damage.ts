@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
@@ -23,6 +23,6 @@ export async function cancelDamageAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }

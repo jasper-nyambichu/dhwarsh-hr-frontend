@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
@@ -29,7 +29,7 @@ export async function registerDeviceAction(
 
   try {
     const device = await registerDevice(branchId, deviceSerial);
-    revalidatePath("/admin/devices");
+    refresh();
     return { status: "success", data: { deviceSerial: device.deviceSerial, token: device.plaintextToken } };
   } catch (error) {
     return toActionError(error);
@@ -52,6 +52,6 @@ export async function deactivateDeviceAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/devices");
+  refresh();
   return { status: "success", data: undefined };
 }

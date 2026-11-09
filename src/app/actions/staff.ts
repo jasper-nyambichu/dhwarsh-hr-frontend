@@ -1,12 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission, requireRole } from "@/app/lib/dal";
 import { flashToast } from "@/app/lib/flash";
-import { deleteEmployee, moveEmployeeBranch, terminateEmployee } from "@/lib/api/employee";
+import type { BulkDeleteResult } from "@/components/shared/bulk-delete";
+import { deleteEmployee, getEmployee, moveEmployeeBranch, terminateEmployee } from "@/lib/api/employee";
 import {
   assignEmployeeDepartment,
   createEmployeeDirect,
@@ -90,7 +91,7 @@ export async function addEmployeeAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/employees", "layout");
+  refresh();
   await flashToast("success", "Employee added.");
   redirect(`/admin/employees/${employeeId}`);
 }
@@ -115,8 +116,7 @@ export async function requestEmployeeAction(
     return toActionError(error);
   }
 
-  revalidatePath("/branch", "layout");
-  revalidatePath("/agent", "layout");
+  refresh();
   await flashToast("success", "Request sent for approval.");
   redirect(session.role === "AGENT" ? "/agent/requests?sent=1" : "/branch/approvals?sent=1");
 }
@@ -142,8 +142,7 @@ export async function assignDepartmentAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/employees", "layout");
-  revalidatePath("/branch/employees", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -163,9 +162,7 @@ export async function deleteStaffAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin", "layout");
-  revalidatePath("/agent", "layout");
-  revalidatePath("/branch", "layout");
+  refresh();
   await flashToast("success", "Employee deleted.");
   redirect("/admin/employees");
 }
@@ -188,10 +185,7 @@ export async function moveStaffBranchAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin", "layout");
-  revalidatePath("/branch", "layout");
-  revalidatePath("/agent", "layout");
-  revalidatePath("/backoffice", "layout");
+  refresh();
   return { status: "success", data: undefined };
 }
 
@@ -211,6 +205,46 @@ export async function terminateStaffAction(
     return toActionError(error);
   }
 
-  revalidatePath("/admin/employees", "layout");
+  refresh();
   return { status: "success", data: undefined };
+}
+
+/** The ids ticked in a bulk-delete form: whole positive numbers, each once. */
+function tickedIds(formData: FormData): number[] {
+  return [...new Set(formData.getAll("ids").map(Number))].filter((id) => Number.isInteger(id) && id > 0);
+}
+
+function reasonOf(error: unknown): string {
+  const result = toActionError(error);
+  return result.status === "error" ? result.message : "Could not be deleted.";
+}
+
+/**
+ * Admin: delete the ticked employees, one after another (codes close up after each). Money records are kept,
+ * as for a single delete. Any the backend refuses are reported by name and the rest still go.
+ */
+export async function deleteEmployeesAction(
+  _previous: ActionState<BulkDeleteResult>,
+  formData: FormData,
+): Promise<ActionState<BulkDeleteResult>> {
+  await requirePermission("employee:write");
+
+  const ids = tickedIds(formData);
+  if (ids.length === 0) return { status: "error", message: "Tick the employees to delete." };
+
+  let deleted = 0;
+  const refused: BulkDeleteResult["refused"] = [];
+  for (const id of ids) {
+    try {
+      await deleteEmployee(id);
+      deleted++;
+    } catch (error) {
+      // A refused employee still exists, so their name can be looked up for the report.
+      const name = await getEmployee(id).then((employee) => employee.fullName, () => `Employee #${id}`);
+      refused.push({ name, reason: reasonOf(error) });
+    }
+  }
+
+  refresh();
+  return { status: "success", data: { deleted, refused } };
 }
