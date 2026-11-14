@@ -81,6 +81,7 @@ function readEmployee(formData: FormData): Parsed {
       nitaNumber: text(formData, "nitaNumber"),
       position: text(formData, "position"),
       employmentType: text(formData, "employmentType"),
+      version: text(formData, "version") !== undefined ? Number(text(formData, "version")) : undefined,
     },
   };
 }

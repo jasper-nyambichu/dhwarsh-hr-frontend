@@ -45,6 +45,8 @@ export type EmployeeEntryPayload = {
   nitaNumber?: string;
   position?: string;
   employmentType?: string;
+  /** The version the edit started from: the backend refuses the save if someone changed the employee since. */
+  version?: number;
 };
 
 export type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED";

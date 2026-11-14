@@ -888,6 +888,8 @@ export type EmployeeResponse = {
   bankAccountNumber: string | null;
   emergencyContactName: string | null;
   emergencyContactPhone: string | null;
+  /** Optimistic-lock version (backend V34). Older servers do not send it. */
+  version?: number | null;
 };
 
 /** `dto/response/employee/EmployeeDocumentResponse`. */

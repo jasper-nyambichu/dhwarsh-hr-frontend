@@ -70,6 +70,8 @@ export function EmployeeEntryForm({
           <input type="hidden" name="employmentType" value={v(employee.employmentType)} />
           <input type="hidden" name="originalMpesaNumber" value={v(employee.bankAccountNumber)} />
           <input type="hidden" name="originalBankName" value={v(employee.bankName)} />
+          {/* Lets the server refuse this save if someone else changed the employee after this page opened. */}
+          <input type="hidden" name="version" value={v(employee.version)} />
         </>
       ) : null}
 
