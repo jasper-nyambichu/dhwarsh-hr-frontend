@@ -67,11 +67,28 @@ export default async function AdminEmployeeDetailPage({ params }: { params: Prom
           </span>
         }
         description={`${employee.employeeNumber} · ${employee.branchName ?? "Branch"}`}
+        actions={
+          <Link
+            href={`/admin/employees/${employee.id}/edit`}
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-container"
+          >
+            <Icon name="edit" className="text-[18px]" />
+            Edit details
+          </Link>
+        }
       />
 
       <div className="grid grid-cols-12 gap-gutter">
         <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
-          <BentoCard title="Details">
+          <BentoCard
+            title="Details"
+            action={
+              <Link href={`/admin/employees/${employee.id}/edit`} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
+                <Icon name="edit" className="text-[16px]" />
+                Edit
+              </Link>
+            }
+          >
             <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
               <div>
                 <Row label="National ID" value={employee.nationalId} />

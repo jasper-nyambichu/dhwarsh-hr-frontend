@@ -12,6 +12,7 @@ import {
   assignEmployeeDepartment,
   createEmployeeDirect,
   submitEmployeeRequest,
+  updateEmployeeDirect,
 } from "@/lib/api/staff";
 import type { ActionState } from "@/types";
 import type { EmployeeEntryPayload } from "@/types/staff";
@@ -34,9 +35,12 @@ function readEmployee(formData: FormData): Parsed {
   if (!fullName) fieldErrors.fullName = ["Required"];
   if (!Number.isInteger(branchId) || branchId <= 0) fieldErrors.branchId = ["Choose a branch"];
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fieldErrors.email = ["Not a valid email"];
-  if (mpesa && !/^(\+?254|0)[17]\d{8}$/.test(mpesa.replace(/\s/g, ""))) fieldErrors.mpesaNumber = ["Use a Kenyan number, e.g. 0712 345 678"];
+  // On an edit, a number already on record is kept as it is even if it predates this check, so an
+  // unrelated change can still be saved; a new or changed number must be a valid Kenyan one.
+  const unchangedMpesa = mpesa !== undefined && mpesa.replace(/\s/g, "") === (text(formData, "originalMpesaNumber") ?? "").replace(/\s/g, "");
+  if (mpesa && !unchangedMpesa && !/^(\+?254|0)[17]\d{8}$/.test(mpesa.replace(/\s/g, ""))) fieldErrors.mpesaNumber = ["Use a Kenyan number, e.g. 0712 345 678"];
 
-  for (const field of ["shifNumber", "nssfNumber", "kraPin"]) {
+  for (const field of ["shifNumber", "nssfNumber", "kraPin", "nitaNumber"]) {
     if ((text(formData, field)?.length ?? 0) > 20) fieldErrors[field] = ["Use 20 characters or fewer"];
   }
   if (salary && !(Number(salary) >= 0)) fieldErrors.basicSalary = ["Enter zero or more"];
@@ -66,12 +70,43 @@ function readEmployee(formData: FormData): Parsed {
       basicSalary: salary ? Number(salary) : undefined,
       dateHired: text(formData, "dateHired"),
       // Pay goes out by M-Pesa for now, so the "bank" details are the M-Pesa number.
-      bankName: mpesa ? "M-PESA" : undefined,
+      // An edit that leaves the number alone keeps the bank name on record (it may not be M-Pesa).
+      bankName: unchangedMpesa ? text(formData, "originalBankName") : mpesa ? "M-PESA" : undefined,
       bankAccountNumber: mpesa?.replace(/\s/g, ""),
       emergencyContactName: text(formData, "emergencyContactName"),
       emergencyContactPhone: text(formData, "emergencyContactPhone"),
+      // Present only on the edit form (absent fields stay undefined when adding).
+      maritalStatus: text(formData, "maritalStatus"),
+      address: text(formData, "address"),
+      nitaNumber: text(formData, "nitaNumber"),
+      position: text(formData, "position"),
+      employmentType: text(formData, "employmentType"),
     },
   };
+}
+
+/** Admin: save changes to an employee's details. The branch is changed from the Branch card instead. */
+export async function updateEmployeeAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("employee:write");
+
+  const id = Number(formData.get("employeeId"));
+  if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown employee." };
+
+  const parsed = readEmployee(formData);
+  if (!parsed.ok) return parsed.state;
+
+  try {
+    await updateEmployeeDirect(id, parsed.payload);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  refresh();
+  await flashToast("success", "Employee details saved.");
+  redirect(`/admin/employees/${id}`);
 }
 
 /** Admin: add an employee straight away — no approval step. */

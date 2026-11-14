@@ -30,22 +30,11 @@ import type { AttendanceDeviceItem, AttendanceSyncFailure } from "@/types";
  *
  * Device identity is the serial, which is what the terminal itself sends:
  * `biometric_devices` stores no name, IP address or firmware version.
- *
- * Search is a plain GET form rather than a client-side filter: it works without
- * JavaScript, the query lands in the URL so a filtered fleet is shareable, and
- * it needs no client boundary.
  */
 
 
-export default async function BiometricDevicesPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ q?: string }>;
-}) {
+export default async function BiometricDevicesPage() {
   await requirePermission("biometric:device:manage");
-
-  const { q } = await searchParams;
-  const needle = q?.trim().toLowerCase() ?? "";
 
   let devices: AttendanceDeviceItem[];
   let failures: AttendanceSyncFailure[];
@@ -70,13 +59,6 @@ export default async function BiometricDevicesPage({
     );
   }
 
-  const rows = needle
-    ? devices.filter((device) =>
-        [device.deviceSerial, device.branchName]
-          .filter(Boolean)
-          .some((field) => field!.toLowerCase().includes(needle)),
-      )
-    : devices;
 
   const count = (state: DeviceState) => devices.filter((d) => deviceState(d) === state).length;
   const counts = {
@@ -110,43 +92,17 @@ export default async function BiometricDevicesPage({
           <BentoCard
             className="xl:col-span-8"
             title="Registered Terminals"
-            subtitle={`${formatNumber(rows.length)} ${rows.length === 1 ? "terminal" : "terminals"}${needle ? ` matching “${q}”` : ""}`}
+            subtitle={`${formatNumber(devices.length)} ${devices.length === 1 ? "terminal" : "terminals"}`}
           >
-            <form action="/admin/devices" method="get" className="mb-4 flex min-w-0 items-center gap-3">
-              <div className="relative min-w-0 flex-1">
-                <Icon
-                  name="search"
-                  className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline"
-                />
-                <input
-                  type="search"
-                  name="q"
-                  defaultValue={q ?? ""}
-                  placeholder="Search serial or branch..."
-                  aria-label="Search terminals"
-                  className="h-10 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pl-9 pr-4 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
-                />
-              </div>
-              {needle ? (
-                <a href="/admin/devices" className="shrink-0 text-sm text-on-surface-variant hover:text-primary">
-                  Clear
-                </a>
-              ) : null}
-            </form>
-
-            {rows.length === 0 ? (
+            {devices.length === 0 ? (
               <EmptyState
                 symbol="devices_other"
-                title={devices.length === 0 ? "No terminals registered" : "No terminals match that search"}
-                description={
-                  devices.length === 0
-                    ? "Biometric terminals appear here once enrolled to a branch."
-                    : "Try a different serial or branch name, or clear the search."
-                }
+                title="No terminals registered"
+                description="Biometric terminals appear here once enrolled to a branch."
               />
             ) : (
               <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {rows.map((device) => {
+                {devices.map((device) => {
                   const meta = DEVICE_STATE_META[deviceState(device)];
 
                   return (

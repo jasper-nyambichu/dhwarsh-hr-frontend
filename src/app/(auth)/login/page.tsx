@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Suspense } from "react";
 
 import { GlassBackdrop } from "@/components/features/auth/glass-backdrop";
 import { StaffLoginForm, type LoginFormTheme } from "@/components/features/auth/staff-login-form";
 import { DevelopedBy, OrganisationBadge, VendorLogo } from "@/components/shared/organisation-brand";
+import { Icon } from "@/components/ui/icon";
 import { getOrganisationBranding } from "@/lib/api/organisation";
 
 export const metadata: Metadata = { title: "Admin Login" };
@@ -96,6 +98,32 @@ export default async function StaffLoginPage() {
                 <StaffLoginForm theme={THEME} submitLabel="Sign In to Dashboard" />
               </Suspense>
             </div>
+
+            {/* The other two portals, each in its own colour, so a Branch Manager or agent who lands here
+                can get to their sign-in in one tap. */}
+            <nav aria-label="Other sign-in pages" className="mt-6">
+              <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-wider text-on-surface-variant">Not an admin? Sign in here</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <Link
+                  href="/branch/login"
+                  title="Branch Manager sign-in"
+                  aria-label="Branch Manager login"
+                  className="group flex min-h-12 items-center gap-2.5 rounded-xl border border-[#1f7a52]/25 bg-[#1f7a52]/5 px-3 py-2 text-[#14573a] transition-colors hover:border-[#1f7a52]/50 hover:bg-[#1f7a52]/10"
+                >
+                  <Icon name="storefront" className="text-[20px]" />
+                  <span className="min-w-0 flex-1 text-sm font-semibold leading-tight">Branch login</span>
+                  <Icon name="arrow_forward" className="text-[20px] transition-transform group-hover:translate-x-0.5" />
+                </Link>
+                <Link
+                  href="/agent/login"
+                  className="group flex min-h-12 items-center gap-2.5 rounded-xl border border-[#b26a00]/25 bg-[#b26a00]/5 px-3 py-2 text-[#7a4800] transition-colors hover:border-[#b26a00]/50 hover:bg-[#b26a00]/10"
+                >
+                  <Icon name="badge" className="text-[20px]" />
+                  <span className="min-w-0 flex-1 text-sm font-semibold leading-tight">Agent login</span>
+                  <Icon name="arrow_forward" className="text-[20px] transition-transform group-hover:translate-x-0.5" />
+                </Link>
+              </div>
+            </nav>
 
             <div className="mt-6 border-t border-outline-variant/30 pt-4">
               <DevelopedBy />

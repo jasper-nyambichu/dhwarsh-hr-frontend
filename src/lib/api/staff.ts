@@ -14,6 +14,11 @@ export function createEmployeeDirect(payload: EmployeeEntryPayload): Promise<Emp
   return api.post<EmployeeResponse>("/employees", payload);
 }
 
+/** Admin — replaces an employee's details. The branch must be unchanged (moves have their own endpoint). */
+export function updateEmployeeDirect(id: number, payload: EmployeeEntryPayload): Promise<EmployeeResponse> {
+  return api.put<EmployeeResponse>(`/employees/${id}`, payload);
+}
+
 /** Branch Manager / Agent — proposes an employee for Admin approval. */
 export function submitEmployeeRequest(payload: EmployeeEntryPayload): Promise<StaffRequestResponse> {
   return api.post<StaffRequestResponse>("/employee-requests", payload);

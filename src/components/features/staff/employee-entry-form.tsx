@@ -3,18 +3,32 @@
 import Link from "next/link";
 import { useActionState } from "react";
 
-import { addEmployeeAction, requestEmployeeAction } from "@/app/actions/staff";
+import { addEmployeeAction, requestEmployeeAction, updateEmployeeAction } from "@/app/actions/staff";
 import { ConfirmForm } from "@/components/shared/confirm-form";
 import { BentoCard } from "@/components/shared/bento-card";
 import { FormMessage, SelectField, TextField } from "@/components/shared/form-field";
-import type { ActionState } from "@/types";
+import type { ActionState, EmployeeResponse } from "@/types";
 
 type Option = { id: number; name: string };
 
+const ACTIONS = { direct: addEmployeeAction, request: requestEmployeeAction, edit: updateEmployeeAction } as const;
+
+const CONFIRM = {
+  direct: { title: "Add this employee?", message: "They will be added to the branch you chose.", confirmLabel: "Add employee", icon: "person_add" },
+  request: { title: "Submit for approval?", message: "The employee is only created once this is approved.", confirmLabel: "Submit", icon: "send" },
+  edit: { title: "Save these changes?", message: "The employee's record is updated straight away.", confirmLabel: "Save changes", icon: "save" },
+} as const;
+
+const SUBMIT = { direct: "Add Employee", request: "Submit for Approval", edit: "Save Changes" } as const;
+
 /**
- * Add an employee. `direct` (Admin) creates them at once; `request` (Branch Manager, Agent)
- * sends them to an Admin for approval. A locked branch (Branch Manager) or locked agent (Agent)
- * is shown but cannot be changed — the backend enforces the same rule.
+ * Add or edit an employee. `direct` (Admin) creates them at once; `request` (Branch Manager, Agent)
+ * sends them to an Admin for approval; `edit` (Admin) changes an existing employee's details.
+ * A locked branch (Branch Manager, and every edit) or locked agent (Agent) is shown but cannot be
+ * changed — the backend enforces the same rule.
+ *
+ * On an edit the backend replaces the whole record, so every field is filled in from `employee`, and the
+ * few this form does not show (marital status, employment type) travel as hidden inputs: nothing is lost.
  */
 export function EmployeeEntryForm({
   mode,
@@ -24,10 +38,11 @@ export function EmployeeEntryForm({
   lockedBranch,
   lockedAgent,
   agentRequired = false,
+  employee,
   today,
   cancelHref,
 }: {
-  mode: "direct" | "request";
+  mode: "direct" | "request" | "edit";
   branches: Option[];
   departments: Option[];
   agents: Option[];
@@ -35,35 +50,47 @@ export function EmployeeEntryForm({
   lockedAgent?: Option;
   /** Everyone a Branch Manager adds is paid through an agent, so the choice cannot be left empty. */
   agentRequired?: boolean;
+  /** The employee being edited (`edit` only). */
+  employee?: EmployeeResponse;
   today: string;
   cancelHref: string;
 }) {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(
-    mode === "direct" ? addEmployeeAction : requestEmployeeAction,
-    { status: "idle" },
-  );
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(ACTIONS[mode], { status: "idle" });
   const errors = state.status === "error" ? state.fieldErrors : undefined;
+  const editing = mode === "edit" && employee !== undefined;
+  // What a field starts with: the employee's current value when editing, empty otherwise.
+  const v = (value: string | number | null | undefined) => (editing && value !== null && value !== undefined ? String(value) : "");
 
   return (
-    <ConfirmForm
-      action={formAction}
-      confirm={mode === "direct"
-        ? { title: "Add this employee?", message: "They will be added to the branch you chose.", confirmLabel: "Add employee", icon: "person_add" }
-        : { title: "Submit for approval?", message: "The employee is only created once this is approved.", confirmLabel: "Submit", icon: "send" }}
-      className="mx-auto flex w-full max-w-3xl flex-col gap-gutter"
-    >
+    <ConfirmForm action={formAction} confirm={CONFIRM[mode]} className="mx-auto flex w-full max-w-3xl flex-col gap-gutter">
+      {editing ? (
+        <>
+          <input type="hidden" name="employeeId" value={employee.id} />
+          <input type="hidden" name="maritalStatus" value={v(employee.maritalStatus)} />
+          <input type="hidden" name="employmentType" value={v(employee.employmentType)} />
+          <input type="hidden" name="originalMpesaNumber" value={v(employee.bankAccountNumber)} />
+          <input type="hidden" name="originalBankName" value={v(employee.bankName)} />
+        </>
+      ) : null}
+
       <BentoCard title="Personal details">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <TextField className="sm:col-span-2" label="Full name" name="fullName" required error={errors?.fullName?.[0]} />
-          <TextField label="National ID" name="nationalId" error={errors?.nationalId?.[0]} />
-          <SelectField label="Gender" name="gender" defaultValue="">
+          <TextField className="sm:col-span-2" label="Full name" name="fullName" required defaultValue={v(employee?.fullName)} error={errors?.fullName?.[0]} />
+          <TextField label="National ID" name="nationalId" defaultValue={v(employee?.nationalId)} error={errors?.nationalId?.[0]} />
+          <SelectField label="Gender" name="gender" defaultValue={v(employee?.gender)}>
             <option value="">Not stated</option>
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             <option value="Other">Other</option>
+            {/* A value saved some other way stays selectable instead of being lost on save. */}
+            {editing && employee.gender && !["Male", "Female", "Other"].includes(employee.gender) ? (
+              <option value={employee.gender}>{employee.gender}</option>
+            ) : null}
           </SelectField>
-          <TextField label="Phone" name="phone" type="tel" />
-          <TextField className="sm:col-span-2" label="Email" name="email" type="email" error={errors?.email?.[0]} />
+          {editing ? <TextField label="Date of birth" name="dateOfBirth" type="date" defaultValue={v(employee.dateOfBirth)} /> : null}
+          <TextField label="Phone" name="phone" type="tel" defaultValue={v(employee?.phone)} />
+          <TextField className="sm:col-span-2" label="Email" name="email" type="email" defaultValue={v(employee?.email)} error={errors?.email?.[0]} />
+          {editing ? <TextField className="sm:col-span-2" label="Address" name="address" defaultValue={v(employee.address)} /> : null}
         </div>
       </BentoCard>
 
@@ -72,7 +99,14 @@ export function EmployeeEntryForm({
           {lockedBranch ? (
             <div>
               <input type="hidden" name="branchId" value={lockedBranch.id} />
-              <TextField label="Branch" name="branchLabel" value={lockedBranch.name} readOnly disabled hint="Staff are added to your own branch." />
+              <TextField
+                label="Branch"
+                name="branchLabel"
+                value={lockedBranch.name}
+                readOnly
+                disabled
+                hint={editing ? "To change the branch, use Move to another branch on the employee's page." : "Staff are added to your own branch."}
+              />
             </div>
           ) : (
             <SelectField label="Branch" name="branchId" required defaultValue="" error={errors?.branchId?.[0]}>
@@ -83,11 +117,14 @@ export function EmployeeEntryForm({
             </SelectField>
           )}
 
-          <SelectField label="Department" name="departmentId" defaultValue="" hint="The same departments apply in every branch.">
-            <option value="">Assign later</option>
+          <SelectField label="Department" name="departmentId" defaultValue={v(employee?.departmentId)} hint="The same departments apply in every branch.">
+            <option value="">{editing ? "No department" : "Assign later"}</option>
             {departments.map((department) => (
               <option key={department.id} value={department.id}>{department.name}</option>
             ))}
+            {editing && employee.departmentId !== null && !departments.some((department) => department.id === employee.departmentId) ? (
+              <option value={employee.departmentId}>{employee.departmentName ?? `Department #${employee.departmentId}`}</option>
+            ) : null}
           </SelectField>
 
           {lockedAgent ? (
@@ -100,7 +137,7 @@ export function EmployeeEntryForm({
               label="Agent"
               name="agentId"
               required={agentRequired}
-              defaultValue=""
+              defaultValue={v(employee?.agentId)}
               error={errors?.agentId?.[0]}
               hint={agentRequired
                 ? "They are paid through this agent, using the payment formula."
@@ -110,24 +147,29 @@ export function EmployeeEntryForm({
               {agents.map((agent) => (
                 <option key={agent.id} value={agent.id}>{agent.name}</option>
               ))}
+              {editing && employee.agentId !== null && !agents.some((agent) => agent.id === employee.agentId) ? (
+                <option value={employee.agentId}>{employee.agentName ?? `Agent #${employee.agentId}`}</option>
+              ) : null}
             </SelectField>
           )}
 
-          <TextField label="Date hired" name="dateHired" type="date" defaultValue={today} />
+          {editing ? <TextField label="Position" name="position" defaultValue={v(employee.position)} /> : null}
+          <TextField label="Date hired" name="dateHired" type="date" defaultValue={editing ? v(employee.dateHired) : today} />
         </div>
       </BentoCard>
 
-      <BentoCard title="Statutory details" subtitle="Optional. Add them now or later.">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <TextField label="SHIF number" name="shifNumber" maxLength={20} error={errors?.shifNumber?.[0]} />
-          <TextField label="NSSF number" name="nssfNumber" maxLength={20} error={errors?.nssfNumber?.[0]} />
-          <TextField label="KRA PIN" name="kraPin" maxLength={20} error={errors?.kraPin?.[0]} />
+      <BentoCard title="Statutory details" subtitle={editing ? undefined : "Optional. Add them now or later."}>
+        <div className={`grid grid-cols-1 gap-4 ${editing ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}>
+          <TextField label="SHIF number" name="shifNumber" maxLength={20} defaultValue={v(employee?.shifNumber)} error={errors?.shifNumber?.[0]} />
+          <TextField label="NSSF number" name="nssfNumber" maxLength={20} defaultValue={v(employee?.nssfNumber)} error={errors?.nssfNumber?.[0]} />
+          <TextField label="KRA PIN" name="kraPin" maxLength={20} defaultValue={v(employee?.kraPin)} error={errors?.kraPin?.[0]} />
+          {editing ? <TextField label="NITA number" name="nitaNumber" maxLength={20} defaultValue={v(employee.nitaNumber)} error={errors?.nitaNumber?.[0]} /> : null}
         </div>
       </BentoCard>
 
       <BentoCard title="Payment & emergency contact">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {mode === "direct" ? (
+          {mode !== "request" ? (
             <TextField
               className="sm:col-span-2"
               label="Basic salary (KES)"
@@ -135,6 +177,7 @@ export function EmployeeEntryForm({
               type="number"
               min="0"
               step="0.01"
+              defaultValue={v(employee?.basicSalary)}
               error={errors?.basicSalary?.[0]}
               hint="Optional, and for reference only: pay is worked out from days worked."
             />
@@ -145,11 +188,12 @@ export function EmployeeEntryForm({
             name="mpesaNumber"
             type="tel"
             placeholder="0712 345 678"
+            defaultValue={v(employee?.bankAccountNumber)}
             error={errors?.mpesaNumber?.[0]}
             hint="Salaries are paid to this number."
           />
-          <TextField label="Emergency contact name" name="emergencyContactName" />
-          <TextField label="Emergency contact phone" name="emergencyContactPhone" type="tel" />
+          <TextField label="Emergency contact name" name="emergencyContactName" defaultValue={v(employee?.emergencyContactName)} />
+          <TextField label="Emergency contact phone" name="emergencyContactPhone" type="tel" defaultValue={v(employee?.emergencyContactPhone)} />
         </div>
       </BentoCard>
 
@@ -170,7 +214,7 @@ export function EmployeeEntryForm({
           disabled={pending}
           className="rounded-lg bg-primary px-6 py-2.5 font-body-md text-body-md font-semibold text-on-primary shadow-sm transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {pending ? "Saving…" : mode === "direct" ? "Add Employee" : "Submit for Approval"}
+          {pending ? "Saving…" : SUBMIT[mode]}
         </button>
       </div>
     </ConfirmForm>

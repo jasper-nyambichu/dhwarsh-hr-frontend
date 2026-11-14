@@ -2,14 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
 
 import { ROLE_LABEL, ROLE_NAMESPACE } from "@/config/roles";
 import { Icon } from "@/components/ui/icon";
 import { useNav } from "@/components/layout/nav-context";
 import { NotificationBell } from "@/components/layout/notification-bell";
 import { UserAvatar } from "@/components/shared/user-avatar";
-import { cn } from "@/lib/utils";
 import type { CurrentUser } from "@/types";
 
 /**
@@ -19,26 +17,15 @@ import type { CurrentUser } from "@/types";
  * it receives comes from the DAL and never contains `accessToken` — see
  * `getCurrentUser()`.
  *
- * Stitch ships two variants of this bar: the dashboard leads with a greeting,
- * the list screens lead with a search field. Same bar, so the variant is
- * derived from the route rather than duplicated into two components. It has to
- * be derived here — a layout cannot see which page it is wrapping.
- *
- * Below `sm` the search field collapses to an icon that opens a full-width row
- * underneath. At 360px the bar cannot hold a hamburger, a greeting, a search
- * box and three controls at once, and shrinking the input until it fits makes
- * it useless for a query longer than one word.
+ * Dashboards lead with a greeting; every other page keeps the left side clear
+ * (the page's own heading sits right below). There is no search box: it was
+ * never wired to anything, so it was removed rather than left as a dead control.
+ * The greeting is derived from the route here because a layout cannot see
+ * which page it is wrapping.
  */
-export function Topbar({
-  user,
-  searchPlaceholder = "Search...",
-}: {
-  user: CurrentUser;
-  searchPlaceholder?: string;
-}) {
+export function Topbar({ user }: { user: CurrentUser }) {
   const { toggle } = useNav();
   const pathname = usePathname();
-  const [searchOpen, setSearchOpen] = useState(false);
 
   const greeting = pathname.endsWith("/dashboard");
   const label = user.displayName ?? user.username;
@@ -76,38 +63,10 @@ export function Topbar({
                 Welcome back. Here&rsquo;s your organisation today.
               </p>
             </div>
-          ) : (
-            <SearchField
-              placeholder={searchPlaceholder}
-              className="hidden w-full max-w-xs sm:flex lg:max-w-sm"
-            />
-          )}
+          ) : null}
         </div>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-3 lg:gap-4">
-          {greeting ? (
-            <SearchField
-              placeholder={searchPlaceholder}
-              className="hidden w-64 lg:flex"
-            />
-          ) : null}
-
-          {/* Small screens get the search as a disclosure rather than a
-              permanently cramped input. */}
-          <button
-            type="button"
-            onClick={() => setSearchOpen((v) => !v)}
-            data-live=""
-            aria-label="Search"
-            aria-expanded={searchOpen}
-            className={cn(
-              "flex size-10 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-              greeting ? "lg:hidden" : "sm:hidden",
-            )}
-          >
-            <Icon name={searchOpen ? "close" : "search"} />
-          </button>
-
           {/* Self-contained: loads and polls its own unread list. */}
           <NotificationBell />
 
@@ -137,49 +96,7 @@ export function Topbar({
           </Link>
         </div>
       </div>
-
-      {/* Disclosure row — only rendered at the widths where the inline field
-          is hidden, so there is never a second search box on screen. */}
-      {searchOpen ? (
-        <div
-          className={cn(
-            "border-t border-outline-variant/20 px-4 py-3 sm:px-6",
-            greeting ? "lg:hidden" : "sm:hidden",
-          )}
-        >
-          <SearchField placeholder={searchPlaceholder} autoFocus className="flex w-full" />
-        </div>
-      ) : null}
     </header>
   );
 }
 
-function SearchField({
-  placeholder,
-  className,
-  autoFocus,
-}: {
-  placeholder: string;
-  className?: string;
-  autoFocus?: boolean;
-}) {
-  return (
-    <label
-      className={cn(
-        "items-center gap-2 rounded-full border border-outline-variant bg-surface-container-lowest px-4 py-2 transition-all focus-within:border-primary-container focus-within:ring-2 focus-within:ring-primary-container/20",
-        className ?? "flex",
-      )}
-    >
-      <Icon name="search" className="shrink-0 text-lg text-outline" />
-      <span className="sr-only">{placeholder}</span>
-      <input
-        type="search"
-        placeholder={placeholder}
-        // Focus follows the disclosure the user just opened; only ever set
-        // when they activated the search toggle themselves.
-        autoFocus={autoFocus}
-        className="w-full min-w-0 border-none bg-transparent p-0 font-body-md text-body-md outline-none placeholder:text-outline focus:ring-0"
-      />
-    </label>
-  );
-}

@@ -12,9 +12,6 @@ import { daysInMonth, isOffOn } from "@/lib/off-days";
 import type { AgentOffEmployee } from "@/lib/agent-off-days";
 import type { OffDayResponse } from "@/types/off-day";
 
-/** Only worth a search box once the list is longer than a screen. */
-const SEARCH_FROM = 6;
-
 /** The agent's employees at one branch, each with their own Give Off button. */
 export function AgentEmployeeOffCards({
   employees,
@@ -27,38 +24,16 @@ export function AgentEmployeeOffCards({
   month: string;
   today: string;
 }) {
-  const [query, setQuery] = useState("");
   const [granting, setGranting] = useState<AgentOffEmployee | null>(null);
-
-  const search = query.trim().toLowerCase();
-  const shown = employees.filter(
-    (person) => !search || person.fullName.toLowerCase().includes(search) || person.employeeNumber.toLowerCase().includes(search),
-  );
 
   return (
     <BentoCard title="Your employees here" subtitle="Press Give Off next to the employee.">
       <div className="flex flex-col gap-3">
-        {employees.length >= SEARCH_FROM ? (
-          <label className="relative block">
-            <span className="sr-only">Search employees</span>
-            <Icon name="search" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[18px] text-outline" />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by name or number"
-              className="min-h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pl-10 pr-3 text-base text-on-surface focus:outline-none focus:ring-1 focus:ring-primary md:text-sm"
-            />
-          </label>
-        ) : null}
-
         {employees.length === 0 ? (
           <EmptyState symbol="group" title="No active employees" description="You have no active employees at this branch." />
-        ) : shown.length === 0 ? (
-          <EmptyState symbol="search_off" title="No match" description="Try a different name or number." />
         ) : (
           <ul className="flex flex-col gap-3">
-            {shown.map((person) => {
+            {employees.map((person) => {
               const own = offDays.filter((offDay) => offDay.employeeId === person.id);
               const offToday = own.some((offDay) => isOffOn(offDay, today));
               const totalDays = own.reduce((sum, offDay) => sum + daysInMonth(offDay, month), 0);

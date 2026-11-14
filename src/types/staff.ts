@@ -38,6 +38,13 @@ export type EmployeeEntryPayload = {
   bankAccountNumber?: string;
   emergencyContactName?: string;
   emergencyContactPhone?: string;
+  // Only on the edit form. The backend replaces the whole record on an edit, so these are sent back
+  // (shown or hidden) rather than left out, which would blank them.
+  maritalStatus?: string;
+  address?: string;
+  nitaNumber?: string;
+  position?: string;
+  employmentType?: string;
 };
 
 export type StaffRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
