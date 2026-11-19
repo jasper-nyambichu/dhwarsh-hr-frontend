@@ -44,4 +44,13 @@ export type EmployeePayslip = {
   /** Itemise `loan` and `damage`. Empty on a payslip from a server without itemising. */
   loanItems?: DeductionItem[];
   damageItems?: DeductionItem[];
+  /**
+   * SALARY: paid from the employee's own monthly salary for the days paid; `amountDue` is their net pay (pay less
+   * loans and damages). DAILY_RATE (or missing): a payslip from before, where `amountDue` also held PAYE, NSSF, NITA.
+   */
+  payBasis?: "SALARY" | "DAILY_RATE";
+  monthlySalary?: number | null;
+  offDaysPaid?: number;
+  /** Pay less loans and damages. */
+  netPay?: number;
 };

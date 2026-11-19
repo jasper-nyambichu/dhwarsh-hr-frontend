@@ -5,9 +5,9 @@ import { refresh } from "next/cache";
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { updatePaySettings } from "@/lib/api/pay-settings";
-import { calculateAgentPayments, getAgentPaymentReadiness } from "@/lib/api/settlement";
+import { calculateAgentPayments, getAgentPaymentReadiness, previewAgentPayments } from "@/lib/api/settlement";
 import type { ActionState } from "@/types";
-import type { AgentPaymentReadiness } from "@/types/agent-portal";
+import type { AgentPaymentDetail, AgentPaymentReadiness } from "@/types/agent-portal";
 import {
   CONTRIBUTION_MODES,
   type ContributionMode,
@@ -47,14 +47,13 @@ function checkContribution(
   }
 }
 
-/** Admin: set the daily rate, NSSF, the VAT rate and the deduction ceiling. */
+/** Admin: set NSSF, the VAT rate and the deduction ceiling. (Pay comes from each employee's own salary.) */
 export async function savePaySettingsAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   await requirePermission("settings:manage");
 
-  const dailyRate = readNumber(formData, "dailyRate");
   const nssfMode = readMode(formData, "nssfMode");
   const nssfValue = readNumber(formData, "nssfValue");
   const ceiling = readNumber(formData, "deductionCeilingPercent");
@@ -62,12 +61,6 @@ export async function savePaySettingsAction(
   const vatRate = readNumber(formData, "vatRate");
 
   const fieldErrors: Record<string, string[]> = {};
-
-  if (!Number.isFinite(dailyRate) || dailyRate <= 0) {
-    fieldErrors.dailyRate = ["Enter an amount greater than zero"];
-  } else if (dailyRate > MAX_AMOUNT) {
-    fieldErrors.dailyRate = ["That amount is too large"];
-  }
 
   if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) {
     fieldErrors.vatRate = ["Enter a percentage from 0 to 100"];
@@ -85,7 +78,6 @@ export async function savePaySettingsAction(
 
   const payload: PaySettingsPayload = {
     vatRate,
-    dailyRate,
     nssfMode: nssfMode!,
     nssfValue,
     deductionCeilingPercent: ceiling,
@@ -99,6 +91,23 @@ export async function savePaySettingsAction(
 
   refresh();
   return { status: "success", data: undefined };
+}
+
+/**
+ * Admin: a dry run of the payroll for a period: each agent's payment line by line. Nothing is saved or deducted,
+ * and agents see nothing. The Admin runs the period afterwards, once satisfied.
+ */
+export async function previewAgentPaymentsAction(
+  periodStart: string,
+  periodEnd: string,
+): Promise<ActionState<AgentPaymentDetail[]>> {
+  await requirePermission("agentpayment:run");
+
+  try {
+    return { status: "success", data: await previewAgentPayments({ periodStart, periodEnd }) };
+  } catch (error) {
+    return toActionError(error);
+  }
 }
 
 /** Admin: reads what each branch still needs for a period, before anything is calculated. */

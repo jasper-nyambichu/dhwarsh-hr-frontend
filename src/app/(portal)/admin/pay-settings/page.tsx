@@ -81,7 +81,7 @@ export default async function PaySettingsPage({
     <>
       <PageHeader
         title="Pay rates"
-        description="The agent is paid from these rates and the days worked in attendance, then pays their own employees."
+        description="Employees are paid from their own salary for the days paid. Preview the payroll, then run it; each agent then receives their invoice."
       />
 
       {notSetUp ? (
@@ -115,7 +115,7 @@ export default async function PaySettingsPage({
               <table className="data-table w-full min-w-[980px] border-collapse text-left">
                 <thead>
                   <tr>
-                    {["Agent", "Period", "Staff", "Days pay", "PAYE + NSSF + NITA", "Agent fee", "VAT", "Loans + Damages", "Advances", "To agent"].map((label, index) => (
+                    {["Agent", "Period", "Staff", "Salaries", "PAYE + NSSF + NITA", "Agent fee", "VAT", "Loans + Damages", "Advances", "To agent"].map((label, index) => (
                       <th
                         key={label}
                         className={`pb-3 font-table-header text-table-header uppercase text-outline ${index === 0 ? "pl-2" : ""} ${index === 9 ? "pr-2" : ""} ${index > 1 ? "text-right" : ""}`}
@@ -128,15 +128,19 @@ export default async function PaySettingsPage({
                 <tbody className="font-body-md text-body-md text-on-surface">
                   {payments.map((payment) => (
                     <tr key={payment.id} className="border-b border-outline-variant/20 last:border-0">
-                      <td className="py-3 pl-2 font-semibold">{payment.agentName ?? `Agent #${payment.agentId}`}</td>
+                      <td className="py-3 pl-2 font-semibold">
+                        <Link href={`/admin/pay-settings/payments/${payment.id}`} className="text-primary hover:underline">
+                          {payment.agentName ?? `Agent #${payment.agentId}`}
+                        </Link>
+                      </td>
                       <td className="py-3 text-on-surface-variant">{formatDateRange(payment.periodStart, payment.periodEnd)}</td>
                       <td className="py-3 text-right tabular-nums">{formatNumber(payment.employeeCount)}</td>
                       <td className="py-3 text-right tabular-nums">{formatMoney(payment.daysPay, { showCurrency: false })}</td>
                       <td className="py-3 text-right tabular-nums">{formatMoney(payment.payeTotal + payment.nssfTotal + payment.nitaTotal, { showCurrency: false })}</td>
                       <td className="py-3 text-right tabular-nums">{formatMoney(payment.agentFee, { showCurrency: false })}</td>
                       <td className="py-3 text-right tabular-nums">{formatMoney(payment.vatAmount, { showCurrency: false })}</td>
-                      <td className="py-3 text-right tabular-nums text-error">({formatMoney(payment.loanTotal + payment.damageTotal, { showCurrency: false })})</td>
-                      <td className="py-3 text-right tabular-nums text-error">({formatMoney(payment.advanceRecovered, { showCurrency: false })})</td>
+                      <td className="py-3 text-right tabular-nums text-error">− {formatMoney(payment.loanTotal + payment.damageTotal, { showCurrency: false })}</td>
+                      <td className="py-3 text-right tabular-nums text-error">− {formatMoney(payment.advanceRecovered, { showCurrency: false })}</td>
                       <td className="py-3 pr-2 text-right font-semibold tabular-nums">{formatMoney(payment.amountPayable, { showCurrency: false })}</td>
                     </tr>
                   ))}

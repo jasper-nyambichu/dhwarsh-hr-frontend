@@ -1,7 +1,7 @@
 import "server-only";
 
 import { api } from "@/app/lib/api-client";
-import type { AgentPaymentReadiness, AgentSettlementResponse, AgentSettlementRunPayload } from "@/types/agent-portal";
+import type { AgentPaymentDetail, AgentPaymentReadiness, AgentSettlementResponse, AgentSettlementRunPayload } from "@/types/agent-portal";
 
 /**
  * `controller/settlement/AgentSettlementController` — base `/agent-settlements`.
@@ -13,6 +13,16 @@ import type { AgentPaymentReadiness, AgentSettlementResponse, AgentSettlementRun
 /** Admin: works out every chosen agent's amount for the period. All or nothing. */
 export function calculateAgentPayments(payload: AgentSettlementRunPayload): Promise<AgentSettlementResponse[]> {
   return api.post<AgentSettlementResponse[]>("/agent-settlements/calculate", payload);
+}
+
+/** Admin: the same calculation line by line, without saving or deducting anything. Agents never see it. */
+export function previewAgentPayments(payload: AgentSettlementRunPayload): Promise<AgentPaymentDetail[]> {
+  return api.post<AgentPaymentDetail[]>("/agent-settlements/preview", payload);
+}
+
+/** One payment that was run, line by line. The Admin, or the agent it was paid to. */
+export function getAgentPaymentDetail(settlementId: number, signal?: AbortSignal): Promise<AgentPaymentDetail> {
+  return api.get<AgentPaymentDetail>(`/agent-settlements/${settlementId}/detail`, { signal });
 }
 
 /** Admin: what still stands between a period and a calculation. Changes nothing. */

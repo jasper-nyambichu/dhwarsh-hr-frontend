@@ -32,9 +32,12 @@ export function inPeriod(payslips: EmployeePayslip[], period: PayPeriod | null):
 
 export type PayTotals = { earnings: number; deductions: number; amountDue: number; recorded: number; notRecorded: number };
 
-/** Pay plus the PAYE, NSSF and NITA the formula adds to it. */
+/**
+ * What the employee earned: their salary for the days paid. (On payslips from before salaries were used, the PAYE,
+ * NSSF and NITA the formula added then are counted in, as they were.)
+ */
 export function earningsOf(payslip: EmployeePayslip): number {
-  return payslip.pay + payslip.paye + payslip.nssf + payslip.nita;
+  return payslip.payBasis === "SALARY" ? payslip.pay : payslip.pay + payslip.paye + payslip.nssf + payslip.nita;
 }
 
 export function payTotals(payslips: EmployeePayslip[]): PayTotals {

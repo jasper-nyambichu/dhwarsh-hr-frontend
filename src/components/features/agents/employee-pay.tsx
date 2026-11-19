@@ -4,7 +4,7 @@ import { BentoCard } from "@/components/shared/bento-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterSelect } from "@/components/shared/filter-select";
 import { MetricCard } from "@/components/shared/metric-card";
-import { earningsOf, payTotals, type PayPeriod } from "@/lib/agent-pay";
+import { payTotals, type PayPeriod } from "@/lib/agent-pay";
 import { formatDateRange, formatMoney, formatNumber } from "@/lib/format";
 import type { EmployeeDirectoryResponse } from "@/types";
 import type { EmployeePayslip } from "@/types/payslip";
@@ -94,11 +94,9 @@ export function EmployeePayTable({
               {payslip ? (
                 <dl className="mt-3 grid grid-cols-1 gap-x-3 gap-y-1.5 border-t border-outline-variant/30 pt-3 text-xs min-[400px]:grid-cols-2">
                   {[
-                    ["Days worked", formatNumber(payslip.daysWorked)],
+                    ["Monthly salary", payslip.monthlySalary != null ? money(payslip.monthlySalary) : "—"],
+                    ["Days paid", `${formatNumber(payslip.daysWorked)}${payslip.offDaysPaid ? ` + ${formatNumber(payslip.offDaysPaid)} off` : ""}`],
                     ["Pay", money(payslip.pay)],
-                    ["PAYE", money(payslip.paye)],
-                    ["NSSF", money(payslip.nssf)],
-                    ["NITA", money(payslip.nita)],
                     ["Recorded", money(payslip.amountRecorded)],
                   ].map(([label, value]) => (
                     <div key={label} className="flex justify-between gap-2">
@@ -134,11 +132,9 @@ export function EmployeePayTable({
           <thead>
             <tr>
               <th className={`${header} pl-2`}>Employee</th>
-              <th className={numeric}>Days</th>
+              <th className={numeric}>Salary</th>
+              <th className={numeric}>Days paid</th>
               <th className={numeric}>Pay</th>
-              <th className={numeric}>PAYE</th>
-              <th className={numeric}>NSSF</th>
-              <th className={numeric}>NITA</th>
               <th className={numeric}>Loan</th>
               <th className={numeric}>Damage</th>
               <th className={numeric}>Should Receive</th>
@@ -160,18 +156,19 @@ export function EmployeePayTable({
                   </td>
                   {payslip ? (
                     <>
-                      <td className="py-3 text-right tabular-nums">{formatNumber(payslip.daysWorked)}</td>
+                      <td className="py-3 text-right tabular-nums">{payslip.monthlySalary != null ? money(payslip.monthlySalary) : "—"}</td>
+                      <td className="py-3 text-right tabular-nums">
+                        {formatNumber(payslip.daysWorked)}
+                        {payslip.offDaysPaid ? <span className="text-outline"> + {formatNumber(payslip.offDaysPaid)} off</span> : null}
+                      </td>
                       <td className="py-3 text-right tabular-nums">{money(payslip.pay)}</td>
-                      <td className="py-3 text-right tabular-nums">{money(payslip.paye)}</td>
-                      <td className="py-3 text-right tabular-nums">{money(payslip.nssf)}</td>
-                      <td className="py-3 text-right tabular-nums">{money(payslip.nita)}</td>
                       <td className="py-3 text-right tabular-nums"><Deduction amount={payslip.loan} /></td>
                       <td className="py-3 text-right tabular-nums"><Deduction amount={payslip.damage} /></td>
                       <td className="py-3 text-right font-bold tabular-nums">{money(payslip.amountDue)}</td>
                       <td className="py-3 pr-2 text-right tabular-nums">{money(payslip.amountRecorded)}</td>
                     </>
                   ) : (
-                    <td colSpan={9} className="py-3 pr-2 text-right text-xs text-on-surface-variant">Not in this pay period</td>
+                    <td colSpan={7} className="py-3 pr-2 text-right text-xs text-on-surface-variant">Not in this pay period</td>
                   )}
                 </tr>
               );
@@ -180,7 +177,7 @@ export function EmployeePayTable({
           {payslips.length > 0 ? (
             <tfoot>
               <tr className="font-bold text-on-surface">
-                <td colSpan={6} className="pt-3 pl-2">Total</td>
+                <td colSpan={4} className="pt-3 pl-2">Total</td>
                 <td colSpan={2} className="pt-3 text-right tabular-nums text-error">({money(totals.deductions)})</td>
                 <td className="pt-3 text-right tabular-nums">{money(totals.amountDue)}</td>
                 <td className="pt-3 pr-2 text-right tabular-nums">{money(totals.recorded)}</td>
@@ -191,7 +188,7 @@ export function EmployeePayTable({
       </div>
 
       <p className="mt-4 text-xs text-on-surface-variant">
-        Should Receive is Pay plus PAYE, NSSF and NITA, less any loan and damage. Advances and your agent fee are on your statement, not on any one employee.
+        Should Receive is the employee&apos;s pay (their salary for the days paid) less any loan and damage. PAYE, NSSF, NITA, your agent fee, VAT and advances are on your invoice, not on any one employee.
       </p>
     </BentoCard>
   );

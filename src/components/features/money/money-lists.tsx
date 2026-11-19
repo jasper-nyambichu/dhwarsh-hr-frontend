@@ -79,7 +79,21 @@ export function LoanList({ loans }: { loans: LoanItem[] }) {
   );
 }
 
-/** Advances, as cards on phones and a table from tablet width up. */
+/** When an advance was approved: the decision date, or for one the Admin gave directly, the day it was given. */
+function approvedOn(advance: AdvanceItem): string | null {
+  if (advance.status === "PENDING" || advance.status === "REJECTED") return null;
+  return advance.decidedAt ?? (advance.requestedByAgent ? null : advance.advanceDate);
+}
+
+/** How much of an advance has been taken back from agent payments so far. */
+function recovered(advance: AdvanceItem): number {
+  return advance.status === "PENDING" || advance.status === "REJECTED" ? 0 : Math.max(advance.amount - advance.outstandingBalance, 0);
+}
+
+/**
+ * Advances, as cards on phones and a table from tablet width up: the date each was asked for, the date it was
+ * approved, and what has been taken back from payments (with a minus) and is still owed.
+ */
 export function AdvanceList({ advances }: { advances: AdvanceItem[] }) {
   return (
     <>
@@ -91,12 +105,18 @@ export function AdvanceList({ advances }: { advances: AdvanceItem[] }) {
               <MoneyStatusChip status={advance.status} />
             </div>
             <p className="mt-1 text-sm text-on-surface-variant">{advance.purpose ?? "—"}</p>
-            <p className="mt-1 text-xs text-outline">
-              {advance.status === "PENDING" ? "Requested" : "Dated"} {when(advance.advanceDate)}
-              {advance.status === "OUTSTANDING" || advance.status === "PARTIALLY_RECOVERED"
-                ? ` · still owed ${formatKes(advance.outstandingBalance)}`
-                : ""}
-            </p>
+            <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+              <dt className="text-outline">Asked</dt>
+              <dd className="text-right text-on-surface">{when(advance.advanceDate)}</dd>
+              <dt className="text-outline">Approved</dt>
+              <dd className="text-right text-on-surface">{approvedOn(advance) ? when(approvedOn(advance)!) : "—"}</dd>
+              <dt className="text-outline">Taken back</dt>
+              <dd className="text-right tabular-nums text-error">{recovered(advance) > 0 ? `− ${formatKes(recovered(advance))}` : "—"}</dd>
+              <dt className="text-outline">Still owed</dt>
+              <dd className="text-right tabular-nums text-on-surface">
+                {advance.status === "PENDING" || advance.status === "REJECTED" ? "—" : formatKes(advance.outstandingBalance)}
+              </dd>
+            </dl>
             {advance.status === "REJECTED" && advance.rejectionReason ? (
               <p className="mt-2 rounded-lg bg-error/10 p-2 text-xs text-error">Reason: {advance.rejectionReason}</p>
             ) : null}
@@ -105,12 +125,14 @@ export function AdvanceList({ advances }: { advances: AdvanceItem[] }) {
       </ul>
 
       <div className="hidden w-full overflow-x-auto md:block">
-        <table className="data-table w-full min-w-[680px] border-collapse text-left">
+        <table className="data-table w-full min-w-[860px] border-collapse text-left">
           <thead>
             <tr>
-              <th className={`${TH} pl-2`}>Date</th>
+              <th className={`${TH} pl-2`}>Asked</th>
+              <th className={TH}>Approved</th>
               <th className={TH}>Purpose</th>
               <th className={`${TH} text-right`}>Amount</th>
+              <th className={`${TH} text-right`}>Taken back</th>
               <th className={`${TH} text-right`}>Still owed</th>
               <th className={`${TH} pl-4 pr-2`}>Status</th>
             </tr>
@@ -119,8 +141,10 @@ export function AdvanceList({ advances }: { advances: AdvanceItem[] }) {
             {advances.map((advance) => (
               <tr key={advance.id} className="border-b border-outline-variant/20 align-top last:border-0">
                 <td className="py-3 pl-2 text-on-surface-variant">{when(advance.advanceDate)}</td>
+                <td className="py-3 text-on-surface-variant">{approvedOn(advance) ? when(approvedOn(advance)!) : "—"}</td>
                 <td className="py-3">{advance.purpose ?? "—"}</td>
                 <td className="py-3 text-right font-semibold tabular-nums">{formatKes(advance.amount)}</td>
+                <td className="py-3 text-right tabular-nums text-error">{recovered(advance) > 0 ? `− ${formatKes(recovered(advance))}` : "—"}</td>
                 <td className="py-3 text-right tabular-nums text-on-surface-variant">
                   {advance.status === "PENDING" || advance.status === "REJECTED" ? "—" : formatKes(advance.outstandingBalance)}
                 </td>

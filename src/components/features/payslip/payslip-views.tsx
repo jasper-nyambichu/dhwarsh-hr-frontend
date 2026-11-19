@@ -176,8 +176,12 @@ export function PayslipDetail({
   backHref: string;
   hasLogo: boolean;
 }) {
-  const income = payslip.pay + payslip.paye + payslip.nssf + payslip.nita;
+  // A payslip paid from the employee's salary shows only the salary, the loans and damages and the net pay.
+  // One from before (days x daily rate) keeps the layout it was made with.
+  const salaryBasis = payslip.payBasis === "SALARY";
+  const income = salaryBasis ? payslip.pay : payslip.pay + payslip.paye + payslip.nssf + payslip.nita;
   const deductions = payslip.loan + payslip.damage;
+  const daysPaid = payslip.daysWorked + (payslip.offDaysPaid ?? 0);
   const loanItems = payslip.loanItems ?? [];
   const damageItems = payslip.damageItems ?? [];
 
@@ -219,12 +223,28 @@ export function PayslipDetail({
           }
         >
           <div className="flex flex-col">
-            <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-outline">Income</p>
-            <Line label={`${formatNumber(payslip.daysWorked)} days × ${formatMoney(payslip.dailyRate)}`} amount={payslip.pay} />
-            <Line label="PAYE" amount={payslip.paye} />
-            <Line label="NSSF" amount={payslip.nssf} />
-            <Line label="NITA" amount={payslip.nita} />
-            <Subtotal label="Total income" amount={income} />
+            {salaryBasis ? (
+              <>
+                <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-outline">Salary</p>
+                <Line label="Monthly salary" amount={payslip.monthlySalary ?? 0} />
+                <Line
+                  label={`Salary for ${formatNumber(daysPaid)} days paid (${formatNumber(payslip.daysWorked)} worked${
+                    payslip.offDaysPaid ? ` + ${formatNumber(payslip.offDaysPaid)} off` : ""
+                  })`}
+                  amount={payslip.pay}
+                />
+                <Subtotal label="Salary to be paid" amount={income} />
+              </>
+            ) : (
+              <>
+                <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-outline">Income</p>
+                <Line label={`${formatNumber(payslip.daysWorked)} days × ${formatMoney(payslip.dailyRate)}`} amount={payslip.pay} />
+                <Line label="PAYE" amount={payslip.paye} />
+                <Line label="NSSF" amount={payslip.nssf} />
+                <Line label="NITA" amount={payslip.nita} />
+                <Subtotal label="Total income" amount={income} />
+              </>
+            )}
 
             <p className="pt-4 text-xs font-semibold uppercase tracking-wide text-outline">Deductions</p>
             {loanItems.length > 0 ? (
@@ -252,7 +272,9 @@ export function PayslipDetail({
             </p>
 
             <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary-fixed bg-primary-fixed-dim/20 px-4 py-4">
-              <span className="text-base font-semibold text-primary sm:font-page-title sm:text-page-title">Amount Paid to the Agent for This Employee</span>
+              <span className="text-base font-semibold text-primary sm:font-page-title sm:text-page-title">
+                {salaryBasis ? "Net Pay" : "Amount Paid to the Agent for This Employee"}
+              </span>
               <span className="text-lg font-bold tabular-nums text-primary sm:font-page-title sm:text-page-title">{formatMoney(payslip.amountDue)}</span>
             </div>
           </div>

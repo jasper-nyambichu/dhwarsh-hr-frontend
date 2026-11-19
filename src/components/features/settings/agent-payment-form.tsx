@@ -3,24 +3,27 @@
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
 
-import { calculateAgentPaymentsAction, checkAgentPaymentPeriodAction } from "@/app/actions/pay-settings";
+import { calculateAgentPaymentsAction, checkAgentPaymentPeriodAction, previewAgentPaymentsAction } from "@/app/actions/pay-settings";
+import { AgentPaymentDetailView } from "@/components/features/settings/agent-payment-detail";
 import { BentoCard } from "@/components/shared/bento-card";
 import { ConfirmForm } from "@/components/shared/confirm-form";
 import { DateInput } from "@/components/shared/date-input";
 import { CONTROL, FormMessage, LABEL } from "@/components/shared/form-field";
 import { Icon } from "@/components/ui/icon";
-import { formatDateRange, formatNumber } from "@/lib/format";
+import { formatDateRange, formatMoney, formatNumber } from "@/lib/format";
 import { buildHref } from "@/lib/search-params";
 import type { ActionState } from "@/types";
-import type { AgentPaymentReadiness } from "@/types/agent-portal";
+import type { AgentPaymentDetail, AgentPaymentReadiness } from "@/types/agent-portal";
 
-/** Which period a check belongs to, so a slow answer for old dates is never shown for new ones. */
+/** Which period a check or preview belongs to, so a slow answer for old dates is never shown for new ones. */
 type Check = { period: string; result: ActionState<AgentPaymentReadiness> };
+type Preview = { period: string; result: ActionState<AgentPaymentDetail[]> };
 
 /**
- * Starts the calculation for a period. It moves real balances (loans, damages, advances) and a period
- * can only be paid once, so it asks first. As soon as both dates are chosen it shows the days each
- * branch has worked, counted from attendance. Nothing needs locking first.
+ * The payroll, in two steps. First Preview: the whole calculation for the period, every agent and every employee,
+ * with nothing saved, nothing deducted and nothing an agent can see. Then, once satisfied, Run payroll: a pop-up
+ * asks to confirm (or go back and update first). Running moves the loans, damages and advances exactly as
+ * previewed, sends each agent their invoice, and the period cannot be paid again.
  */
 export function AgentPaymentForm({ initialStart = "", initialEnd = "" }: { initialStart?: string; initialEnd?: string }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(calculateAgentPaymentsAction, {
@@ -31,15 +34,18 @@ export function AgentPaymentForm({ initialStart = "", initialEnd = "" }: { initi
   const [periodStart, setPeriodStart] = useState(initialStart);
   const [periodEnd, setPeriodEnd] = useState(initialEnd);
   const [check, setCheck] = useState<Check | null>(null);
+  const [preview, setPreview] = useState<Preview | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const [lastState, setLastState] = useState(state);
 
-  // A successful run clears the dates, ready for the next period.
+  // A successful run clears the dates and the preview, ready for the next period.
   if (state !== lastState) {
     setLastState(state);
     if (state.status === "success") {
       setPeriodStart("");
       setPeriodEnd("");
       setCheck(null);
+      setPreview(null);
     }
   }
 
@@ -65,24 +71,43 @@ export function AgentPaymentForm({ initialStart = "", initialEnd = "" }: { initi
   const checked = period && check?.period === period ? check.result : null;
   const readiness = checked?.status === "success" ? checked.data : null;
   const blocked = readiness !== null && !readiness.ready;
+  const shown = period && preview?.period === period ? preview.result : null;
+  const previewed = shown?.status === "success" ? shown.data : null;
 
   function chooseStart(next: string) {
     setPeriodStart(next);
     if (periodEnd && next > periodEnd) setPeriodEnd("");
   }
 
+  async function runPreview() {
+    if (!period) return;
+    setPreviewing(true);
+    const [start, end] = period.split("/");
+    try {
+      setPreview({ period, result: await previewAgentPaymentsAction(start, end) });
+    } catch {
+      setPreview({ period, result: { status: "error", message: "The preview could not be made. Try again." } });
+    } finally {
+      setPreviewing(false);
+    }
+  }
+
+  const grandTotal = previewed?.reduce((sum, detail) => sum + detail.amountPayable, 0) ?? 0;
+
   return (
     <BentoCard
-      title="Calculate agent payments"
-      subtitle="Choose the period. Days worked are counted from attendance, so you can calculate at any time. Each agent's amount then waits under Money Requests for you to release."
+      title="Run the payroll"
+      subtitle="Choose the period and preview it first: every employee is paid from their own salary for the days paid, and loans, damages and advances come off. Nothing is saved and agents see nothing until you run it."
     >
       <ConfirmForm
         action={formAction}
         confirm={{
-          title: "Calculate agent payments?",
-          message: "Loans, damages and advances will be deducted, and this period cannot be paid again.",
-          subject: period ? formatDateRange(periodStart, periodEnd) : undefined,
-          confirmLabel: "Calculate",
+          title: "Run the payroll for this period?",
+          message:
+            "Loans, damages and advances will be deducted exactly as previewed, each agent receives their invoice, and this period cannot be paid again. Go back if anything needs updating first.",
+          subject: period ? `${formatDateRange(periodStart, periodEnd)} · ${formatMoney(grandTotal)} to agents` : undefined,
+          confirmLabel: "Run payroll",
+          cancelLabel: "Go back and update",
           icon: "calculate",
         }}
         className="flex flex-col gap-4"
@@ -113,18 +138,58 @@ export function AgentPaymentForm({ initialStart = "", initialEnd = "" }: { initi
 
         {readiness ? <PeriodChecklist readiness={readiness} /> : null}
 
-        <div aria-live="polite">
-          <FormMessage state={state} successText="Agent payments calculated. Release them under Money Requests." />
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <button data-live=""
+            type="button"
+            onClick={runPreview}
+            disabled={!period || blocked || previewing || pending}
+            className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-primary px-6 py-2 font-body-md text-body-md font-semibold text-primary transition-colors hover:bg-primary-fixed disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Icon name="preview" className="text-[18px]" />
+            {previewing ? "Preparing the preview…" : previewed ? "Preview again" : "Preview payroll"}
+          </button>
+          <button
+            type="submit"
+            disabled={pending || blocked || !previewed || previewed.length === 0}
+            title={previewed ? undefined : "Preview the payroll first"}
+            className="flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-2 font-body-md text-body-md font-semibold text-on-primary transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Icon name="play_arrow" className="text-[18px]" />
+            {pending ? "Running…" : "Run payroll"}
+          </button>
         </div>
+        {!previewed && period && !blocked ? (
+          <p className="text-xs text-on-surface-variant">Preview the payroll first; Run payroll opens once you have seen it.</p>
+        ) : null}
 
-        <button
-          type="submit"
-          disabled={pending || blocked}
-          className="min-h-11 w-full rounded-lg bg-primary px-6 py-2 font-body-md text-body-md font-semibold text-on-primary transition-colors hover:bg-primary-container disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto sm:self-start"
-        >
-          {pending ? "Calculating…" : "Calculate payments"}
-        </button>
+        <div aria-live="polite">
+          <FormMessage state={state} successText="Payroll run. Each agent has their invoice, and their payments wait under Money Requests for you to release." />
+        </div>
       </ConfirmForm>
+
+      {shown?.status === "error" ? (
+        <p role="alert" className="mt-4 rounded-lg border border-error/40 bg-error/5 px-4 py-3 text-sm text-error">{shown.message}</p>
+      ) : null}
+
+      {previewed ? (
+        <section aria-labelledby="payroll-preview" className="mt-6 flex flex-col gap-gutter border-t border-outline-variant/40 pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-amber-main/10 p-3">
+            <p id="payroll-preview" className="flex items-center gap-2 text-sm font-semibold text-on-surface">
+              <Icon name="visibility" className="text-[18px] text-amber-main" />
+              Preview only: nothing has been saved or deducted, and agents cannot see it.
+            </p>
+            <p className="text-sm text-on-surface">
+              {formatNumber(previewed.length)} agent{previewed.length === 1 ? "" : "s"} · <strong>{formatMoney(grandTotal)}</strong> in total
+            </p>
+          </div>
+          {previewed.map((detail) => (
+            <div key={detail.agentId} className="flex flex-col gap-3">
+              <h3 className="text-lg font-bold text-on-surface">{detail.agentName}</h3>
+              <AgentPaymentDetailView detail={detail} preview />
+            </div>
+          ))}
+        </section>
+      ) : null}
     </BentoCard>
   );
 }
@@ -136,7 +201,7 @@ function PeriodChecklist({ readiness }: { readiness: AgentPaymentReadiness }) {
     <div className="flex flex-col gap-3 rounded-lg border border-outline-variant/40 p-3" role="status">
       <p className="flex items-center gap-2 text-sm font-semibold text-on-surface">
         <Icon name={ready ? "check_circle" : "error"} filled className={ready ? "text-[20px] text-tertiary" : "text-[20px] text-error"} />
-        {ready ? "Ready to calculate" : "Cannot calculate this period"}
+        {ready ? "Ready to preview" : "This period cannot be paid"}
       </p>
 
       {alreadyPaidAgents.length > 0 ? (

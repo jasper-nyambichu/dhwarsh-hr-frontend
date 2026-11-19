@@ -50,10 +50,9 @@ export async function GET(
     return fail("Your session has expired. Please sign in again.", 401);
   }
 
-  if (
-    !hasPermission(session.role, "agentsummary:read:self") ||
-    session.agentId === null
-  ) {
+  // The agent (their own payments) or the Admin who runs the payroll; the backend checks which payment each may read.
+  const isAgent = hasPermission(session.role, "agentsummary:read:self") && session.agentId !== null;
+  if (!isAgent && !hasPermission(session.role, "agentpayment:run")) {
     return fail("You do not have permission to view this document.", 403);
   }
 

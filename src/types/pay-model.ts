@@ -31,7 +31,6 @@ export type PaySettingsResponse = {
 export type PaySettingsPayload = Pick<
   PaySettingsResponse,
   | "vatRate"
-  | "dailyRate"
   | "nssfMode"
   | "nssfValue"
   | "deductionCeilingPercent"

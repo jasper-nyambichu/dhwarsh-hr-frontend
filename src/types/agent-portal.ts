@@ -52,6 +52,59 @@ export type AgentSettlementResponse = {
   advanceRecovered: number;
   amountPayable: number;
   paymentRequestId: number | null;
+  /** SALARY, or DAILY_RATE for payments run before salaries were used. */
+  payBasis?: "SALARY" | "DAILY_RATE";
+};
+
+/**
+ * `dto/response/settlement/AgentPaymentDetail`: one agent's payment line by line. The same for the Admin's preview
+ * (`settlementId` null: nothing saved, agents never see it) and for a payment that was run, which the Admin and the
+ * agent both read, so the two ends always agree.
+ */
+export type AgentPaymentDetail = {
+  settlementId: number | null;
+  agentId: number;
+  agentName: string;
+  periodStart: string;
+  periodEnd: string;
+  payBasis: "SALARY" | "DAILY_RATE";
+  employees: {
+    employeeId: number;
+    employeeNumber: string | null;
+    employeeName: string;
+    branchName: string | null;
+    monthlySalary: number | null;
+    daysWorked: number;
+    offDaysPaid: number;
+    dailyRate: number | null;
+    pay: number;
+    loan: number;
+    damage: number;
+    netPay: number;
+  }[];
+  salaries: number;
+  paye: number;
+  nssf: number;
+  nita: number;
+  agentFee: number;
+  vatRate: number;
+  vat: number;
+  loans: number;
+  damages: number;
+  /** Each advance taken back: when it was asked for and approved, and the amount taken off (a minus). */
+  advances: {
+    advanceId: number;
+    purpose: string | null;
+    advanceAmount: number | null;
+    requestedOn: string | null;
+    approvedOn: string | null;
+    deducted: number;
+    balanceAfter: number;
+  }[];
+  advanceRecovered: number;
+  amountPayable: number;
+  paymentRequestId: number | null;
+  warnings: string[];
 };
 
 /** The body of `POST /agent-settlements/calculate`. Leaving out `agentIds` means every active agent. */

@@ -193,7 +193,7 @@ function ExampleInput({ label, value, onChange }: { label: string; value: string
 
 /**
  * The Admin's pay rates. An agent is paid:
- * (days worked × daily rate) + PAYE + NSSF + NITA + VAT + agent fee − loans − damages − advances.
+ * (salary ÷ days in month × days paid) + PAYE + NSSF + NITA + VAT + agent fee − loans − damages − advances.
  * The example beside the form recalculates as the Admin types, using the same arithmetic as
  * `AgentSettlementCalculator` (the server remains the authority; this is a preview).
  */
@@ -202,13 +202,14 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
     status: "idle",
   });
 
-  const [dailyRate, setDailyRate] = useState(String(initial.dailyRate));
   const [nssfMode, setNssfMode] = useState<ContributionMode>(initial.nssfMode);
   const [nssfValue, setNssfValue] = useState(String(initial.nssfValue));
   const [vatRate, setVatRate] = useState(String(initial.vatRate));
   const [ceiling, setCeiling] = useState(String(initial.deductionCeilingPercent));
 
+  const [exampleSalary, setExampleSalary] = useState("30000");
   const [exampleDays, setExampleDays] = useState("30");
+  const [exampleMonthDays, setExampleMonthDays] = useState("30");
   const [exampleFee, setExampleFee] = useState("500");
   const [exampleLoans, setExampleLoans] = useState("0");
   const [exampleDamages, setExampleDamages] = useState("0");
@@ -217,8 +218,10 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
   const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
 
   const days = amount(exampleDays);
-  const rate = amount(dailyRate);
-  const pay = rate * days;
+  const monthDays = Math.max(amount(exampleMonthDays), 1);
+  const salary = amount(exampleSalary);
+  // The employee's own monthly salary for the days paid (worked + off days); a whole month pays the whole salary.
+  const pay = days >= monthDays ? salary : Math.round(((salary * days) / monthDays) * 100) / 100;
   const nssf = contribution(pay, nssfMode, nssfValue);
   const tax = paye(pay, nssf);
   const nita = days > 0 ? NITA_PER_EMPLOYEE : 0;
@@ -229,7 +232,6 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
   const advance = Math.min(amount(exampleAdvance), beforeAdvance);
   const payable = beforeAdvance - advance;
 
-  const rateId = useId();
   const nssfId = useId();
   const vatId = useId();
   const ceilingId = useId();
@@ -241,22 +243,11 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
         confirm={{ title: "Save these pay rates?", message: "The next agent payment calculation will use them.", confirmLabel: "Save", icon: "payments" }}
         className="flex min-w-0 flex-col gap-4"
       >
-        <BentoCard title="Daily rate" subtitle="What one day worked pays. Pay = days worked × this rate.">
-          <div className="flex max-w-sm flex-col gap-2">
-            <label htmlFor={rateId} className="text-sm font-medium text-on-surface">
-              Daily rate
-            </label>
-            <SuffixInput
-              id={rateId}
-              name="dailyRate"
-              value={dailyRate}
-              onChange={setDailyRate}
-              suffix="KES"
-              min="0.01"
-              error={errors.dailyRate?.[0]}
-            />
-          </div>
-        </BentoCard>
+        <p className="rounded-card border border-outline-variant/40 bg-surface-container-low p-4 text-sm text-on-surface-variant">
+          <strong className="text-on-surface">Pay comes from each employee&apos;s own salary</strong>, recorded when they were added
+          (edit it on their employee page). For a period, an employee is paid their monthly salary ÷ the days in the month ×
+          the days paid: the days they worked plus their off days. A whole month at work pays the whole salary.
+        </p>
 
         <BentoCard title="NSSF" subtitle="Added for each employee, as a percentage of their pay or a fixed amount.">
           <div className="flex max-w-sm flex-col gap-2">
@@ -339,11 +330,13 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
       <div className="min-w-0 lg:sticky lg:top-4">
         <BentoCard title="Payment formula" subtitle="An example for one employee. It updates as you type; the server does the real calculation.">
           <p className="mb-4 rounded-lg bg-surface-container-low p-3 text-xs text-on-surface-variant">
-            (Days worked × daily rate) + PAYE + NSSF + NITA + VAT + agent fee − loans − damages − advances
+            (Salary ÷ days in month × days paid) + PAYE + NSSF + NITA + VAT + agent fee − loans − damages − advances
           </p>
 
           <div className="mb-3 grid grid-cols-2 gap-3">
-            <ExampleInput label="Days worked" value={exampleDays} onChange={setExampleDays} />
+            <ExampleInput label="Monthly salary" value={exampleSalary} onChange={setExampleSalary} />
+            <ExampleInput label="Days paid" value={exampleDays} onChange={setExampleDays} />
+            <ExampleInput label="Days in the month" value={exampleMonthDays} onChange={setExampleMonthDays} />
             <ExampleInput label="Agent fee" value={exampleFee} onChange={setExampleFee} />
             <ExampleInput label="Loans" value={exampleLoans} onChange={setExampleLoans} />
             <ExampleInput label="Damages" value={exampleDamages} onChange={setExampleDamages} />
@@ -351,7 +344,7 @@ export function PayModelForm({ initial }: { initial: PaySettingsResponse }) {
           </div>
 
           <dl>
-            <PreviewRow label={`${days} days × ${kes(rate)}`} value={kes(pay)} />
+            <PreviewRow label={`${kes(salary)} ÷ ${monthDays} × ${days} days`} value={kes(pay)} />
             <PreviewRow label="PAYE" value={`+ ${kes(tax)}`} />
             <PreviewRow label={`NSSF (${nssfMode === "PERCENT" ? `${nssfValue || 0}%` : "fixed"})`} value={`+ ${kes(nssf)}`} />
             <PreviewRow label="NITA" value={`+ ${kes(nita)}`} />
