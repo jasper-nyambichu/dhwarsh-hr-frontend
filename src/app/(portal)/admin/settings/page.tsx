@@ -72,6 +72,8 @@ export default async function AdminSettingsPage() {
               defaultWorkingHoursPerDay: settings?.defaultWorkingHoursPerDay ?? 8,
               overtimeMultiplier: settings?.overtimeMultiplier ?? 1.5,
               weekendDays: settings?.weekendDays ?? "SATURDAY,SUNDAY",
+              workStartTime: (settings?.workStartTime ?? "08:00").slice(0, 5),
+              workEndTime: (settings?.workEndTime ?? "17:00").slice(0, 5),
             }}
           />
         ) : null}

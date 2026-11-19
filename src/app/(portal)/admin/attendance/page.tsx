@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+
+import { Icon } from "@/components/ui/icon";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
@@ -64,7 +67,18 @@ export default async function AdminAttendancePage({
         title="Attendance"
         description="How each branch is doing. Open a branch to see its employees."
         pill={<CountPill label={`${formatPercent(rate)} reported`} tone={rate >= 85 ? "success" : rate > 0 ? "warning" : "neutral"} />}
-        actions={<AttendanceFilters branches={[]} date={snapshot.summary.date} showBranch={false} clearable={!live} />}
+        actions={
+          <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
+            <AttendanceFilters branches={[]} date={snapshot.summary.date} showBranch={false} clearable={!live} />
+            <Link
+              href="/admin/attendance/records"
+              className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg border border-outline-variant px-4 text-sm font-semibold text-on-surface transition-colors hover:bg-surface-container-low sm:w-auto"
+            >
+              <Icon name="fact_check" className="text-[18px]" />
+              Attendance records
+            </Link>
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">

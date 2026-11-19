@@ -10,6 +10,7 @@ import type {
   AttendanceSyncFailure,
   Paginated,
 } from "@/types";
+import type { LateLunch, PunctualityReport } from "@/types/punctuality";
 
 /**
  * `controller/attendance/AttendanceDashboardController`.
@@ -97,6 +98,22 @@ export function getAttendanceRecords(
       size: params.size ?? 25,
     },
   });
+}
+
+/**
+ * Each employee's attendance record over a period (this month by default): days reported, arrivals against the
+ * work start, early departures and late lunch returns. With `employeeId`, that one employee and a line per day.
+ * A Branch Manager only ever gets their own branch.
+ */
+export function getPunctuality(
+  params: { start?: string; end?: string; branchId?: number; employeeId?: number } = {},
+): Promise<PunctualityReport> {
+  return api.get<PunctualityReport>("/attendance/dashboard/punctuality", { query: { ...params } });
+}
+
+/** Who came back late from lunch on a day (today by default), and anyone still out past the end of lunch. */
+export function getLateLunches(params: { date?: string; branchId?: number } = {}): Promise<LateLunch[]> {
+  return api.get<LateLunch[]>("/attendance/dashboard/late-lunch", { query: { ...params } });
 }
 
 /**

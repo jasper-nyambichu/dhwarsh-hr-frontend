@@ -112,7 +112,7 @@ export async function removeCompanyLogoAction(
   return { status: "success", data: undefined };
 }
 
-/** Admin: company rules — VAT, working hours, overtime, weekend. */
+/** Admin: company rules — VAT, working hours, overtime, weekend, and the work start and end times. */
 export async function saveSettingsAction(
   _previous: ActionState,
   formData: FormData,
@@ -132,6 +132,11 @@ export async function saveSettingsAction(
   if (!Number.isFinite(hours) || hours <= 0 || hours > 24) fieldErrors.defaultWorkingHoursPerDay = ["1 – 24"];
   if (!Number.isFinite(overtime) || overtime < 1 || overtime > 5) fieldErrors.overtimeMultiplier = ["1 – 5"];
   if (weekend.length < 1 || weekend.length > 2) fieldErrors.weekendDays = ["Choose one or two days"];
+  const workStart = String(formData.get("workStartTime") ?? "");
+  const workEnd = String(formData.get("workEndTime") ?? "");
+  if (!/^\d{2}:\d{2}$/.test(workStart)) fieldErrors.workStartTime = ["Choose a time"];
+  if (!/^\d{2}:\d{2}$/.test(workEnd)) fieldErrors.workEndTime = ["Choose a time"];
+  else if (workStart && workEnd <= workStart) fieldErrors.workEndTime = ["Must be after the start"];
 
   if (Object.keys(fieldErrors).length > 0) {
     return { status: "error", message: "Check the fields below.", fieldErrors };
@@ -144,6 +149,8 @@ export async function saveSettingsAction(
       overtimeMultiplier: overtime,
       weekendDays: weekend.join(","),
       payrollPeriod: "MONTHLY",
+      workStartTime: workStart,
+      workEndTime: workEnd,
     });
   } catch (error) {
     return toActionError(error);

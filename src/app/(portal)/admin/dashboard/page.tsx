@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ApiError } from "@/app/lib/api-error";
 import { requireAnyPermission } from "@/app/lib/dal";
 import { QuickAccessGroups, type QuickAccessItem } from "@/components/features/dashboard/quick-access";
+import { LateLunchCard } from "@/components/features/attendance/punctuality-cards";
 import { OffListCard } from "@/components/features/off-days/off-list-card";
 import { AlertSpotlight } from "@/components/shared/alert-spotlight";
 import { BentoCard } from "@/components/shared/bento-card";
@@ -15,7 +16,7 @@ import { Icon } from "@/components/ui/icon";
 import { navigationFor } from "@/config/navigation";
 import { getAgents } from "@/lib/api/agent";
 import { getAdvances, getLoans, getPaymentRequests } from "@/lib/api/agent-money";
-import { getAttendanceDevices, getAttendanceSummary } from "@/lib/api/attendance";
+import { getAttendanceDevices, getAttendanceSummary, getLateLunches } from "@/lib/api/attendance";
 import { getBranches } from "@/lib/api/branch";
 import { getEmployeesByBranch } from "@/lib/api/employee";
 import { getEmployeeRequests } from "@/lib/api/employee-request";
@@ -102,7 +103,7 @@ export default async function AdminDashboardPage() {
   // `allSettled` throughout: one unavailable panel must not blank the page, and
   // an empty slot is a truthful rendering of "could not read this".
   const month = parseMonth(undefined);
-  const [summaryResult, agentsResult, devicesResult, employeeRequestsResult, paymentsResult, advancesResult, loansResult, offDaysResult] = await Promise.allSettled([
+  const [summaryResult, agentsResult, devicesResult, employeeRequestsResult, paymentsResult, advancesResult, loansResult, offDaysResult, lateLunchResult] = await Promise.allSettled([
     getAttendanceSummary(),
     getAgents(),
     getAttendanceDevices(),
@@ -111,6 +112,7 @@ export default async function AdminDashboardPage() {
     getAdvances(),
     getLoans("PENDING"),
     getOffDays(monthRange(month)),
+    getLateLunches(),
   ]);
 
   const countResults = await Promise.allSettled(
@@ -132,6 +134,7 @@ export default async function AdminDashboardPage() {
   const toRelease = count(paymentsResult, (request) => request.status === "APPROVED");
   const pendingAdvances = count(advancesResult, (advance) => advance.status === "PENDING");
   const pendingLoans = count(loansResult);
+  const lateLunches = lateLunchResult.status === "fulfilled" ? lateLunchResult.value : null;
   const offList = offDaysResult.status === "fulfilled" ? groupByEmployee(offDaysResult.value, month) : null;
   const offThisMonth = offList === null ? null : offList.length;
   const pendingMoney = (pendingPayments ?? 0) + (pendingAdvances ?? 0) + (pendingLoans ?? 0);
@@ -270,6 +273,8 @@ export default async function AdminDashboardPage() {
 
       <QuickAccessGroups groups={quickAccessGroups} />
 
+      <LateLunchCard items={lateLunches} href="/admin/attendance/records" />
+
       <OffListCard
         groups={offList}
         month={month}
@@ -302,64 +307,48 @@ export default async function AdminDashboardPage() {
               description="Branches appear here once they have been created."
             />
           ) : (
-            <div className="w-full overflow-x-auto">
-              <table className="data-table w-full border-collapse text-left">
-                <thead>
-                  <tr>
-                    <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">
-                      Branch
-                    </th>
-                    <th className="pb-3 font-table-header text-table-header uppercase text-outline">
-                      Manager
-                    </th>
-                    <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">
-                      Employees
-                    </th>
-                    <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">
-                      Attendance&nbsp;%
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="font-body-md text-body-md">
-                  {branches.map((branch) => {
-                    const employees = headcount.get(branch.id);
-                    const rate = rateFor(branch.id);
-
-                    return (
-                      <tr key={branch.id} className="group transition-colors">
-                        <td className="py-3 pl-2">
-                          <Link
-                            href={`/admin/branches/${branch.id}`}
-                            className="flex items-center gap-2"
-                          >
-                            <span className="flex size-6 items-center justify-center rounded bg-primary-container/10 text-primary-container">
-                              <Icon name="location_city" className="text-sm" />
-                            </span>
-                            <span className="font-medium text-on-surface group-hover:text-primary-container">
-                              {branch.name}
-                            </span>
-                          </Link>
-                        </td>
-                        <td className="py-3 text-on-surface-variant">
-                          {branch.managerName ?? (
-                            <span className="text-amber-main">Unassigned</span>
-                          )}
-                        </td>
-                        <td className="py-3 text-right tabular-nums text-on-surface-variant">
-                          {employees === null || employees === undefined
-                            ? "—"
-                            : formatNumber(employees)}
-                        </td>
-                        <td className="py-3 pr-2 text-right tabular-nums text-on-surface-variant">
-                          {rate === null ? "—" : formatPercent(rate)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+            /* A card per branch, as on the Employees page. */
+            <ul className="grid grid-cols-1 gap-gutter sm:grid-cols-2">
+              {branches.map((branch) => {
+                const employees = headcount.get(branch.id);
+                const rate = rateFor(branch.id);
+                return (
+                  <li key={branch.id}>
+                    <Link
+                      href={`/admin/branches/${branch.id}`}
+                      className="group flex h-full min-w-0 flex-col gap-3 rounded-card border border-outline-variant/40 p-4 transition-colors hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                          <Icon name="location_city" />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block break-words font-bold text-on-surface group-hover:text-primary-container">{branch.name}</span>
+                          <span className="block text-xs text-on-surface-variant">
+                            {branch.managerName ?? <span className="text-amber-main">No manager</span>}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 rounded-lg bg-surface-container-low p-3 text-xs">
+                        <span>
+                          <span className="block text-on-surface-variant">Employees</span>
+                          <span className="block text-base font-bold tabular-nums text-on-surface">
+                            {employees === null || employees === undefined ? "—" : formatNumber(employees)}
+                          </span>
+                        </span>
+                        <span>
+                          <span className="block text-on-surface-variant">Attendance today</span>
+                          <span className="block text-base font-bold tabular-nums text-on-surface">{rate === null ? "—" : formatPercent(rate)}</span>
+                        </span>
+                      </div>
+                      <span aria-hidden className="block h-1.5 overflow-hidden rounded-full bg-surface-container">
+                        <span className="block h-full rounded-full bg-primary" style={{ width: `${Math.min(rate ?? 0, 100)}%` }} />
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </BentoCard>
 

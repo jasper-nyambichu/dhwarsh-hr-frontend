@@ -767,6 +767,10 @@ export type CompanySettingsResponse = {
   overtimeMultiplier: number | null;
   weekendDays: string | null;
   payrollPeriod: PayrollPeriod | null;
+  /** "08:00:00": arriving after this counts as late in the attendance records. */
+  workStartTime?: string | null;
+  /** "17:00:00": leaving before this counts as early. */
+  workEndTime?: string | null;
 };
 
 /**

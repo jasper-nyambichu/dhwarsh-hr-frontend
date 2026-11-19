@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { EmployeePunctualityPanel } from "@/components/features/attendance/punctuality-cards";
+import { MonthNav } from "@/components/features/off-days/off-day-calendar";
 import { AssignDepartmentForm } from "@/components/features/staff/assign-department-form";
 import { CancelDamageButton } from "@/components/features/staff/cancel-damage-button";
 import { deleteStaffAction } from "@/app/actions/staff";
@@ -14,12 +16,15 @@ import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
+import { getPunctuality } from "@/lib/api/attendance";
 import { countEmployeeFingerprints } from "@/lib/api/biometric";
 import { getBranches } from "@/lib/api/branch";
 import { getEmployeeDamages } from "@/lib/api/damage";
 import { getDepartments } from "@/lib/api/department";
 import { getEmployee } from "@/lib/api/employee";
 import { formatMoney, formatDate, humanizeEnum } from "@/lib/format";
+import { monthLabel, monthRange, parseMonth } from "@/lib/off-days";
+import { buildHref, first } from "@/lib/search-params";
 
 function Row({ label, value }: { label: string; value: string | null | undefined }) {
   return (
@@ -31,7 +36,13 @@ function Row({ label, value }: { label: string; value: string | null | undefined
 }
 
 /** One employee's record, with department assignment and termination. */
-export default async function AdminEmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function AdminEmployeeDetailPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   await requirePermission("employee:write");
 
   const { id } = await params;
@@ -51,6 +62,11 @@ export default async function AdminEmployeeDetailPage({ params }: { params: Prom
 
   // An extra: if it cannot be read, the page still works and the card makes no promise about the fingerprint.
   const fingerprints = await countEmployeeFingerprints(employee.id).catch(() => 0);
+
+  // How they have been reporting to work this month (or the month chosen). Also an extra: the page works without it.
+  const month = parseMonth(first((await searchParams).month));
+  const range = monthRange(month);
+  const record = await getPunctuality({ start: range.from, end: range.to, employeeId: employee.id }).catch(() => null);
 
   const openDamages = damages.filter((damage) => damage.status === "APPROVED" || damage.status === "PENDING_CONSENT");
 
@@ -107,6 +123,21 @@ export default async function AdminEmployeeDetailPage({ params }: { params: Prom
               </div>
             </div>
           </BentoCard>
+
+          <section id="attendance-record" aria-labelledby="attendance-record-title" className="flex scroll-mt-24 flex-col gap-gutter">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 id="attendance-record-title" className="text-lg font-bold text-on-surface">Attendance record</h2>
+                <p className="text-sm text-on-surface-variant">How {employee.fullName.split(" ")[0]} reports to work and keeps to work time · {monthLabel(month)}</p>
+              </div>
+              <MonthNav month={month} hrefFor={(target) => buildHref(`/admin/employees/${employee.id}`, { month: target }) + "#attendance-record"} />
+            </div>
+            {record?.employees[0] ? (
+              <EmployeePunctualityPanel row={record.employees[0]} workStart={record.workStart} workEnd={record.workEnd} />
+            ) : (
+              <p className="bento-card p-4 text-sm text-on-surface-variant">The attendance record could not be loaded. Please try again shortly.</p>
+            )}
+          </section>
 
           {openDamages.length > 0 ? (
             <BentoCard title="Damages not yet deducted" subtitle="An approved damage blocks deleting this employee until it is deducted in an agent payment or cancelled.">

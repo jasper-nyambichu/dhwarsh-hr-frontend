@@ -3,40 +3,53 @@
 import { useState } from "react";
 
 import { offDayDates } from "@/components/features/off-days/employee-off-day-cards";
-import { GiveOffDayDialog, RemoveOffDayButton } from "@/components/features/off-days/off-day-form";
+import { GiveOffDayDialog, OffDayRowActions } from "@/components/features/off-days/off-day-form";
 import { BentoCard } from "@/components/shared/bento-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Icon } from "@/components/ui/icon";
 import { formatNumber, initials } from "@/lib/format";
-import { daysInMonth, isOffOn } from "@/lib/off-days";
-import type { AgentOffEmployee } from "@/lib/agent-off-days";
+import { MAX_OFF_DAYS_PER_MONTH, isOffOn, offDatesInMonth } from "@/lib/off-days";
 import type { OffDayResponse } from "@/types/off-day";
 
-/** The agent's employees at one branch, each with their own Give Off button. */
+export type OffDayEmployee = { id: number; fullName: string; employeeNumber: string; departmentName: string | null };
+
+/** @deprecated name kept for the agent pages; see {@link OffDayEmployee}. */
+export type AgentOffEmployee = OffDayEmployee;
+
+/**
+ * Employees at one branch, each with their Give Off button and their days off this month (Change / Remove for
+ * those still ahead). Used by the agent for their own employees, and by the Branch Manager and the Admin when the
+ * agent isn't available.
+ */
 export function AgentEmployeeOffCards({
   employees,
   offDays,
   month,
   today,
+  title = "Your employees here",
+  subtitle = `Press Give Off next to the employee: ${MAX_OFF_DAYS_PER_MONTH} separate days each month.`,
 }: {
-  employees: AgentOffEmployee[];
+  employees: OffDayEmployee[];
   offDays: OffDayResponse[];
   month: string;
   today: string;
+  title?: string;
+  subtitle?: string;
 }) {
-  const [granting, setGranting] = useState<AgentOffEmployee | null>(null);
+  const [granting, setGranting] = useState<OffDayEmployee | null>(null);
 
   return (
-    <BentoCard title="Your employees here" subtitle="Press Give Off next to the employee.">
+    <BentoCard title={title} subtitle={subtitle}>
       <div className="flex flex-col gap-3">
         {employees.length === 0 ? (
-          <EmptyState symbol="group" title="No active employees" description="You have no active employees at this branch." />
+          <EmptyState symbol="group" title="No active employees" description="There are no active employees at this branch." />
         ) : (
           <ul className="flex flex-col gap-3">
             {employees.map((person) => {
               const own = offDays.filter((offDay) => offDay.employeeId === person.id);
               const offToday = own.some((offDay) => isOffOn(offDay, today));
-              const totalDays = own.reduce((sum, offDay) => sum + daysInMonth(offDay, month), 0);
+              const used = offDatesInMonth(offDays, person.id, month).length;
+              const full = used >= MAX_OFF_DAYS_PER_MONTH;
 
               return (
                 <li key={person.id} className="min-w-0 rounded-lg border border-outline-variant/40 p-3">
@@ -53,16 +66,20 @@ export function AgentEmployeeOffCards({
                       </p>
                       <p className="break-words text-xs text-on-surface-variant">
                         {[person.employeeNumber, person.departmentName].filter(Boolean).join(" · ")}
-                        {totalDays > 0 ? ` · ${formatNumber(totalDays)} day${totalDays === 1 ? "" : "s"} off this month` : ""}
+                        {` · ${formatNumber(used)} of ${MAX_OFF_DAYS_PER_MONTH} days off given`}
                       </p>
                     </div>
                     <button data-live=""
                       type="button"
                       onClick={() => setGranting(person)}
-                      className="flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-container sm:w-auto"
+                      className={
+                        full
+                          ? "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg border border-outline-variant px-4 text-sm font-semibold text-on-surface-variant transition-colors hover:bg-surface-container-low sm:w-auto"
+                          : "flex min-h-11 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary transition-colors hover:bg-primary-container sm:w-auto"
+                      }
                     >
-                      <Icon name="event_available" className="text-[18px]" />
-                      Give Off
+                      <Icon name={full ? "event_busy" : "event_available"} className="text-[18px]" />
+                      {full ? "Both given" : "Give Off"}
                     </button>
                   </div>
 
@@ -74,7 +91,7 @@ export function AgentEmployeeOffCards({
                             <p className="text-sm font-medium text-on-surface">{offDayDates(offDay)}</p>
                             {offDay.reason ? <p className="break-words text-xs text-on-surface-variant">{offDay.reason}</p> : null}
                           </div>
-                          {offDay.endDate >= today ? <RemoveOffDayButton id={offDay.id} /> : null}
+                          <OffDayRowActions offDay={offDay} employeeName={person.fullName} today={today} />
                         </li>
                       ))}
                     </ul>
@@ -90,7 +107,8 @@ export function AgentEmployeeOffCards({
         <GiveOffDayDialog
           key={granting.id}
           employee={{ id: granting.id, name: granting.fullName, number: granting.employeeNumber }}
-          today={today}
+          month={month}
+          taken={offDatesInMonth(offDays, granting.id, month)}
           onClose={() => setGranting(null)}
           onSaved={() => setGranting(null)}
         />

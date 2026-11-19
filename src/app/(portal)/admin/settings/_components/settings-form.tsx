@@ -15,6 +15,10 @@ type Values = {
   defaultWorkingHoursPerDay: number;
   overtimeMultiplier: number;
   weekendDays: string;
+  /** "08:00" */
+  workStartTime: string;
+  /** "17:00" */
+  workEndTime: string;
 };
 
 /** Company rules. Admin edits. */
@@ -78,6 +82,28 @@ export function SettingsForm({
             defaultValue={initial.overtimeMultiplier}
             error={errors?.overtimeMultiplier?.[0]}
           />
+
+          <TextField
+            label="Work starts"
+            name="workStartTime"
+            type="time"
+            required
+            defaultValue={initial.workStartTime}
+            error={errors?.workStartTime?.[0]}
+            hint="Clocking in after this is late."
+          />
+          <TextField
+            label="Work ends"
+            name="workEndTime"
+            type="time"
+            required
+            defaultValue={initial.workEndTime}
+            error={errors?.workEndTime?.[0]}
+            hint="Clocking out before this is leaving early."
+          />
+          <p className="self-end text-[11px] text-on-surface-variant">
+            Used by the attendance records. Lunch is 30 minutes; only coming back after that is late.
+          </p>
 
           <div className="sm:col-span-3">
             <p className="mb-2 block font-table-header text-table-header uppercase text-outline">Weekend days</p>

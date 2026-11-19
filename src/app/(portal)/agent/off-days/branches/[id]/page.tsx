@@ -7,7 +7,7 @@ import { requirePermission } from "@/app/lib/dal";
 import { AgentEmployeeOffCards } from "@/components/features/off-days/agent-employee-off-cards";
 import { EmployeeOffDayCards } from "@/components/features/off-days/employee-off-day-cards";
 import { MonthNav, OffDayCalendar } from "@/components/features/off-days/off-day-calendar";
-import { RemoveOffDayButton } from "@/components/features/off-days/off-day-form";
+import { OffDayRowActions } from "@/components/features/off-days/off-day-form";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { MetricCard } from "@/components/shared/metric-card";
@@ -104,7 +104,7 @@ export default async function AgentBranchOffDaysPage({
                 groups={others}
                 showAgent={false}
                 showBranch={false}
-                action={(offDay) => (offDay.endDate >= today ? <RemoveOffDayButton id={offDay.id} /> : null)}
+                action={(offDay) => <OffDayRowActions offDay={offDay} employeeName={offDay.employeeName ?? ""} today={today} />}
               />
             </section>
           ) : null}

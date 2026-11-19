@@ -6,7 +6,8 @@ export type OffDayResponse = {
   employeeName: string | null;
   branchId: number | null;
   branchName: string | null;
-  agentId: number;
+  /** Null for an employee without an agent. */
+  agentId: number | null;
   agentName: string | null;
   startDate: string;
   endDate: string;

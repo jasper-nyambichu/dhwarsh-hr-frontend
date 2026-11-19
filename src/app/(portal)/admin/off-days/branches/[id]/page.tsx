@@ -1,9 +1,12 @@
+import { format } from "date-fns";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { AgentEmployeeOffCards, type OffDayEmployee } from "@/components/features/off-days/agent-employee-off-cards";
 import { EmployeeOffDayCards } from "@/components/features/off-days/employee-off-day-cards";
+import { OffDayRowActions } from "@/components/features/off-days/off-day-form";
 import { MonthNav, OffDayCalendar } from "@/components/features/off-days/off-day-calendar";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { FilterSelect } from "@/components/shared/filter-select";
@@ -11,6 +14,7 @@ import { MetricCard } from "@/components/shared/metric-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
 import { getBranch } from "@/lib/api/branch";
+import { getBranchDirectory } from "@/lib/api/employee";
 import { getOffDays } from "@/lib/api/off-day";
 import { formatNumber } from "@/lib/format";
 import { groupByEmployee, monthLabel, monthRange, parseMonth } from "@/lib/off-days";
@@ -45,16 +49,34 @@ export default async function AdminBranchOffDaysPage({
   const employee = parseId(first(query.employee));
   const agent = parseId(first(query.agent));
 
-  let data: { branch: Awaited<ReturnType<typeof getBranch>>; offDays: Awaited<ReturnType<typeof getOffDays>> };
+  let data: {
+    branch: Awaited<ReturnType<typeof getBranch>>;
+    offDays: Awaited<ReturnType<typeof getOffDays>>;
+    employees: OffDayEmployee[] | null;
+  };
   try {
-    const [branch, offDays] = await Promise.all([getBranch(branchId), getOffDays(monthRange(month))]);
-    data = { branch, offDays: offDays.filter((offDay) => offDay.branchId === branchId) };
+    const [branch, offDays, directory] = await Promise.all([
+      getBranch(branchId),
+      getOffDays(monthRange(month)),
+      getBranchDirectory(branchId).catch(() => null),
+    ]);
+    data = {
+      branch,
+      offDays: offDays.filter((offDay) => offDay.branchId === branchId),
+      // Only what the cards show: the directory's pay figures never reach the browser.
+      employees:
+        directory
+          ?.filter((person) => person.employmentStatus === "ACTIVE")
+          .map((person) => ({ id: person.id, fullName: person.fullName, employeeNumber: person.employeeNumber, departmentName: person.departmentName }))
+          .sort((a, b) => a.fullName.localeCompare(b.fullName)) ?? null,
+    };
   } catch (error) {
     if (error instanceof ApiError && error.status === 404) notFound();
     return <DataUnavailable title="Branch off days" subject="This branch's off days" reason={error instanceof ApiError ? error.message : undefined} />;
   }
 
   const path = `/admin/off-days/branches/${branchId}`;
+  const today = format(new Date(), "yyyy-MM-dd");
   const shown = data.offDays.filter(
     (row) => (employee === undefined || row.employeeId === employee) && (agent === undefined || row.agentId === agent),
   );
@@ -77,7 +99,7 @@ export default async function AdminBranchOffDaysPage({
             <span className="min-w-0 break-words">{data.branch.name}</span>
           </span>
         }
-        description="Who is off at this branch, day by day."
+        description="Who is off at this branch. Give, change or remove days off here when the agent isn't available."
         actions={<MonthNav month={month} hrefFor={(target) => buildHref(path, { month: target, employee, agent })} />}
       />
 
@@ -115,12 +137,34 @@ export default async function AdminBranchOffDaysPage({
           </form>
         ) : null}
 
-        <OffDayCalendar month={month} offDays={shown} showBranch={false} />
+        <div className="grid grid-cols-1 items-start gap-gutter xl:grid-cols-12">
+          <div className="min-w-0 xl:col-span-5">
+            {data.employees === null ? (
+              <p className="bento-card p-4 text-sm text-on-surface-variant">This branch&apos;s employees could not be loaded. Please try again shortly.</p>
+            ) : (
+              <AgentEmployeeOffCards
+                employees={data.employees}
+                offDays={data.offDays}
+                month={month}
+                today={today}
+                title="Employees here"
+                subtitle="Give days off when the agent isn't available: 2 separate days each month."
+              />
+            )}
+          </div>
+          <div className="min-w-0 xl:col-span-7">
+            <OffDayCalendar month={month} offDays={shown} showBranch={false} />
+          </div>
+        </div>
 
         {groups.length > 0 ? (
           <section aria-labelledby="off-days-by-employee" className="flex flex-col gap-3">
             <h2 id="off-days-by-employee" className="font-table-header text-table-header uppercase text-outline">By employee</h2>
-            <EmployeeOffDayCards groups={groups} showBranch={false} />
+            <EmployeeOffDayCards
+              groups={groups}
+              showBranch={false}
+              action={(offDay) => <OffDayRowActions offDay={offDay} employeeName={offDay.employeeName ?? ""} today={today} />}
+            />
           </section>
         ) : null}
       </div>

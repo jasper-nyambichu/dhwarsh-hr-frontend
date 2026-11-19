@@ -13,6 +13,14 @@ import {
 
 import type { OffDayResponse } from "@/types/off-day";
 
+/** Each employee has at most this many days off in a calendar month: any separate days, never a range. */
+export const MAX_OFF_DAYS_PER_MONTH = 2;
+
+/** The dates (yyyy-MM-dd) an employee has off in the month, from the month's off days. */
+export function offDatesInMonth(offDays: OffDayResponse[], employeeId: number, month: string): string[] {
+  return [...offDaysByDate(offDays.filter((offDay) => offDay.employeeId === employeeId), month).keys()].sort();
+}
+
 /** A month is carried in the URL as yyyy-MM. Anything else means the current month. */
 export function parseMonth(value: string | undefined): string {
   return value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value) ? value : format(new Date(), "yyyy-MM");

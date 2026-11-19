@@ -6,8 +6,8 @@ import type { OffDayResponse } from "@/types/off-day";
 /**
  * `controller/offday/OffDayController` — base `/off-days`.
  *
- * The agent gives their own employees days off; the Admin reads all of them. A range covers at
- * most 92 days and both dates are inclusive.
+ * The agent gives their own employees days off (two single days a month); the Branch Manager or the Admin can
+ * too, when the agent isn't available. A range read covers at most 92 days and both dates are inclusive.
  */
 
 type Range = { from: string; to: string };
@@ -29,13 +29,18 @@ export function getMyOffDays(range: Range, signal?: AbortSignal): Promise<OffDay
 
 export type OffDayInput = {
   employeeId: number;
-  startDate: string;
-  endDate: string;
+  /** One or two separate days (yyyy-MM-dd). */
+  dates: string[];
   reason?: string;
 };
 
-export function grantOffDay(payload: OffDayInput): Promise<OffDayResponse> {
-  return api.post<OffDayResponse>("/off-days", payload);
+export function grantOffDays(payload: OffDayInput): Promise<OffDayResponse[]> {
+  return api.post<OffDayResponse[]>("/off-days", payload);
+}
+
+/** Moves one off day to another date. */
+export function updateOffDay(id: number, payload: { date: string; reason?: string }): Promise<OffDayResponse> {
+  return api.put<OffDayResponse>(`/off-days/${id}`, payload);
 }
 
 /** Refused by the backend once the off day has fully passed. */

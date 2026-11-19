@@ -139,85 +139,93 @@ export default async function BranchesPage({
                   warning="Each ticked branch is deleted and the other branch codes close up. A branch that still has employees or an active terminal is refused and kept."
                 />
               ) : null}
-              <div className="w-full overflow-x-auto">
-                <table className="data-table w-full border-collapse text-left">
-                  <thead>
-                    <tr>
-                      {canWrite ? (
-                        <th className="w-10 pb-3 pl-2 print:hidden">
-                          <SelectAllCheckbox formId={BULK_FORM} label="Select all branches" />
-                        </th>
-                      ) : null}
-                      <th className="pb-3 pl-2 font-table-header text-table-header uppercase text-outline">Branch</th>
-                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">Manager</th>
-                      <th className="pb-3 font-table-header text-table-header uppercase text-outline">Contact</th>
-                      <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Employees</th>
-                      <th className="pb-3 text-right font-table-header text-table-header uppercase text-outline">Status</th>
-                      {canWrite ? <th className="pb-3 pr-2 text-right font-table-header text-table-header uppercase text-outline">Actions</th> : null}
-                    </tr>
-                  </thead>
-                  <tbody className="font-body-md text-body-md">
-                    {rows.map((branch) => {
-                      const count = headcount.get(branch.id);
-                      return (
-                        <tr key={branch.id} className="group transition-colors">
+              {canWrite ? (
+                <label className="mb-3 flex w-fit items-center gap-2 text-xs font-semibold text-on-surface-variant print:hidden">
+                  <SelectAllCheckbox formId={BULK_FORM} label="Select all branches" />
+                  Select all
+                </label>
+              ) : null}
+              {/* A card per branch, as on the Employees page. */}
+              <ul className="grid grid-cols-1 gap-gutter md:grid-cols-2">
+                {rows.map((branch) => {
+                  const count = headcount.get(branch.id);
+                  return (
+                    <li
+                      key={branch.id}
+                      className="group flex min-w-0 flex-col gap-4 rounded-card border border-outline-variant/40 bg-surface-container-lowest p-4 transition-colors hover:bg-surface-container-low sm:p-card-padding"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="flex items-center gap-3">
                           {canWrite ? (
-                            <td className="py-3 pl-2 print:hidden">
+                            <span className="print:hidden">
                               <RowCheckbox formId={BULK_FORM} id={branch.id} label={branch.name} />
-                            </td>
+                            </span>
                           ) : null}
-                          <td className="py-3 pl-2">
-                            <Link href={`/admin/branches/${branch.id}`} className="flex items-center gap-2">
-                              <span className="flex size-6 shrink-0 items-center justify-center rounded bg-primary-container/10 text-primary-container">
-                                <Icon name="location_city" className="text-sm" />
-                              </span>
-                              <span className="min-w-0">
-                                <span className="block font-medium text-on-surface group-hover:text-primary-container">{branch.name}</span>
-                                <span className="block text-[10px] text-outline">{branch.code}</span>
-                              </span>
-                            </Link>
-                          </td>
-                          <td className="py-3 text-on-surface-variant">
+                          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-container/10 text-primary-container">
+                            <Icon name="location_city" />
+                          </span>
+                        </span>
+                        <StatusBadge status={branch.status} />
+                      </div>
+
+                      <Link href={`/admin/branches/${branch.id}`} className="min-w-0">
+                        <h3 className="break-words text-lg font-bold text-on-surface group-hover:text-primary-container">{branch.name}</h3>
+                        <p className="font-mono text-xs text-outline">{branch.code}</p>
+                      </Link>
+
+                      <dl className="grid grid-cols-2 gap-3 rounded-lg bg-surface-container-low p-3 text-xs">
+                        <div className="min-w-0">
+                          <dt className="text-on-surface-variant">Manager</dt>
+                          <dd className="break-words font-semibold text-on-surface">
                             {branch.managerName ?? <span className="text-amber-main">Unassigned</span>}
-                          </td>
-                          <td className="py-3 text-on-surface-variant">
-                            {branch.phone ? <span className="block font-mono text-[11px]">{branch.phone}</span> : null}
-                            {branch.email ? <span className="block text-[10px] text-outline">{branch.email}</span> : null}
-                            {!branch.phone && !branch.email ? <span className="text-outline">—</span> : null}
-                          </td>
-                          <td className="py-3 text-right tabular-nums text-on-surface-variant">
+                          </dd>
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-on-surface-variant">Employees</dt>
+                          <dd className="font-semibold tabular-nums text-on-surface">
                             {count === null || count === undefined ? "—" : formatNumber(count)}
-                          </td>
-                          <td className="py-3 text-right">
-                            <StatusBadge status={branch.status} />
-                          </td>
-                          {canWrite ? (
-                            <td className="py-3 pr-2 text-right">
-                              <div className="flex items-start justify-end gap-1">
-                                <Link
-                                  href={`/admin/branches/${branch.id}/edit`}
-                                  aria-label={`Edit ${branch.name}`}
-                                  className="flex size-9 items-center justify-center rounded-lg text-on-surface-variant hover:text-primary"
-                                >
-                                  <Icon name="edit" className="text-[18px]" />
-                                </Link>
-                                <ConfirmDeleteButton
-                                  compact
-                                  action={deleteBranchAction}
-                                  id={branch.id}
-                                  name={branch.name}
-                                  title="Delete this branch?"
-                                  confirmText="The other branch codes will close up to stay in order."
-                                />
-                              </div>
-                            </td>
-                          ) : null}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                          </dd>
+                        </div>
+                        <div className="col-span-2 min-w-0">
+                          <dt className="text-on-surface-variant">Contact</dt>
+                          <dd className="break-words text-on-surface">
+                            {[branch.phone, branch.email].filter(Boolean).join(" · ") || "—"}
+                          </dd>
+                        </div>
+                      </dl>
+
+                      <div className="mt-auto flex items-center justify-between gap-2 border-t border-outline-variant/40 pt-3">
+                        <Link
+                          href={`/admin/branches/${branch.id}`}
+                          className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
+                        >
+                          Open
+                          <Icon name="arrow_forward" className="text-[18px]" />
+                        </Link>
+                        {canWrite ? (
+                          <div className="flex items-start gap-1">
+                            <Link
+                              href={`/admin/branches/${branch.id}/edit`}
+                              aria-label={`Edit ${branch.name}`}
+                              className="flex size-9 items-center justify-center rounded-lg text-on-surface-variant hover:text-primary"
+                            >
+                              <Icon name="edit" className="text-[18px]" />
+                            </Link>
+                            <ConfirmDeleteButton
+                              compact
+                              action={deleteBranchAction}
+                              id={branch.id}
+                              name={branch.name}
+                              title="Delete this branch?"
+                              confirmText="The other branch codes will close up to stay in order."
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
               </>
             )}
           </BentoCard>

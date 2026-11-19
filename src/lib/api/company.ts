@@ -52,6 +52,10 @@ export type CompanySettingsInput = {
   weekendDays?: string;
   /** Only MONTHLY is supported by the payroll engine. */
   payrollPeriod?: string;
+  /** "08:00": arriving after this is late (attendance records). */
+  workStartTime?: string;
+  /** "17:00": leaving before this is early. */
+  workEndTime?: string;
 };
 
 /** Saves the logo. Multipart, so `api.post` leaves the Content-Type to the runtime. */
