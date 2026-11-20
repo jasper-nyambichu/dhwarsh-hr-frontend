@@ -1,31 +1,28 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { LoginLayout } from "@/components/features/auth/login-layout";
+import { LOGIN_THEMES, LoginLayout } from "@/components/features/auth/login-layout";
 import { StaffLoginForm } from "@/components/features/auth/staff-login-form";
 import { getOrganisationBranding } from "@/lib/api/organisation";
 
 export const metadata: Metadata = { title: "Admin Login" };
 
-/**
- * The Admin (and Back Office) sign-in. The Branch Manager signs in at `/branch/login` and agents at `/agent/login`;
- * the arrows under the card lead to both.
- */
-export default async function StaffLoginPage() {
+/** The Admin (and Back Office) sign-in, in blue. The Branch Manager signs in at `/branch/login` (green) and agents at `/agent/login` (amber). */
+export default async function Page() {
   const branding = await getOrganisationBranding();
-  const organisation = branding.name ?? "your organisation";
+  const theme = LOGIN_THEMES.admin;
 
   return (
     <LoginLayout
       portal="admin"
       branding={branding}
-      title="Admin login"
-      subtitle={`Log in to the ${organisation} admin portal.`}
-      panelText="Every branch, every agent, one clear view. Enter your details to continue."
+      headline="Every branch, one clear view."
+      tagline="Employees, attendance, off days and agent payments in one place."
+      subtitle="Sign in to the admin portal."
     >
       {/* useSearchParams needs a Suspense boundary during prerender. */}
-      <Suspense fallback={<div className="h-[260px]" />}>
-        <StaffLoginForm />
+      <Suspense fallback={<div className="h-[300px]" />}>
+        <StaffLoginForm forgotHref="/forgot-password" accent={theme.accent} buttonClass={theme.button} />
       </Suspense>
     </LoginLayout>
   );

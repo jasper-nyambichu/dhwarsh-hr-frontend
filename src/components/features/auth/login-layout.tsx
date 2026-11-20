@@ -1,129 +1,209 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { DevelopedBy, OrganisationBadge, VendorLogo } from "@/components/shared/organisation-brand";
+import { DevelopedBy, VendorLogo } from "@/components/shared/organisation-brand";
 import { Icon } from "@/components/ui/icon";
 import type { OrganisationBranding } from "@/lib/api/organisation";
+import { cn } from "@/lib/utils";
 
-/** The three sign-in pages, in the order the arrows under the card walk through them. */
+/** The three sign-in pages. */
 export const LOGIN_PORTALS = [
-  { id: "admin", href: "/login", label: "Admin login" },
-  { id: "branch", href: "/branch/login", label: "Branch login" },
-  { id: "agent", href: "/agent/login", label: "Agent login" },
+  { id: "admin", href: "/login", label: "Admin login", icon: "admin_panel_settings" },
+  { id: "branch", href: "/branch/login", label: "Branch login", icon: "storefront" },
+  { id: "agent", href: "/agent/login", label: "Agent login", icon: "badge" },
 ] as const;
 
 export type LoginPortal = (typeof LOGIN_PORTALS)[number]["id"];
 
 /**
- * The layout every sign-in page shares, after the design the client chose (2026-11-16): a light page with soft
- * circles in two corners, a blue panel on the left carrying the Dhwarsh logo, and the white login card on the right,
- * overlapping the panel's edge. Under the card, arrows lead to the other two sign-in pages.
- *
- * Phones stack the same pieces: a shorter blue panel on top and the card overlapping its foot.
+ * Each portal's colours, so the three sign-ins are told apart at a glance: the Admin blue, the Branch Manager green,
+ * the agent amber/yellow. The picture panel uses the gradient; the form uses the accent (focus ring, links, ticks)
+ * and the button colour.
+ */
+export type LoginTheme = {
+  panel: string;      // Tailwind gradient for the picture panel
+  glow: string;       // a soft light in the panel's corner
+  accent: string;     // focus ring / link colour, as a hex
+  button: string;     // classes for the Login button
+  dot: string;        // the current portal's dot
+};
+
+export const LOGIN_THEMES: Record<LoginPortal, LoginTheme> = {
+  admin: {
+    panel: "from-[#0a1f52] via-[#1849d8] to-[#4f86f7]",
+    glow: "bg-[#8fb3ff]",
+    accent: "#1849d8",
+    button: "bg-[#0f2a6b] hover:bg-[#1849d8] focus-visible:ring-[#1849d8]/40",
+    dot: "bg-[#1849d8]",
+  },
+  branch: {
+    panel: "from-[#06281d] via-[#0f6b4c] to-[#22a06b]",
+    glow: "bg-[#8ff0c4]",
+    accent: "#0f7a55",
+    button: "bg-[#0b4f3d] hover:bg-[#0f7a55] focus-visible:ring-[#0f7a55]/40",
+    dot: "bg-[#0f7a55]",
+  },
+  agent: {
+    panel: "from-[#5a3700] via-[#c08400] to-[#f5c234]",
+    glow: "bg-[#ffe9a3]",
+    accent: "#b07800",
+    button: "bg-[#7a4d00] hover:bg-[#a46a00] focus-visible:ring-[#b07800]/40",
+    dot: "bg-[#c08400]",
+  },
+};
+
+/**
+ * The layout every sign-in page shares, after the design the client chose (2026-11-20): the screen split in two.
+ * Left, a picture panel in the portal's colour with our logo at the top and a headline at the bottom; right, a white
+ * panel with the sign-in form, vertically centred, and below it buttons to the other two sign-ins. On a phone the
+ * picture becomes a short band above the form. Nothing overlaps at any width.
  */
 export function LoginLayout({
   portal,
   branding,
-  title,
+  headline,
+  tagline,
   subtitle,
-  panelText,
   children,
 }: {
   portal: LoginPortal;
   branding: OrganisationBranding;
-  /** The card's heading, e.g. "Admin login". */
-  title: string;
+  /** Large text at the foot of the picture panel. */
+  headline: string;
+  /** The line under it. */
+  tagline: string;
+  /** Under "Welcome Back to …!". */
   subtitle: string;
-  /** The line under "Welcome!" on the blue panel. */
-  panelText: string;
   /** The form. */
   children: ReactNode;
 }) {
-  const index = LOGIN_PORTALS.findIndex((p) => p.id === portal);
-  const previous = LOGIN_PORTALS[(index + LOGIN_PORTALS.length - 1) % LOGIN_PORTALS.length];
-  const next = LOGIN_PORTALS[(index + 1) % LOGIN_PORTALS.length];
-  const portalName = LOGIN_PORTALS[index].label.replace(" login", " portal");
+  const theme = LOGIN_THEMES[portal];
+  const others = LOGIN_PORTALS.filter((p) => p.id !== portal);
+  const organisation = branding.name ?? "Dhwarsh";
 
   return (
-    <main className="relative isolate flex min-h-dvh w-full items-center justify-center overflow-hidden bg-[#eef1f7] px-4 py-8 font-body-md text-on-surface sm:px-6 lg:py-12">
-      {/* The two corner circles from the design. */}
-      <span aria-hidden className="absolute -left-24 -top-24 -z-10 size-56 rounded-full bg-gradient-to-br from-[#5a3fd8] to-[#2346d0] sm:size-72" />
-      {/* Phones: only the top circle, so nothing sits behind the arrows and the credit at the foot. */}
-      <span aria-hidden className="absolute -bottom-28 -right-24 -z-10 hidden size-80 rounded-full bg-gradient-to-tl from-[#4b2fc8] to-[#2f5fe8] lg:block" />
+    <main className="flex min-h-dvh w-full flex-col bg-white font-body-md text-on-surface lg:flex-row">
+      {/* ---------------------------------------- The picture panel */}
+      <section
+        className={cn(
+          "relative isolate flex min-h-[230px] shrink-0 flex-col justify-between overflow-hidden bg-gradient-to-br p-5 text-white sm:min-h-[270px] sm:p-8",
+          "lg:min-h-dvh lg:w-[46%] lg:p-10 xl:w-1/2 xl:p-12",
+          theme.panel,
+        )}
+      >
+        <PanelScene glow={theme.glow} />
 
-      <div className="flex w-full max-w-[1040px] flex-col lg:flex-row lg:items-center">
-        {/* ---------------------------------------- The blue panel with the Dhwarsh logo */}
-        <section className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#2f6cf5] via-[#1849d8] to-[#0c2c9e] px-6 pb-16 pt-8 text-center text-white shadow-xl shadow-[#1849d8]/25 lg:min-h-[600px] lg:flex-1 lg:rounded-r-none lg:px-12 lg:pb-12 lg:pr-24 lg:pt-12">
-          <PanelWaves />
-          <div className="relative flex h-full flex-col items-center justify-center gap-5 lg:gap-7">
-            <span className="block w-[150px] rounded-3xl bg-white p-4 shadow-xl shadow-black/25 sm:w-[180px] lg:w-[230px] lg:p-5">
-              <VendorLogo eager sizes="230px" />
-            </span>
-            <div>
-              <h1 className="text-2xl font-extrabold uppercase tracking-wide sm:text-3xl">Welcome!</h1>
-              <p className="mx-auto mt-2 max-w-sm text-sm font-medium text-white/85 sm:text-base">{panelText}</p>
-            </div>
-            <span className="inline-flex items-center gap-2 rounded-md bg-white/15 px-5 py-2 text-[11px] font-bold uppercase tracking-widest shadow-sm ring-1 ring-white/25 backdrop-blur-sm">
-              <span className="size-1.5 rounded-full bg-[#9ff0c9]" />
-              {portalName}
-            </span>
+        {/* Our logo, on a white tile so its colours stay true on any panel colour. */}
+        <div className="flex items-center gap-3">
+          <span className="block w-14 shrink-0 rounded-2xl bg-white p-1.5 shadow-lg shadow-black/25 sm:w-16 lg:w-20 xl:w-24">
+            <VendorLogo eager sizes="96px" />
+          </span>
+          <span className="min-w-0 leading-tight drop-shadow">
+            <span className="block text-base font-bold tracking-tight sm:text-lg">Dhwarsh</span>
+            <span className="block text-xs text-white/85 sm:text-sm">Employee Management</span>
+          </span>
+        </div>
+
+        <div className="mt-6 max-w-md drop-shadow-md">
+          <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl lg:text-4xl">{headline}</h1>
+          <p className="mt-2 text-sm text-white/90 sm:text-base">{tagline}</p>
+          {/* One dot per sign-in page, this one highlighted. */}
+          <nav aria-label="Sign-in pages" className="mt-5 flex items-center gap-2">
+            {LOGIN_PORTALS.map((p) => (
+              <Link
+                key={p.id}
+                href={p.href}
+                aria-label={p.label}
+                aria-current={p.id === portal ? "page" : undefined}
+                className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  p.id === portal ? "w-8 bg-white" : "w-2 bg-white/55 hover:bg-white/80",
+                )}
+              />
+            ))}
+          </nav>
+        </div>
+      </section>
+
+      {/* ---------------------------------------- The sign-in form */}
+      <section className="flex flex-1 items-center justify-center px-5 py-8 sm:px-10 sm:py-12 lg:min-h-dvh lg:px-12">
+        <div className="w-full max-w-[400px]">
+          <h2 className="text-2xl font-bold tracking-tight text-[#14213d] sm:text-[28px]">
+            Welcome Back to <span className="break-words">{organisation}</span>!
+          </h2>
+          <p className="mt-1.5 text-sm text-on-surface-variant">{subtitle}</p>
+
+          <div className="mt-7">{children}</div>
+
+          <div className="mt-7 flex items-center gap-3 text-xs text-outline" aria-hidden>
+            <span className="h-px flex-1 bg-outline-variant/60" />
+            Other sign-in pages
+            <span className="h-px flex-1 bg-outline-variant/60" />
           </div>
-        </section>
-
-        {/* ---------------------------------------- The login card, overlapping the panel, and the arrows under it */}
-        <div className="relative z-10 -mt-10 flex w-full flex-col px-2 sm:px-6 lg:-ml-16 lg:mt-0 lg:w-[440px] lg:shrink-0 lg:px-0">
-          <section className="rounded-xl bg-white px-6 pb-8 pt-7 shadow-[0_24px_60px_-20px_rgba(15,35,95,0.35)] sm:px-10 sm:pb-10">
-            <div className="flex justify-center">
-              <OrganisationBadge branding={branding} className="size-16" ringClassName="ring-[#1849d8]/15" />
-            </div>
-            <h2 className="mx-auto mt-4 w-fit border-b-2 border-[#1849d8] pb-1 text-center text-xl font-bold tracking-tight text-[#14213d]">{title}</h2>
-            <p className="mt-3 text-center text-sm text-on-surface-variant">{subtitle}</p>
-            <div className="mt-7">{children}</div>
-          </section>
-
-          {/* Only the card overlaps the panel: the arrows and the credit start at its edge, on the light page. */}
-          <nav aria-label="Other sign-in pages" className="mt-5 flex items-center justify-between gap-3 px-1 lg:ml-20">
-
-            <ArrowLink href={previous.href} label={previous.label} direction="back" />
-            <ArrowLink href={next.href} label={next.label} direction="forward" />
+          <nav aria-label="Other sign-in pages" className="mt-4 grid grid-cols-2 gap-3">
+            {others.map((p) => (
+              <Link
+                key={p.id}
+                href={p.href}
+                className="flex min-h-11 items-center justify-center gap-2 rounded-lg border border-outline-variant/70 px-3 text-sm font-semibold text-[#14213d] transition-colors hover:border-outline hover:bg-surface-container-low focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              >
+                <Icon name={p.icon} className={cn("text-[20px]", portalIconColour[p.id])} />
+                <span className="truncate">{p.label}</span>
+              </Link>
+            ))}
           </nav>
 
-          <DevelopedBy className="mt-6 lg:ml-16" />
+          <DevelopedBy className="mt-8" />
         </div>
-      </div>
+      </section>
     </main>
   );
 }
 
-function ArrowLink({ href, label, direction }: { href: string; label: string; direction: "back" | "forward" }) {
-  const arrow = (
-    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-white text-[#1849d8] shadow-md shadow-[#1849d8]/15 ring-1 ring-[#1849d8]/15 transition-colors group-hover:bg-[#1849d8] group-hover:text-white">
-      <Icon name={direction === "back" ? "arrow_back" : "arrow_forward"} className="text-[20px]" />
-    </span>
-  );
-  return (
-    <Link
-      href={href}
-      aria-label={`Go to ${label}`}
-      className="group inline-flex min-h-11 items-center gap-2.5 rounded-full text-sm font-semibold text-[#14213d] transition-colors hover:text-[#1849d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1849d8]/40"
-    >
-      {direction === "back" ? arrow : null}
-      <span>{label}</span>
-      {direction === "forward" ? arrow : null}
-    </Link>
-  );
-}
+const portalIconColour: Record<LoginPortal, string> = {
+  admin: "text-[#1849d8]",
+  branch: "text-[#0f7a55]",
+  agent: "text-[#b07800]",
+};
 
-/** The soft waves across the blue panel, as in the design. Decorative only. */
-function PanelWaves() {
+/**
+ * The picture: a modern building with a sweeping curved roof over water at dusk, after the design, drawn in SVG so
+ * it is sharp at any size and takes the portal's colour. A dark shade at the foot keeps the headline readable.
+ * Decorative only.
+ */
+function PanelScene({ glow }: { glow: string }) {
   return (
-    <svg aria-hidden viewBox="0 0 600 700" preserveAspectRatio="xMidYMid slice" className="pointer-events-none absolute inset-0 h-full w-full">
-      <path d="M0 120 C 140 60 220 220 360 170 S 560 40 600 90 L600 0 L0 0 Z" fill="#ffffff" opacity="0.07" />
-      <path d="M0 330 C 120 260 260 420 400 340 S 560 230 600 270 L600 0 L0 0 Z" fill="#ffffff" opacity="0.05" />
-      <path d="M0 560 C 150 470 250 640 420 560 S 560 470 600 500 L600 700 L0 700 Z" fill="#ffffff" opacity="0.08" />
-      <path d="M0 640 C 160 590 300 700 600 610 L600 700 L0 700 Z" fill="#06155a" opacity="0.18" />
-      <circle cx="520" cy="420" r="120" fill="#ffffff" opacity="0.05" />
-      <circle cx="70" cy="470" r="70" fill="#ffffff" opacity="0.05" />
-    </svg>
+    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10">
+      <span className={cn("absolute -right-24 -top-24 size-80 rounded-full opacity-40 blur-3xl", glow)} />
+      <svg viewBox="0 0 600 800" preserveAspectRatio="xMidYMid slice" className="absolute inset-0 h-full w-full">
+        {/* Sweeping roof lines */}
+        <g fill="none" stroke="#ffffff" strokeLinecap="round">
+          {Array.from({ length: 9 }, (_, i) => (
+            <path
+              key={i}
+              d={`M -40 ${330 + i * 9} C 120 ${250 + i * 8}, 300 ${235 + i * 7}, 640 ${300 + i * 11}`}
+              strokeOpacity={0.22 - i * 0.015}
+              strokeWidth={i === 0 ? 3 : 1.4}
+            />
+          ))}
+        </g>
+        {/* The glass hall under the roof, its windows lit */}
+        <path d="M 40 395 C 200 345, 380 340, 600 385 L 600 560 L 40 560 Z" fill="#ffffff" fillOpacity="0.1" />
+        <g stroke="#ffffff" strokeOpacity="0.18" strokeWidth="1">
+          {Array.from({ length: 15 }, (_, i) => (
+            <line key={i} x1={60 + i * 37} y1={378 - Math.sin((i / 14) * Math.PI) * 26} x2={60 + i * 37} y2={560} />
+          ))}
+        </g>
+        <path d="M 40 470 L 600 470" stroke="#ffffff" strokeOpacity="0.14" />
+        {/* Water and its reflections */}
+        <rect x="0" y="560" width="600" height="240" fill="#000000" fillOpacity="0.12" />
+        <g stroke="#ffffff" strokeLinecap="round">
+          {Array.from({ length: 10 }, (_, i) => (
+            <line key={i} x1={70 + ((i * 53) % 480)} y1={590 + i * 18} x2={130 + ((i * 53) % 480)} y2={590 + i * 18} strokeOpacity={0.16} strokeWidth="2" />
+          ))}
+        </g>
+      </svg>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
+    </div>
   );
 }
