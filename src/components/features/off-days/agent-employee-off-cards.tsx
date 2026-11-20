@@ -37,15 +37,63 @@ export function AgentEmployeeOffCards({
   subtitle?: string;
 }) {
   const [granting, setGranting] = useState<OffDayEmployee | null>(null);
+  const [search, setSearch] = useState("");
+
+  // Finds an employee by any part of their name, employee number or department, ignoring case and extra spaces.
+  const words = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const shown = words.length === 0
+    ? employees
+    : employees.filter((person) => {
+        const text = [person.fullName, person.employeeNumber, person.departmentName].filter(Boolean).join(" ").toLowerCase();
+        return words.every((word) => text.includes(word));
+      });
 
   return (
     <BentoCard title={title} subtitle={subtitle}>
       <div className="flex flex-col gap-3">
+        {employees.length > 0 ? (
+          <div role="search" className="relative">
+            <label htmlFor="off-day-search" className="sr-only">Search employees</label>
+            <span aria-hidden className="pointer-events-none absolute inset-y-0 left-3 flex h-11 items-center text-outline">
+              <Icon name="search" className="text-[20px] leading-none" />
+            </span>
+            {/* A plain text box: a "search" box adds the browser's own second clear button. */}
+            <input
+              id="off-day-search"
+              type="text"
+              inputMode="search"
+              enterKeyHint="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by name, employee number or department"
+              autoComplete="off"
+              className="h-11 w-full rounded-lg border border-outline-variant bg-surface-container-lowest pl-10 pr-10 text-sm text-on-surface placeholder:text-outline focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            />
+            {search ? (
+              <button data-live=""
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="Clear the search"
+                className="absolute right-2 top-1.5 flex size-8 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container-low"
+              >
+                <Icon name="close" className="text-[18px]" />
+              </button>
+            ) : null}
+            {words.length > 0 ? (
+              <p className="mt-1.5 text-xs text-on-surface-variant" aria-live="polite">
+                {formatNumber(shown.length)} of {formatNumber(employees.length)} employee{employees.length === 1 ? "" : "s"}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         {employees.length === 0 ? (
           <EmptyState symbol="group" title="No active employees" description="There are no active employees at this branch." />
+        ) : shown.length === 0 ? (
+          <EmptyState symbol="person_search" title="No employee matches" description={`Nobody here matches "${search.trim()}". Check the spelling, or search by employee number.`} />
         ) : (
           <ul className="flex flex-col gap-3">
-            {employees.map((person) => {
+            {shown.map((person) => {
               const own = offDays.filter((offDay) => offDay.employeeId === person.id);
               const offToday = own.some((offDay) => isOffOn(offDay, today));
               const used = offDatesInMonth(offDays, person.id, month).length;
