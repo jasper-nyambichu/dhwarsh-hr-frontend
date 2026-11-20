@@ -84,6 +84,13 @@ export default async function PaySettingsPage({
         description="Employees are paid from their own salary for the days paid. Preview the payroll, then run it; each agent then receives their invoice."
       />
 
+      {first(params.undone) === "1" ? (
+        <p className="mb-4 rounded-card border border-green-main/30 bg-green-main/10 p-3 text-sm text-on-surface" role="status">
+          The payment was undone, as if it had never been run: its loans, damages and advances were given back, and its
+          money request, payslips and invoice were removed. That period can be run again.
+        </p>
+      ) : null}
+
       {notSetUp ? (
         <p className="mb-4 rounded-card bg-surface-container-low p-3 text-sm text-on-surface-variant" role="status">
           Settings have not been saved yet, so the usual starting values are shown. Saving creates them.

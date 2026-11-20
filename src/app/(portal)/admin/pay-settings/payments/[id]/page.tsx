@@ -3,7 +3,10 @@ import { notFound } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { undoAgentPaymentAction } from "@/app/actions/pay-settings";
 import { AgentPaymentDetailView } from "@/components/features/settings/agent-payment-detail";
+import { BentoCard } from "@/components/shared/bento-card";
+import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
@@ -68,6 +71,22 @@ export default async function AdminAgentPaymentPage({ params }: { params: Promis
         }
       />
       <AgentPaymentDetailView detail={detail} />
+
+      <div className="mt-gutter max-w-xl">
+        <BentoCard
+          title="Undo this payment"
+          subtitle="For a payment run by mistake or as a test. It is removed as if it had never been run: the loans, damages and advances it took are given back (advances stay approved, just owed again), and its money request, payslips and the agent's invoice disappear. Not possible once the agent has recorded paying employees from it."
+        >
+          <ConfirmDeleteButton
+            action={undoAgentPaymentAction}
+            id={detail.settlementId ?? 0}
+            name={`${detail.agentName}'s payment for ${formatDateRange(detail.periodStart, detail.periodEnd)}`}
+            label="Undo this payment"
+            title="Undo this payment?"
+            confirmText="Loans, damages and advances it took are given back, and its money request, payslips and invoice are removed. The period can then be run again."
+          />
+        </BentoCard>
+      </div>
     </>
   );
 }

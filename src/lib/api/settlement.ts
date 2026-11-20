@@ -39,3 +39,19 @@ export function getAgentPayments(signal?: AbortSignal): Promise<AgentSettlementR
 export function getMyAgentPayments(signal?: AbortSignal): Promise<AgentSettlementResponse[]> {
   return api.get<AgentSettlementResponse[]>("/agent-settlements/mine", { signal });
 }
+
+/**
+ * Admin: undoes a payment run by mistake or as a test, as if it had never been run. The loans, damages and advances
+ * it took are given back; its money request, payslips and invoice are removed. Refused once the agent has recorded
+ * paying employees from it.
+ */
+export function undoAgentPayment(settlementId: number): Promise<{
+  settlementId: number;
+  loansRestored: number;
+  damagesRestored: number;
+  advancesRestored: number;
+  advanceAmountOwedAgain: number;
+  payslipsRemoved: number;
+}> {
+  return api.post(`/agent-settlements/${settlementId}/undo`);
+}

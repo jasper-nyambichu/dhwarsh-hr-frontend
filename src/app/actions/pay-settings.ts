@@ -1,11 +1,12 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { updatePaySettings } from "@/lib/api/pay-settings";
-import { calculateAgentPayments, getAgentPaymentReadiness, previewAgentPayments } from "@/lib/api/settlement";
+import { calculateAgentPayments, getAgentPaymentReadiness, previewAgentPayments, undoAgentPayment } from "@/lib/api/settlement";
 import type { ActionState } from "@/types";
 import type { AgentPaymentDetail, AgentPaymentReadiness } from "@/types/agent-portal";
 import {
@@ -154,4 +155,26 @@ export async function calculateAgentPaymentsAction(
 
   refresh();
   return { status: "success", data: undefined };
+}
+/**
+ * Admin: undoes an agent payment run by mistake or as a test, as if it had never been run. Loans, damages and
+ * advances it took are given back (an advance stays approved, just owed again), and its money request, payslips and
+ * invoice are removed. Back to Pay Rates afterwards.
+ */
+export async function undoAgentPaymentAction(
+  _previous: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requirePermission("agentpayment:run");
+
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown payment." };
+
+  try {
+    await undoAgentPayment(id);
+  } catch (error) {
+    return toActionError(error);
+  }
+
+  redirect("/admin/pay-settings?undone=1");
 }
