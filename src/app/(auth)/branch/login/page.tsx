@@ -17,7 +17,6 @@ export default async function Page() {
     <LoginLayout
       portal="branch"
       branding={branding}
-      headline="Run your branch, day by day."
       tagline="Today's attendance, your team and their days off."
       subtitle="Sign in to manage your branch."
     >

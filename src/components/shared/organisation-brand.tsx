@@ -41,14 +41,23 @@ export function VendorLogo({
 }
 
 /** The Dhwarsh emblem alone (the three figures and the tick), for small spots. Transparent. */
-export function VendorMark({ className, eager = false }: { className?: string; eager?: boolean }) {
+export function VendorMark({
+  className,
+  eager = false,
+  sizes = "48px",
+}: {
+  className?: string;
+  eager?: boolean;
+  /** The rendered width, so a large mark is fetched sharp. */
+  sizes?: string;
+}) {
   return (
     <Image
       src={VENDOR_MARK.src}
       alt=""
       width={VENDOR_MARK.width}
       height={VENDOR_MARK.height}
-      sizes="48px"
+      sizes={sizes}
       loading={eager ? "eager" : undefined}
       className={cn("h-auto w-full object-contain", className)}
     />

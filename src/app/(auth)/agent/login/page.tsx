@@ -17,7 +17,6 @@ export default async function Page() {
     <LoginLayout
       portal="agent"
       branding={branding}
-      headline="Your people. Your pay. Always clear."
       tagline="Your employees, payslips, advances and payments in one place."
       subtitle="Sign in to your agent account."
     >
