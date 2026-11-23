@@ -11,6 +11,8 @@ export const LOGIN_PORTALS = [
   { id: "admin", href: "/login", label: "Admin login", pill: "Admin portal", icon: "shield", pillIcon: "admin_panel_settings" },
   { id: "branch", href: "/branch/login", label: "Branch login", pill: "Branch portal", icon: "storefront", pillIcon: "storefront" },
   { id: "agent", href: "/agent/login", label: "Agent login", pill: "Agent portal", icon: "badge", pillIcon: "badge" },
+  // Only where the organisation uses the Accounts Office (Kisiimatt); elsewhere it is never shown.
+  { id: "accounts", href: "/accounts/login", label: "Accounts login", pill: "Accounts portal", icon: "account_balance_wallet", pillIcon: "account_balance_wallet" },
 ] as const;
 
 export type LoginPortal = (typeof LOGIN_PORTALS)[number]["id"];
@@ -54,6 +56,14 @@ export const LOGIN_THEMES: Record<LoginPortal, LoginTheme> = {
     button: "bg-[#7A4D00] hover:bg-[#A46A00] focus-visible:ring-[#B07800]/20",
     navIcon: "text-amber-500",
   },
+  accounts: {
+    overlay: "radial-gradient(circle at center, #6D3FC4 0%, #3E1F86 60%, #1E0D47 100%)",
+    glow: "rgba(180, 150, 255, 0.38)",
+    tint: "#E2D4FF",
+    accent: "#6D28D9",
+    button: "bg-[#4C1D95] hover:bg-[#6D28D9] focus-visible:ring-[#6D28D9]/20",
+    navIcon: "text-violet-600",
+  },
 };
 
 /**
@@ -80,10 +90,12 @@ export function LoginLayout({
   children: ReactNode;
 }) {
   const theme = LOGIN_THEMES[portal];
-  const current = LOGIN_PORTALS.find((p) => p.id === portal)!;
-  const others = LOGIN_PORTALS.filter((p) => p.id !== portal);
+  // The Accounts login exists only where the organisation uses the Accounts Office.
+  const portals = LOGIN_PORTALS.filter((p) => p.id !== "accounts" || branding.accountsOffice || portal === "accounts");
+  const current = portals.find((p) => p.id === portal)!;
+  const others = portals.filter((p) => p.id !== portal);
   const organisation = branding.name ?? "Dhwarsh";
-  const position = LOGIN_PORTALS.findIndex((p) => p.id === portal) + 1;
+  const position = portals.findIndex((p) => p.id === portal) + 1;
 
   return (
     <div className="flex min-h-dvh w-full items-center justify-center bg-slate-100 font-body-md text-slate-800 antialiased sm:p-4 lg:p-6">
@@ -124,7 +136,7 @@ export function LoginLayout({
           {/* One dot per sign-in page, this one highlighted. */}
           <nav aria-label="Sign-in pages" className="relative z-20 flex flex-col items-center gap-2 pt-2">
             <div className="flex items-center gap-2.5">
-              {LOGIN_PORTALS.map((p) =>
+              {portals.map((p) =>
                 p.id === portal ? (
                   // This page: a wide bar, not a link.
                   <span key={p.id} aria-label={`${p.pill} (this page)`} title={`${p.pill} (active)`} className="h-2 w-8 rounded-full bg-white shadow-sm transition-all duration-300" />
@@ -139,7 +151,7 @@ export function LoginLayout({
                 ),
               )}
             </div>
-            <span className="text-[11px] font-medium tracking-wide text-white/70">Portal Switcher ({position} of 3)</span>
+            <span className="text-[11px] font-medium tracking-wide text-white/70">Portal Switcher ({position} of {portals.length})</span>
           </nav>
         </section>
 
@@ -162,11 +174,15 @@ export function LoginLayout({
               </span>
             </div>
             <nav aria-label="Other sign-in pages" className="grid grid-cols-2 gap-3">
-              {others.map((p) => (
+              {others.map((p, index) => (
                 <Link
                   key={p.id}
                   href={p.href}
-                  className="group flex h-11 items-center justify-between gap-1 rounded-lg border border-[#CBD5E1] bg-white px-3 text-xs font-semibold text-slate-700 transition-all duration-200 hover:border-[#94A3B8] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
+                  // A third button (where the Accounts login exists) takes the full width under the other two.
+                  className={cn(
+                    others.length % 2 === 1 && index === others.length - 1 && "col-span-2",
+                    "group flex h-11 items-center justify-between gap-1 rounded-lg border border-[#CBD5E1] bg-white px-3 text-xs font-semibold text-slate-700 transition-all duration-200 hover:border-[#94A3B8] hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300",
+                  )}
                 >
                   <span className="flex min-w-0 items-center gap-2">
                     <Icon name={p.icon} className={cn("shrink-0 text-[18px]", LOGIN_THEMES[p.id].navIcon)} />

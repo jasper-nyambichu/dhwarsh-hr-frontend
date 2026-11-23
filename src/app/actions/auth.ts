@@ -135,7 +135,12 @@ export async function branchLogin(prev: ActionState, formData: FormData): Promis
   return staffLogin(formData, "BRANCH");
 }
 
-async function staffLogin(formData: FormData, door: "ADMIN" | "BRANCH"): Promise<ActionState> {
+/** The Accounts Office's page (only where the organisation uses the Accounts Office). */
+export async function accountsLogin(prev: ActionState, formData: FormData): Promise<ActionState> {
+  return staffLogin(formData, "ACCOUNTS");
+}
+
+async function staffLogin(formData: FormData, door: "ADMIN" | "BRANCH" | "ACCOUNTS"): Promise<ActionState> {
   const parsed = loginSchema.safeParse({
     username: formData.get("username"),
     password: formData.get("password"),
@@ -166,11 +171,18 @@ async function staffLogin(formData: FormData, door: "ADMIN" | "BRANCH"): Promise
 
   // Checked only after the password was right, so this reveals nothing to someone guessing.
   const isBranchManager = result.role === "BRANCH_MANAGER";
+  const isAccounts = result.role === "FINANCE_OFFICER";
   if (door === "ADMIN" && isBranchManager) {
     return { status: "error", message: "Branch Managers sign in on the Branch login page." };
   }
+  if (door === "ADMIN" && isAccounts) {
+    return { status: "error", message: "The Accounts Office signs in on the Accounts login page." };
+  }
   if (door === "BRANCH" && !isBranchManager) {
     return { status: "error", message: "This page is for Branch Managers. Please use the main login page." };
+  }
+  if (door === "ACCOUNTS" && !isAccounts) {
+    return { status: "error", message: "This page is for the Accounts Office. Please use your own login page." };
   }
 
   return establishSession(result, next);

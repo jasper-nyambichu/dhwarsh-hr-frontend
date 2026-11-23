@@ -20,6 +20,7 @@ const PUBLIC_PATHS = [
   "/login",
   "/branch/login",
   "/agent/login",
+  "/accounts/login",
   "/forgot-password",
   "/reset-password",
 ];
@@ -47,7 +48,13 @@ export async function proxy(request: NextRequest) {
     }
 
     // Each portal's own login page. The main login is the default door.
-    const door = pathname.startsWith("/branch") ? "/branch/login" : pathname.startsWith("/agent") ? "/agent/login" : "/login";
+    const door = pathname.startsWith("/branch")
+      ? "/branch/login"
+      : pathname.startsWith("/agent")
+        ? "/agent/login"
+        : pathname.startsWith("/accounts")
+          ? "/accounts/login"
+          : "/login";
     const loginUrl = new URL(door, request.url);
     if (pathname !== "/") {
       loginUrl.searchParams.set("next", pathname);

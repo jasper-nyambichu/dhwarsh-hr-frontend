@@ -46,7 +46,7 @@ export default async function UserAccountsOfficePage() {
             Accounts Office
           </span>
         }
-        description="Set the username and password for each person in the Accounts Office, then share them. They sign in on the main login page."
+        description="Set the username and password for each person in the Accounts Office, then share them. They sign in on the Accounts login page."
       />
 
       <div className="grid grid-cols-1 items-start gap-gutter lg:grid-cols-2">
@@ -58,7 +58,7 @@ export default async function UserAccountsOfficePage() {
             where="the Accounts Office portal"
             account={user}
             role="FINANCE_OFFICER"
-            signInPath="/login"
+            signInPath="/accounts/login"
           />
         ))}
         <CredentialCard
@@ -68,7 +68,7 @@ export default async function UserAccountsOfficePage() {
           where="the Accounts Office portal"
           account={null}
           role="FINANCE_OFFICER"
-          signInPath="/login"
+          signInPath="/accounts/login"
         />
       </div>
     </>

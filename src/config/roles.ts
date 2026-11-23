@@ -98,7 +98,7 @@ export const ROLE_LOGIN: Record<Role, string> = {
   BRANCH_MANAGER: "/branch/login",
   AGENT: "/agent/login",
   BACK_OFFICE: "/login",
-  FINANCE_OFFICER: "/login",
+  FINANCE_OFFICER: "/accounts/login",
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
