@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
 
-import { VENDOR_NAME, VendorMark } from "@/components/shared/organisation-brand";
+import { OrganisationLogo, VENDOR_NAME, VendorMark } from "@/components/shared/organisation-brand";
 import { Icon } from "@/components/ui/icon";
 import type { OrganisationBranding } from "@/lib/api/organisation";
 import { cn } from "@/lib/utils";
@@ -159,6 +159,7 @@ export function LoginLayout({
         <section className="flex w-full flex-col items-center justify-center bg-white p-6 sm:p-10 lg:w-[54%] lg:p-14 xl:w-1/2 xl:p-16">
           <div className="my-auto flex w-full max-w-[400px] flex-col py-2">
             <header className="mb-6">
+              <OrganisationBadge branding={branding} accent={theme.accent} />
               <h1 className="text-2xl font-bold leading-tight tracking-tight text-[#14213D] sm:text-[28px]">
                 Welcome Back to <span className="break-words">{organisation}</span>!
               </h1>
@@ -203,6 +204,37 @@ export function LoginLayout({
           </div>
         </section>
       </main>
+    </div>
+  );
+}
+
+/**
+ * The client's own logo (Admin → Settings) in a round frame above "Welcome Back", ringed in the portal's colour,
+ * after the design. Without a logo, the organisation's initials stand in; without a name either, a building icon.
+ */
+function OrganisationBadge({ branding, accent }: { branding: OrganisationBranding; accent: string }) {
+  const initials = (branding.name ?? "")
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]!.toUpperCase())
+    .join("");
+  return (
+    <div className="mb-5 flex items-center justify-center">
+      <div
+        className="relative flex size-20 items-center justify-center overflow-hidden rounded-full border-2 bg-white shadow-sm transition-shadow duration-300 hover:shadow sm:size-[88px]"
+        style={{ borderColor: `${accent}33` }}
+      >
+        <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full border" style={{ borderColor: `${accent}1a` }} />
+        {branding.hasLogo ? (
+          <OrganisationLogo branding={branding} className="size-full p-1.5" />
+        ) : (
+          <span className="flex flex-col items-center justify-center p-1 text-center">
+            <Icon name="domain" className="text-[24px]" style={{ color: accent }} />
+            {initials ? <span className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">{initials}</span> : null}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
