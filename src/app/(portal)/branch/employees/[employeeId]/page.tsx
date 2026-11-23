@@ -3,24 +3,14 @@ import { notFound } from "next/navigation";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
+import { EmployeeInfoCards, EmployeeProfileBanner } from "@/components/features/employee/employee-profile";
 import { AssignDepartmentForm } from "@/components/features/staff/assign-department-form";
-import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
 import { getDepartments } from "@/lib/api/department";
 import { getEmployee } from "@/lib/api/employee";
-import { formatDate, humanizeEnum } from "@/lib/format";
-
-function Row({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div className="flex items-start justify-between gap-4 border-b border-outline-variant/20 py-2.5 last:border-0">
-      <span className="text-xs text-on-surface-variant">{label}</span>
-      <span className="text-right text-sm font-medium text-on-surface">{value?.trim() ? value : "—"}</span>
-    </div>
-  );
-}
 
 /** One employee of the branch — the backend refuses anyone from another branch. */
 export default async function BranchEmployeePage({ params }: { params: Promise<{ employeeId: string }> }) {
@@ -55,26 +45,13 @@ export default async function BranchEmployeePage({ params }: { params: Promise<{
       />
 
       <div className="grid grid-cols-12 gap-gutter">
-        <div className="col-span-12 lg:col-span-8">
-          <BentoCard title="Details">
-            <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
-              <div>
-                <Row label="Phone" value={employee.phone} />
-                <Row label="Email" value={employee.email} />
-                <Row label="Position" value={employee.position} />
-                <Row label="Employment type" value={humanizeEnum(employee.employmentType)} />
-              </div>
-              <div>
-                <Row label="Date hired" value={employee.dateHired ? formatDate(employee.dateHired) : null} />
-                <Row label="Department" value={employee.departmentName ?? "Not assigned"} />
-                <Row label="Agent" value={employee.agentName ?? "Paid directly"} />
-                <Row label="Emergency contact" value={employee.emergencyContactName} />
-              </div>
-            </div>
-          </BentoCard>
+        {/* Branch Managers do not see pay, so the salary is left out. */}
+        <div className="col-span-12 flex min-w-0 flex-col gap-gutter lg:col-span-8">
+          <EmployeeProfileBanner employee={employee} showSalary={false} />
+          <EmployeeInfoCards employee={employee} showSalary={false} />
         </div>
 
-        <div className="col-span-12 lg:col-span-4">
+        <div className="col-span-12 flex min-w-0 flex-col gap-gutter lg:col-span-4">
           <AssignDepartmentForm
             employeeId={employee.id}
             currentDepartmentId={employee.departmentId}

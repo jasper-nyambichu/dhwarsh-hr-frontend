@@ -5,6 +5,7 @@ import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { EmployeePunctualityPanel } from "@/components/features/attendance/punctuality-cards";
 import { MonthNav } from "@/components/features/off-days/off-day-calendar";
+import { EmployeeInfoCards, EmployeeProfileBanner } from "@/components/features/employee/employee-profile";
 import { AssignDepartmentForm } from "@/components/features/staff/assign-department-form";
 import { CancelDamageButton } from "@/components/features/staff/cancel-damage-button";
 import { deleteStaffAction } from "@/app/actions/staff";
@@ -22,18 +23,9 @@ import { getBranches } from "@/lib/api/branch";
 import { getEmployeeDamages } from "@/lib/api/damage";
 import { getDepartments } from "@/lib/api/department";
 import { getEmployee } from "@/lib/api/employee";
-import { formatMoney, formatDate, humanizeEnum } from "@/lib/format";
+import { formatMoney, formatDate } from "@/lib/format";
 import { monthLabel, monthRange, parseMonth } from "@/lib/off-days";
 import { buildHref, first } from "@/lib/search-params";
-
-function Row({ label, value }: { label: string; value: string | null | undefined }) {
-  return (
-    <div className="flex items-start justify-between gap-4 border-b border-outline-variant/20 py-2.5 last:border-0">
-      <span className="text-xs text-on-surface-variant">{label}</span>
-      <span className="text-right text-sm font-medium text-on-surface">{value?.trim() ? value : "—"}</span>
-    </div>
-  );
-}
 
 /** One employee's record, with department assignment and termination. */
 export default async function AdminEmployeeDetailPage({
@@ -95,34 +87,17 @@ export default async function AdminEmployeeDetailPage({
       />
 
       <div className="grid grid-cols-12 gap-gutter">
-        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-8">
-          <BentoCard
-            title="Details"
+        <div className="col-span-12 flex min-w-0 flex-col gap-gutter lg:col-span-8">
+          <EmployeeProfileBanner employee={employee} />
+          <EmployeeInfoCards
+            employee={employee}
             action={
               <Link href={`/admin/employees/${employee.id}/edit`} className="inline-flex items-center gap-1 text-sm font-semibold text-primary hover:underline">
                 <Icon name="edit" className="text-[16px]" />
                 Edit
               </Link>
             }
-          >
-            <div className="grid grid-cols-1 gap-x-8 md:grid-cols-2">
-              <div>
-                <Row label="National ID" value={employee.nationalId} />
-                <Row label="Phone" value={employee.phone} />
-                <Row label="Email" value={employee.email} />
-                <Row label="Gender" value={employee.gender} />
-                <Row label="Date of birth" value={employee.dateOfBirth ? formatDate(employee.dateOfBirth) : null} />
-              </div>
-              <div>
-                <Row label="Position" value={employee.position} />
-                <Row label="Employment type" value={humanizeEnum(employee.employmentType)} />
-                <Row label="Basic salary" value={employee.basicSalary === null ? null : formatMoney(employee.basicSalary)} />
-                <Row label="Date hired" value={employee.dateHired ? formatDate(employee.dateHired) : null} />
-                <Row label="Agent" value={employee.agentName ?? "Paid directly"} />
-                <Row label="M-Pesa number" value={employee.bankAccountNumber} />
-              </div>
-            </div>
-          </BentoCard>
+          />
 
           <section id="attendance-record" aria-labelledby="attendance-record-title" className="flex scroll-mt-24 flex-col gap-gutter">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -160,7 +135,7 @@ export default async function AdminEmployeeDetailPage({
           ) : null}
         </div>
 
-        <div className="col-span-12 flex flex-col gap-gutter lg:col-span-4">
+        <div className="col-span-12 flex min-w-0 flex-col gap-gutter lg:col-span-4">
           <AssignDepartmentForm
             employeeId={employee.id}
             currentDepartmentId={employee.departmentId}
