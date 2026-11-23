@@ -17,7 +17,7 @@ export default async function Page() {
     <LoginLayout
       portal="branch"
       branding={branding}
-      tagline="Today's attendance, your team and their days off."
+      tagline="Centralized attendance, smart leave governance, and verified branch operations."
       subtitle="Sign in to manage your branch."
     >
       {/* useSearchParams needs a Suspense boundary during prerender. */}

@@ -124,21 +124,22 @@ export function LoginLayout({
           {/* One dot per sign-in page, this one highlighted. */}
           <nav aria-label="Sign-in pages" className="relative z-20 flex flex-col items-center gap-2 pt-2">
             <div className="flex items-center gap-2.5">
-              {LOGIN_PORTALS.map((p) => (
-                <Link
-                  key={p.id}
-                  href={p.href}
-                  aria-label={p.label}
-                  title={p.label}
-                  aria-current={p.id === portal ? "page" : undefined}
-                  className={cn(
-                    "h-2 rounded-full transition-all duration-300",
-                    p.id === portal ? "w-8 bg-white shadow-sm" : "w-2 bg-white/50 hover:bg-white/80",
-                  )}
-                />
-              ))}
+              {LOGIN_PORTALS.map((p) =>
+                p.id === portal ? (
+                  // This page: a wide bar, not a link.
+                  <span key={p.id} aria-label={`${p.pill} (this page)`} title={`${p.pill} (active)`} className="h-2 w-8 rounded-full bg-white shadow-sm transition-all duration-300" />
+                ) : (
+                  <Link
+                    key={p.id}
+                    href={p.href}
+                    aria-label={p.pill}
+                    title={p.pill}
+                    className="h-2 w-2 rounded-full bg-white/50 transition-all duration-300 hover:bg-white/80"
+                  />
+                ),
+              )}
             </div>
-            <span className="text-[11px] font-medium tracking-wide text-white/70">Portal {position} of 3</span>
+            <span className="text-[11px] font-medium tracking-wide text-white/70">Portal Switcher ({position} of 3)</span>
           </nav>
         </section>
 
