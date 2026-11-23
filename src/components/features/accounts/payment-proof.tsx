@@ -6,14 +6,19 @@ import type { PaymentMethod, PaymentRequestItem } from "@/types/money-flow";
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
   MPESA: "M-Pesa",
   CHEQUE: "Cheque",
-  MANUAL: "Manual",
+  MANUAL: "Cash",
 };
 
 const METHOD_ICON: Record<PaymentMethod, string> = {
   MPESA: "smartphone",
   CHEQUE: "money",
-  MANUAL: "edit_note",
+  MANUAL: "payments",
 };
+
+/** The payment's receipt (PDF): how it was paid, and each branch's employees and amounts. */
+export function receiptHref(paymentRequestId: number, download = false): string {
+  return `/api/payment-receipts/${paymentRequestId}${download ? "?download=1" : ""}`;
+}
 
 /** Where the proof of a payment opens (the route checks who may see it). */
 export function evidenceHref(paymentRequestId: number): string {
@@ -24,7 +29,7 @@ export function evidenceHref(paymentRequestId: number): string {
 export function paymentSummary(request: PaymentRequestItem): string {
   if (request.paymentMethod === "MPESA") return `M-Pesa · ${request.releaseReference ?? "—"}`;
   if (request.paymentMethod === "CHEQUE") return `Cheque ${request.chequeNumber ?? ""} · ${request.chequeBank ?? ""}`.trim();
-  if (request.paymentMethod === "MANUAL") return `Manual · ${request.releaseReference ?? "—"}`;
+  if (request.paymentMethod === "MANUAL") return `Cash · receipt ${request.releaseReference ?? "—"}`;
   return request.releaseReference ? `Released · ${request.releaseReference}` : "—";
 }
 
@@ -60,7 +65,7 @@ export function PaymentProof({ request, payer = "the Accounts Office" }: { reque
     rows.push({ label: "Bank", value: request.chequeBank ?? "—" });
     rows.push({ label: "Date on cheque", value: request.chequeDate ? formatDate(request.chequeDate) : "—" });
   }
-  if (method === "MANUAL") rows.push({ label: "Reference", value: request.releaseReference ?? "—" });
+  if (method === "MANUAL") rows.push({ label: "Cash receipt", value: request.releaseReference ?? "—" });
   if (!method) rows.push({ label: "Reference", value: request.releaseReference ?? "—" });
   rows.push({ label: "Paid on", value: request.paidOn ? formatDate(request.paidOn) : request.releasedAt ? formatDate(request.releasedAt) : "—" });
   rows.push({ label: "Recorded by", value: request.releasedByName ?? "—" });
@@ -84,19 +89,27 @@ export function PaymentProof({ request, payer = "the Accounts Office" }: { reque
         ))}
       </dl>
       {request.paymentNote ? <p className="mt-3 text-sm text-on-surface-variant">Note: {request.paymentNote}</p> : null}
-      {request.hasEvidence ? (
+      <div className="mt-3 flex flex-wrap gap-2">
         <a
-          href={evidenceHref(request.id)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-lg border border-primary px-4 text-sm font-semibold text-primary hover:bg-primary-fixed"
+          href={receiptHref(request.id, true)}
+          className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-on-primary hover:bg-primary-container"
         >
-          <Icon name="attach_file" className="text-[18px]" />
-          View proof of payment
+          <Icon name="receipt_long" className="text-[18px]" />
+          Download receipt (PDF)
         </a>
-      ) : method ? (
-        <p className="mt-3 text-xs text-outline">No proof file attached.</p>
-      ) : null}
+        {request.hasEvidence ? (
+          <a
+            href={evidenceHref(request.id)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-primary px-4 text-sm font-semibold text-primary hover:bg-primary-fixed"
+          >
+            <Icon name="attach_file" className="text-[18px]" />
+            View proof of payment
+          </a>
+        ) : null}
+      </div>
+      {!request.hasEvidence && method ? <p className="mt-2 text-xs text-outline">No proof file attached.</p> : null}
     </div>
   );
 }

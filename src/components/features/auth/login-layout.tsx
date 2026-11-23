@@ -227,7 +227,7 @@ function OrganisationBadge({ branding, accent }: { branding: OrganisationBrandin
       >
         <span aria-hidden className="pointer-events-none absolute inset-0 rounded-full border" style={{ borderColor: `${accent}1a` }} />
         {branding.hasLogo ? (
-          <OrganisationLogo branding={branding} className="size-full p-1.5" />
+          <OrganisationLogo branding={branding} className="size-full rounded-full object-cover" />
         ) : (
           <span className="flex flex-col items-center justify-center p-1 text-center">
             <Icon name="domain" className="text-[24px]" style={{ color: accent }} />

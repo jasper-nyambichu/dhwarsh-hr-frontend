@@ -15,7 +15,7 @@ import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
-import { evidenceHref, paymentSummary } from "@/components/features/accounts/payment-proof";
+import { evidenceHref, paymentSummary, receiptHref } from "@/components/features/accounts/payment-proof";
 import { getAdvances, getLoans, getPaymentRequests } from "@/lib/api/agent-money";
 import { getOrganisationBranding } from "@/lib/api/organisation";
 import { formatDate } from "@/lib/format";
@@ -205,6 +205,9 @@ export default async function MoneyRequestsPage({
                             {paymentSummary(request)} · {day(request.paidOn ?? request.releasedAt)}
                             {request.releasedByName ? ` · by ${request.releasedByName}` : ""}
                           </span>
+                          <a href={receiptHref(request.id, true)} className="font-semibold text-primary hover:underline">
+                            Receipt (PDF)
+                          </a>
                           {request.hasEvidence ? (
                             <a href={evidenceHref(request.id)} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">
                               Proof

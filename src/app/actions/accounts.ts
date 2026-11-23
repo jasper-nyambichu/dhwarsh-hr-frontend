@@ -37,7 +37,7 @@ export async function recordAgentPaymentAction(_previous: ActionState, formData:
 
   const method = text(formData, "method").toUpperCase();
   if (!(METHODS as readonly string[]).includes(method)) {
-    return invalid({ method: ["Choose how the agent was paid: M-Pesa, cheque or manual."] });
+    return invalid({ method: ["Choose how the agent was paid: M-Pesa, cheque or cash."] });
   }
 
   const today = new Date().toISOString().slice(0, 10);
@@ -69,7 +69,7 @@ export async function recordAgentPaymentAction(_previous: ActionState, formData:
   } else {
     const reference = text(formData, "manualReference");
     if (reference.length < 3) {
-      return invalid({ manualReference: ["Say how it was paid, e.g. the cash receipt number or bank transfer reference."] });
+      return invalid({ manualReference: ["Enter the cash receipt number."] });
     }
     if (reference.length > 100) return invalid({ manualReference: ["Keep it under 100 characters."] });
     body.set("reference", reference);

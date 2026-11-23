@@ -20,7 +20,7 @@ const LABEL = "mb-1 block text-xs font-semibold text-on-surface";
 const METHODS: { id: PaymentMethod; label: string; icon: string; hint: string }[] = [
   { id: "MPESA", label: "M-Pesa", icon: "smartphone", hint: "Transaction code from the M-Pesa message" },
   { id: "CHEQUE", label: "Cheque", icon: "money", hint: "Cheque number, bank and date" },
-  { id: "MANUAL", label: "Manual", icon: "edit_note", hint: "Cash or bank transfer, with its reference" },
+  { id: "MANUAL", label: "Cash", icon: "payments", hint: "Cash, with its receipt number" },
 ];
 
 function fieldError(state: ActionState, name: string): string | undefined {
@@ -31,7 +31,7 @@ function fieldError(state: ActionState, name: string): string | undefined {
  * The Accounts Office pays one agent invoice and records how, with the proof that tracks the transaction:
  *   M-Pesa  the transaction code;
  *   Cheque  the cheque number, the bank it is drawn on and the date written on it;
- *   Manual  a description with its reference (cash receipt number, bank transfer reference…).
+ *   Cash    the cash receipt number (or reference).
  * Plus the day it was paid, an optional note and an optional PDF/photo (receipt, M-Pesa message, cheque).
  * Once saved the payment is final; the Admin and the agent are told straight away.
  */
@@ -157,7 +157,7 @@ export function RecordPaymentForm({
       {method === "MANUAL" ? (
         <div>
           <label htmlFor={`${id}-manual`} className={LABEL}>
-            How was it paid? <span className="text-error">*</span>
+            Cash receipt number <span className="text-error">*</span>
           </label>
           <input
             id={`${id}-manual`}
@@ -166,7 +166,7 @@ export function RecordPaymentForm({
             minLength={3}
             maxLength={100}
             autoComplete="off"
-            placeholder="e.g. Cash, receipt no. 0457 / Bank transfer ref FT24113XYZ"
+            placeholder="e.g. 0457"
             className={INPUT}
           />
           {fieldError(state, "manualReference") ? <p className="mt-1 text-xs text-error">{fieldError(state, "manualReference")}</p> : null}

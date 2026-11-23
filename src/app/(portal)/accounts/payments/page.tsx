@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
-import { PAYMENT_METHOD_LABEL, evidenceHref, paymentSummary } from "@/components/features/accounts/payment-proof";
+import { PAYMENT_METHOD_LABEL, evidenceHref, paymentSummary, receiptHref } from "@/components/features/accounts/payment-proof";
 import { PaidNotice } from "@/components/features/accounts/paid-notice";
 import { RecordPaymentForm } from "@/components/features/accounts/record-payment-form";
 import { BentoCard } from "@/components/shared/bento-card";
@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { CountPill, PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
 import { loadAccountsPayments, todayInNairobi, type AccountsPayment } from "@/lib/accounts";
+import { getBranches } from "@/lib/api/branch";
 import { formatDate, formatDateRange } from "@/lib/format";
 import { formatKes } from "@/lib/money-format";
 import { first } from "@/lib/search-params";
@@ -21,24 +22,32 @@ const TABS = [
 ] as const;
 
 /**
- * Accounts Office → Payments. "To pay": every agent invoice from the Admin's payroll runs (and any money the Admin
- * approved for an agent) waiting to be paid, each with the form to record how it was paid and the proof.
- * "Paid": the record of every payment, with its mode, references and proof, newest first.
+ * Accounts Office → Payments. "To pay": every agent invoice from the Admin's payroll runs, every advance and money
+ * request the Admin approved, waiting to be paid, each with the form to record how it was paid (M-Pesa, cheque or
+ * cash) and the proof. "Paid": every payment with its mode, references, proof and receipt (PDF), newest first.
+ * Filter by branch: All branches, or the invoices covering one branch's employees.
  */
 export default async function AccountsPaymentsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requirePermission("paymentrequest:pay");
   const params = await searchParams;
   const tab = first(params.tab) === "paid" ? "paid" : "to-pay";
   const justPaid = first(params.paid) === "1";
+  const branchId = Number(first(params.branch));
 
   let data: Awaited<ReturnType<typeof loadAccountsPayments>>;
+  let branches: Awaited<ReturnType<typeof getBranches>>;
   try {
-    data = await loadAccountsPayments();
+    [data, branches] = await Promise.all([loadAccountsPayments(), getBranches()]);
   } catch (error) {
     return <DataUnavailable title="Payments" subject="The payments" reason={error instanceof ApiError ? error.message : undefined} />;
   }
 
-  const owed = data.toPay.reduce((sum, item) => sum + item.request.amount, 0);
+  // One branch: the invoices covering that branch's employees. All branches: everything, advances included.
+  const branch = branches.find((b) => b.id === branchId) ?? null;
+  const toPay = branch ? data.toPay.filter((item) => item.branches.includes(branch.name)) : data.toPay;
+  const owed = toPay.reduce((sum, item) => sum + item.request.amount, 0);
+  const tabHref = (key: string, nextBranch: number | null) =>
+    `/accounts/payments?tab=${key}${nextBranch ? `&branch=${nextBranch}` : ""}`;
   const today = todayInNairobi();
 
   return (
@@ -54,11 +63,11 @@ export default async function AccountsPaymentsPage({ searchParams }: { searchPar
       <nav aria-label="Payments" className="mb-4 flex gap-2 overflow-x-auto pb-1">
         {TABS.map((item) => {
           const active = item.key === tab;
-          const count = item.key === "to-pay" ? data.toPay.length : data.paid.length;
+          const count = item.key === "to-pay" ? toPay.length : data.paid.length;
           return (
             <Link
               key={item.key}
-              href={`/accounts/payments?tab=${item.key}`}
+              href={tabHref(item.key, branch?.id ?? null)}
               aria-current={active ? "page" : undefined}
               className={`flex min-h-11 shrink-0 items-center gap-2 rounded-lg px-4 text-sm font-semibold transition-colors ${
                 active ? "bg-primary text-on-primary" : "border border-outline-variant text-on-surface-variant hover:bg-surface-container-low"
@@ -74,12 +83,40 @@ export default async function AccountsPaymentsPage({ searchParams }: { searchPar
       </nav>
 
       {tab === "to-pay" ? (
-        <BentoCard title="Waiting to be paid" subtitle={`${data.toPay.length} payment(s) · ${formatKes(owed)} in total`}>
-          {data.toPay.length === 0 ? (
-            <EmptyState symbol="task_alt" title="All paid" description="When the Admin runs the payroll, each agent's invoice appears here to pay." />
+        <nav aria-label="Branch" className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold uppercase text-outline">Branch</span>
+          {[{ id: null as number | null, name: "All branches" }, ...branches.map((b) => ({ id: b.id as number | null, name: b.name }))].map((option) => {
+            const active = (option.id ?? null) === (branch?.id ?? null);
+            return (
+              <Link
+                key={option.id ?? "all"}
+                href={tabHref("to-pay", option.id)}
+                aria-current={active ? "page" : undefined}
+                className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  active ? "bg-primary text-on-primary" : "border border-outline-variant text-on-surface-variant hover:bg-surface-container-low"
+                }`}
+              >
+                {option.name}
+              </Link>
+            );
+          })}
+        </nav>
+      ) : null}
+
+      {tab === "to-pay" ? (
+        <BentoCard
+          title={branch ? `Waiting to be paid · ${branch.name}` : "Waiting to be paid · All branches"}
+          subtitle={`${toPay.length} payment(s) · ${formatKes(owed)} in total`}
+        >
+          {toPay.length === 0 ? (
+            <EmptyState
+              symbol="task_alt"
+              title="All paid"
+              description={branch ? `Nothing waiting for ${branch.name}'s employees.` : "When the Admin runs the payroll or approves an advance, it appears here to pay."}
+            />
           ) : (
             <ul className="flex flex-col gap-4">
-              {data.toPay.map((item) => (
+              {toPay.map((item) => (
                 <li key={item.request.id} className="rounded-lg border border-outline-variant/50 p-4">
                   <PaymentHeading item={item} />
                   <div className="mt-4 border-t border-outline-variant/30 pt-4">
@@ -109,11 +146,13 @@ export default async function AccountsPaymentsPage({ searchParams }: { searchPar
 }
 
 function PaymentHeading({ item }: { item: AccountsPayment }) {
-  const { request, invoice } = item;
+  const { request, invoice, branches } = item;
+  const kind = invoice ? "Invoice" : request.advanceId ? "Advance" : "Money request";
   return (
     <div className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-xs text-outline">
+        <p className="flex flex-wrap items-center gap-2 text-xs text-outline">
+          <span className="rounded-full bg-primary-fixed px-2 py-0.5 font-semibold text-primary">{kind}</span>
           {request.agentName ?? `Agent #${request.agentId}`} · Payment #{request.id}
         </p>
         <p className="text-2xl font-bold tabular-nums text-on-surface">{formatKes(request.amount)}</p>
@@ -122,6 +161,7 @@ function PaymentHeading({ item }: { item: AccountsPayment }) {
           {invoice ? `${formatDateRange(invoice.periodStart, invoice.periodEnd)} · ${invoice.employeeCount} employee(s) · ` : ""}
           Approved {formatDate(request.decidedAt)}
         </p>
+        {branches.length > 0 ? <p className="mt-1 text-xs text-on-surface-variant">Branches: {branches.join(", ")}</p> : null}
       </div>
       {invoice ? (
         <Link
@@ -152,6 +192,7 @@ function PaidTable({ items }: { items: AccountsPayment[] }) {
               Paid {formatDate(request.paidOn ?? request.releasedAt)} · by {request.releasedByName ?? "—"}
             </p>
             <div className="mt-2 flex flex-wrap gap-3 text-sm">
+              <a href={receiptHref(request.id, true)} className="font-semibold text-primary hover:underline">Receipt (PDF)</a>
               {invoice ? <Link href={`/accounts/invoices/${invoice.id}`} className="font-semibold text-primary hover:underline">Invoice #{invoice.id}</Link> : null}
               {request.hasEvidence ? <a href={evidenceHref(request.id)} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">Proof</a> : null}
             </div>
@@ -191,6 +232,10 @@ function PaidTable({ items }: { items: AccountsPayment[] }) {
                 <td className="py-3 text-on-surface-variant">{request.releasedByName ?? "—"}</td>
                 <td className="py-3 pr-2">
                   <span className="flex flex-col gap-1 text-sm">
+                    <a href={receiptHref(request.id, true)} className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">
+                      <Icon name="receipt_long" className="text-[16px]" />
+                      Receipt (PDF)
+                    </a>
                     {invoice ? <Link href={`/accounts/invoices/${invoice.id}`} className="font-semibold text-primary hover:underline">Invoice #{invoice.id}</Link> : null}
                     {request.hasEvidence ? (
                       <a href={evidenceHref(request.id)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-semibold text-primary hover:underline">

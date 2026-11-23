@@ -71,6 +71,8 @@ export type PaymentRequestItem = {
   paidOn?: string | null;
   paymentNote?: string | null;
   hasEvidence?: boolean;
+  /** The advance this payment is for (Accounts Office pays approved advances), if any. */
+  advanceId?: number | null;
 };
 
 export type PaymentMethod = "MPESA" | "CHEQUE" | "MANUAL";

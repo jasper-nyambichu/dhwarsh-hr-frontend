@@ -162,7 +162,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
    */
   FINANCE_OFFICER: [
     "branch:read", "department:read",
-    "employee:read", "employee:maintain",
+    "employee:read", "employee:maintain", "employee:export",
     "agent:read",
     "agentadvance:read",
     "paymentrequest:read", "paymentrequest:pay",

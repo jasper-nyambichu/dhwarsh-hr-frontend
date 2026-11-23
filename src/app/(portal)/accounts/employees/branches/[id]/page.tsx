@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { BranchEmployeesTable } from "@/components/features/employee/branch-directory";
+import { EmployeeExportButtons } from "@/components/features/employee/employee-export-buttons";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
@@ -41,6 +42,7 @@ export default async function AccountsBranchEmployeesPage({ params }: { params: 
             {data.branch.name}
           </span>
         }
+        actions={<div className="flex flex-wrap gap-3"><EmployeeExportButtons branchId={branchId} /></div>}
       />
       <BranchEmployeesTable
         employees={data.employees}

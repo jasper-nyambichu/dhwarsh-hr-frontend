@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ApiError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { BranchCards, existingEmployees } from "@/components/features/employee/branch-directory";
+import { EmployeeExportButtons } from "@/components/features/employee/employee-export-buttons";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
@@ -28,10 +29,13 @@ export default async function AccountsEmployeesPage() {
         title="Employees"
         description="Employees of every branch. Open a branch to see its employees."
         actions={
+          <div className="flex flex-wrap gap-3">
+          <EmployeeExportButtons />
           <Link href="/accounts/employees/new" className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 font-body-md text-body-md font-semibold text-on-primary shadow-sm hover:bg-primary-container">
             <Icon name="person_add" className="text-[18px]" />
             Add Employee
           </Link>
+          </div>
         }
       />
       <BranchCards
