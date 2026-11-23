@@ -10,6 +10,7 @@ import {
   sendTestEmail,
   uploadCompanyLogo,
   updateCompanySettings,
+  updateOrganisationOperations,
   type CompanyInput,
 } from "@/lib/api/company";
 import type { ActionState } from "@/types";
@@ -122,21 +123,11 @@ export async function saveSettingsAction(
   const vatRate = Number(formData.get("vatRate"));
   const hours = Number(formData.get("defaultWorkingHoursPerDay"));
   const overtime = Number(formData.get("overtimeMultiplier"));
-  const weekend = formData
-    .getAll("weekendDays")
-    .map((value) => String(value))
-    .filter((value) => DAYS.includes(value));
 
   const fieldErrors: Record<string, string[]> = {};
   if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) fieldErrors.vatRate = ["0 – 100"];
   if (!Number.isFinite(hours) || hours <= 0 || hours > 24) fieldErrors.defaultWorkingHoursPerDay = ["1 – 24"];
   if (!Number.isFinite(overtime) || overtime < 1 || overtime > 5) fieldErrors.overtimeMultiplier = ["1 – 5"];
-  if (weekend.length < 1 || weekend.length > 2) fieldErrors.weekendDays = ["Choose one or two days"];
-  const workStart = String(formData.get("workStartTime") ?? "");
-  const workEnd = String(formData.get("workEndTime") ?? "");
-  if (!/^\d{2}:\d{2}$/.test(workStart)) fieldErrors.workStartTime = ["Choose a time"];
-  if (!/^\d{2}:\d{2}$/.test(workEnd)) fieldErrors.workEndTime = ["Choose a time"];
-  else if (workStart && workEnd <= workStart) fieldErrors.workEndTime = ["Must be after the start"];
 
   if (Object.keys(fieldErrors).length > 0) {
     return { status: "error", message: "Check the fields below.", fieldErrors };
@@ -147,10 +138,7 @@ export async function saveSettingsAction(
       vatRate,
       defaultWorkingHoursPerDay: hours,
       overtimeMultiplier: overtime,
-      weekendDays: weekend.join(","),
       payrollPeriod: "MONTHLY",
-      workStartTime: workStart,
-      workEndTime: workEnd,
     });
   } catch (error) {
     return toActionError(error);
@@ -158,6 +146,34 @@ export async function saveSettingsAction(
 
   refresh();
   // The name and logo also head the sign-in pages, the sidebar and the tab title.
+  refresh();
+  return { status: "success", data: undefined };
+}
+
+/** Admin: the work week (each day open or closed, with its hours) and the off-day department rule. */
+export async function saveOperationsAction(_previous: ActionState, formData: FormData): Promise<ActionState> {
+  await requireRole(["ADMIN", "SUPER_ADMIN"]);
+
+  const fieldErrors: Record<string, string[]> = {};
+  const week = DAYS.map((day) => {
+    const working = formData.get(`${day}-working`) === "on";
+    const startTime = String(formData.get(`${day}-start`) ?? "");
+    const endTime = String(formData.get(`${day}-end`) ?? "");
+    if (!/^\d{2}:\d{2}$/.test(startTime) || !/^\d{2}:\d{2}$/.test(endTime)) fieldErrors[day] = ["Choose both times"];
+    else if (endTime <= startTime) fieldErrors[day] = ["Must end after it starts"];
+    return { dayOfWeek: day, working, startTime, endTime };
+  });
+  if (!week.some((day) => day.working)) {
+    return { status: "error", message: "The organisation must work on at least one day of the week." };
+  }
+  if (Object.keys(fieldErrors).length > 0) return { status: "error", message: "Check the days below.", fieldErrors };
+
+  try {
+    await updateOrganisationOperations({ week, oneOffPerDepartment: formData.get("oneOffPerDepartment") === "on" });
+  } catch (error) {
+    return toActionError(error);
+  }
+
   refresh();
   return { status: "success", data: undefined };
 }

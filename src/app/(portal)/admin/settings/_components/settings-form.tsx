@@ -8,17 +8,10 @@ import { ConfirmForm } from "@/components/shared/confirm-form";
 import { FormMessage, TextField } from "@/components/shared/form-field";
 import type { ActionState } from "@/types";
 
-const DAYS = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"];
-
 type Values = {
   vatRate: number;
   defaultWorkingHoursPerDay: number;
   overtimeMultiplier: number;
-  weekendDays: string;
-  /** "08:00" */
-  workStartTime: string;
-  /** "17:00" */
-  workEndTime: string;
 };
 
 /** Company rules. Admin edits. */
@@ -36,7 +29,6 @@ export function SettingsForm({
     status: "idle",
   });
   const errors = state.status === "error" ? state.fieldErrors : undefined;
-  const weekend = new Set(initial.weekendDays.split(",").map((day) => day.trim().toUpperCase()));
 
   return (
     <ConfirmForm
@@ -83,41 +75,9 @@ export function SettingsForm({
             error={errors?.overtimeMultiplier?.[0]}
           />
 
-          <TextField
-            label="Work starts"
-            name="workStartTime"
-            type="time"
-            required
-            defaultValue={initial.workStartTime}
-            error={errors?.workStartTime?.[0]}
-            hint="Clocking in after this is late."
-          />
-          <TextField
-            label="Work ends"
-            name="workEndTime"
-            type="time"
-            required
-            defaultValue={initial.workEndTime}
-            error={errors?.workEndTime?.[0]}
-            hint="Clocking out before this is leaving early."
-          />
-          <p className="self-end text-[11px] text-on-surface-variant">
-            Used by the attendance records. Lunch is 30 minutes; only coming back after that is late.
+          <p className="text-xs text-on-surface-variant sm:col-span-3">
+            Work days and hours are set below, under <strong>Work week</strong>.
           </p>
-
-          <div className="sm:col-span-3">
-            <p className="mb-2 block font-table-header text-table-header uppercase text-outline">Weekend days</p>
-            <div className="flex flex-wrap gap-2">
-              {DAYS.map((day) => (
-                <label key={day} className="flex cursor-pointer items-center gap-2 rounded-lg border border-outline-variant px-3 py-1.5 text-sm text-on-surface has-[:checked]:border-primary has-[:checked]:bg-primary-fixed">
-                  <input type="checkbox" name="weekendDays" value={day} defaultChecked={weekend.has(day)} className="size-4 accent-primary" />
-                  {day.charAt(0) + day.slice(1).toLowerCase()}
-                </label>
-              ))}
-            </div>
-            <p className="mt-1 text-[11px] text-outline">Choose one or two. Excluded from working-day, unpaid-leave and overtime calculations.</p>
-            {errors?.weekendDays?.[0] ? <p className="mt-1 text-xs text-error">{errors.weekendDays[0]}</p> : null}
-          </div>
 
           <p className="text-xs text-on-surface-variant sm:col-span-3">
             Payroll period: <strong>Monthly</strong> — the only period the payroll engine supports.

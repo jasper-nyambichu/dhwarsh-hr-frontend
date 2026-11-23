@@ -74,6 +74,21 @@ export function updateCompanySettings(
   return api.put<CompanySettingsResponse>("/company/settings", payload);
 }
 
+/** One day of the work week: whether the organisation works and its hours ("08:00"). */
+export type WorkWeekDay = { dayOfWeek: string; working: boolean; startTime: string; endTime: string };
+
+/** How the organisation operates: its work week and whether only one employee per department may be off a day. */
+export type OrganisationOperations = { week: WorkWeekDay[]; oneOffPerDepartment: boolean };
+
+export function getOrganisationOperations(signal?: AbortSignal): Promise<OrganisationOperations> {
+  return api.get<OrganisationOperations>("/company/settings/operations", { signal });
+}
+
+/** Admin. All seven days, Monday first. */
+export function updateOrganisationOperations(payload: OrganisationOperations): Promise<OrganisationOperations> {
+  return api.put<OrganisationOperations>("/company/settings/operations", payload);
+}
+
 /** Sends a test email at once; throws with the mail server's reason when it can't be sent. Admin only. */
 export function sendTestEmail(to: string): Promise<void> {
   return api.post<void>("/company/test-email", { to });

@@ -5,13 +5,14 @@ import { getCurrentUser, requirePermission } from "@/app/lib/dal";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
-import { getCompany, getCompanySettings } from "@/lib/api/company";
+import { getCompany, getCompanySettings, getOrganisationOperations } from "@/lib/api/company";
 import type { CompanyResponse, CompanySettingsResponse } from "@/types";
 
 import { CompanyForm } from "./_components/company-form";
 import { LogoForm } from "./_components/logo-form";
 import { TestEmailForm } from "./_components/test-email-form";
 import { SettingsForm } from "./_components/settings-form";
+import { WorkWeekForm } from "./_components/work-week-form";
 
 /**
  * Settings — company profile, logo and rules, editable by Admin.
@@ -46,6 +47,8 @@ export default async function AdminSettingsPage() {
 
   const company: CompanyResponse | null = companyResult.status === "fulfilled" ? companyResult.value : null;
   const settings: CompanySettingsResponse | null = settingsResult.status === "fulfilled" ? settingsResult.value : null;
+  // The work week and the off-day department rule; missing only before the company is set up.
+  const operations = settings ? await getOrganisationOperations().catch(() => null) : null;
 
   return (
     <>
@@ -71,12 +74,11 @@ export default async function AdminSettingsPage() {
               vatRate: settings?.vatRate ?? 16,
               defaultWorkingHoursPerDay: settings?.defaultWorkingHoursPerDay ?? 8,
               overtimeMultiplier: settings?.overtimeMultiplier ?? 1.5,
-              weekendDays: settings?.weekendDays ?? "SATURDAY,SUNDAY",
-              workStartTime: (settings?.workStartTime ?? "08:00").slice(0, 5),
-              workEndTime: (settings?.workEndTime ?? "17:00").slice(0, 5),
             }}
           />
         ) : null}
+
+        {operations ? <WorkWeekForm initial={operations} readOnly={!canWrite} /> : null}
 
         <div className="flex items-center gap-3 rounded-card bg-surface-container-lowest p-card-padding shadow-ambient-1">
           <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-surface-container text-on-surface-variant">

@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
 import { getPunctuality } from "@/lib/api/attendance";
 import { getBranches } from "@/lib/api/branch";
-import { formatNumber, formatTime } from "@/lib/format";
+import { formatNumber } from "@/lib/format";
 import { monthLabel, monthRange, parseMonth } from "@/lib/off-days";
 import { buildHref, first, parseId } from "@/lib/search-params";
 
@@ -62,7 +62,7 @@ export default async function AttendanceRecordsPage({
             <span className="min-w-0 break-words">Attendance Records</span>
           </span>
         }
-        description={`How each employee reports to work and keeps to work time (${formatTime(data.report.workStart)} to ${formatTime(data.report.workEnd)}, set in Settings).`}
+        description="How each employee reports to work and keeps to each day's work hours (the work week is set in Settings)."
         actions={<MonthNav month={month} hrefFor={(target) => buildHref(path, { month: target, branch: branchId })} />}
       />
 

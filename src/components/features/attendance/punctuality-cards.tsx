@@ -169,7 +169,7 @@ export function EmployeePunctualityPanel({ row, workStart, workEnd }: { row: Emp
             <RatingBadge rating={row.rating} />
           </div>
           <Meter label="Reported" value={row.attendancePercent} detail={`${formatNumber(row.daysReported)} of ${formatNumber(row.expectedDays)} days · ${formatNumber(row.daysMissed)} missed`} />
-          <Meter label="On time" tone="green" value={row.punctualityPercent} detail={`Work starts ${formatTime(workStart)}, ends ${formatTime(workEnd)}`} />
+          <Meter label="On time" tone="green" value={row.punctualityPercent} detail={`Measured against each day's hours (e.g. ${formatTime(workStart)} to ${formatTime(workEnd)})`} />
         </div>
         <div className="bento-card grid grid-cols-2 gap-2 p-4 sm:p-card-padding lg:col-span-2">
           <Figure icon="schedule" label="Late arrivals" value={times(row.lateArrivals, row.minutesLateArrival)} warn={row.lateArrivals > 0} />
