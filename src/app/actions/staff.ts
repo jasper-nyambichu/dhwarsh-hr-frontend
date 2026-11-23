@@ -24,15 +24,23 @@ function text(formData: FormData, name: string): string | undefined {
 
 type Parsed = { ok: true; payload: EmployeeEntryPayload } | { ok: false; state: ActionState };
 
+/** One name: letters, with a hyphen or apostrophe inside (Mary-Jane, O'Neil). No spaces. */
+const ONE_NAME = /^\p{L}+(?:['’-]\p{L}+)*$/u;
+
 function readEmployee(formData: FormData): Parsed {
-  const fullName = text(formData, "fullName");
+  const firstName = text(formData, "firstName");
+  const lastName = text(formData, "lastName");
+  const fullName = firstName && lastName ? `${firstName} ${lastName}` : undefined;
   const branchId = Number(formData.get("branchId"));
   const email = text(formData, "email");
   const mpesa = text(formData, "mpesaNumber");
   const salary = text(formData, "basicSalary");
 
   const fieldErrors: Record<string, string[]> = {};
-  if (!fullName) fieldErrors.fullName = ["Required"];
+  if (!firstName) fieldErrors.firstName = ["Required"];
+  else if (!ONE_NAME.test(firstName) || firstName.length > 40) fieldErrors.firstName = ["One name only, letters (no spaces)"];
+  if (!lastName) fieldErrors.lastName = ["Required"];
+  else if (!ONE_NAME.test(lastName) || lastName.length > 40) fieldErrors.lastName = ["One name only, letters (no spaces)"];
   if (!Number.isInteger(branchId) || branchId <= 0) fieldErrors.branchId = ["Choose a branch"];
   if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) fieldErrors.email = ["Not a valid email"];
   // On an edit, a number already on record is kept as it is even if it predates this check, so an

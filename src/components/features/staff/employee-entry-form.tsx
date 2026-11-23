@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 
 import { addEmployeeAction, requestEmployeeAction, updateEmployeeAction } from "@/app/actions/staff";
 import { ConfirmForm } from "@/components/shared/confirm-form";
@@ -30,6 +30,12 @@ const SUBMIT = { direct: "Add Employee", request: "Submit for Approval", edit: "
  * On an edit the backend replaces the whole record, so every field is filled in from `employee`, and the
  * few this form does not show (marital status, employment type) travel as hidden inputs: nothing is lost.
  */
+/** The stored name as first name (first word) and last name (the rest), for editing. */
+function splitName(name: string | null | undefined): { first: string; last: string } {
+  const [first = "", ...rest] = (name ?? "").trim().split(/\s+/);
+  return { first, last: rest.join(" ") };
+}
+
 export function EmployeeEntryForm({
   mode,
   branches,
@@ -56,13 +62,34 @@ export function EmployeeEntryForm({
   cancelHref: string;
 }) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(ACTIONS[mode], { status: "idle" });
+
+  // React empties a form after each submit. When the save is refused, put back what was typed, so only the field
+  // that was wrong needs correcting.
+  const formRef = useRef<HTMLFormElement>(null);
+  const submitted = useRef<FormData | null>(null);
+  const submit = (formData: FormData) => {
+    submitted.current = formData;
+    formAction(formData);
+  };
+  useEffect(() => {
+    const form = formRef.current;
+    const data = submitted.current;
+    if (state.status !== "error" || !form || !data) return;
+    for (const [name, value] of data.entries()) {
+      if (typeof value !== "string") continue;
+      const field = form.elements.namedItem(name);
+      if (field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement) {
+        if (field.type !== "hidden" && field.type !== "file") field.value = value;
+      }
+    }
+  }, [state]);
   const errors = state.status === "error" ? state.fieldErrors : undefined;
   const editing = mode === "edit" && employee !== undefined;
   // What a field starts with: the employee's current value when editing, empty otherwise.
   const v = (value: string | number | null | undefined) => (editing && value !== null && value !== undefined ? String(value) : "");
 
   return (
-    <ConfirmForm action={formAction} confirm={CONFIRM[mode]} className="mx-auto flex w-full max-w-3xl flex-col gap-gutter">
+    <ConfirmForm ref={formRef} action={submit} confirm={CONFIRM[mode]} className="mx-auto flex w-full max-w-3xl flex-col gap-gutter">
       {editing ? (
         <>
           <input type="hidden" name="employeeId" value={employee.id} />
@@ -77,7 +104,26 @@ export function EmployeeEntryForm({
 
       <BentoCard title="Personal details">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <TextField className="sm:col-span-2" label="Full name" name="fullName" required defaultValue={v(employee?.fullName)} error={errors?.fullName?.[0]} />
+          {/* First and last name only (one word each), saved together as the employee's name. */}
+          <TextField
+            label="First name"
+            name="firstName"
+            required
+            maxLength={40}
+            autoComplete="off"
+            defaultValue={splitName(employee?.fullName).first}
+            error={errors?.firstName?.[0]}
+          />
+          <TextField
+            label="Last name"
+            name="lastName"
+            required
+            maxLength={40}
+            autoComplete="off"
+            defaultValue={splitName(employee?.fullName).last}
+            error={errors?.lastName?.[0]}
+            hint="One name each, e.g. John and Kamau."
+          />
           <TextField label="National ID" name="nationalId" defaultValue={v(employee?.nationalId)} error={errors?.nationalId?.[0]} />
           <SelectField label="Gender" name="gender" defaultValue={v(employee?.gender)}>
             <option value="">Not stated</option>
