@@ -17,9 +17,11 @@ export type OrganisationBranding = {
   hasLogo: boolean;
   /** Changes whenever a new logo is uploaded; used to bust the browser's copy. */
   logoVersion: string | null;
+  /** Whether this organisation uses the Accounts Office portal (Kisiimatt). Off: nothing about it is shown. */
+  accountsOffice?: boolean;
 };
 
-const NONE: OrganisationBranding = { name: null, hasLogo: false, logoVersion: null };
+const NONE: OrganisationBranding = { name: null, hasLogo: false, logoVersion: null, accountsOffice: false };
 
 /**
  * Never throws: if the server can't be reached, the pages still render, just without the client's logo.

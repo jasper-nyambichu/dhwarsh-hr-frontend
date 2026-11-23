@@ -14,7 +14,10 @@ import { BentoCard } from "@/components/shared/bento-card";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { Icon } from "@/components/ui/icon";
+import { evidenceHref, paymentSummary } from "@/components/features/accounts/payment-proof";
 import { getAdvances, getLoans, getPaymentRequests } from "@/lib/api/agent-money";
+import { getOrganisationBranding } from "@/lib/api/organisation";
 import { formatDate } from "@/lib/format";
 import { formatKes } from "@/lib/money-format";
 import { first } from "@/lib/search-params";
@@ -61,6 +64,8 @@ export default async function MoneyRequestsPage({
     );
   }
 
+  // Where the organisation has an Accounts Office, it pays the approved payments, not the Admin.
+  const { accountsOffice } = await getOrganisationBranding();
   const pendingPayments = payments.filter((request) => request.status === "PENDING");
   const toRelease = payments.filter((request) => request.status === "APPROVED");
   const decidedPayments = payments.filter((request) => request.status !== "PENDING" && request.status !== "APPROVED").slice(0, 8);
@@ -146,9 +151,20 @@ export default async function MoneyRequestsPage({
             )}
           </BentoCard>
 
-          <BentoCard title="Ready to release" subtitle="Send the money, then record how you sent it. The agent is told straight away.">
+          <BentoCard
+            title={accountsOffice ? "Waiting for the Accounts Office" : "Ready to release"}
+            subtitle={
+              accountsOffice
+                ? "The Accounts Office pays these and records how. You are told as soon as each is paid."
+                : "Send the money, then record how you sent it. The agent is told straight away."
+            }
+          >
             {toRelease.length === 0 ? (
-              <EmptyState symbol="task_alt" title="Nothing to release" description="Calculated agent payments and approved requests appear here." />
+              <EmptyState
+                symbol="task_alt"
+                title={accountsOffice ? "Nothing waiting" : "Nothing to release"}
+                description="Calculated agent payments and approved requests appear here."
+              />
             ) : (
               <ul className="grid gap-4 lg:grid-cols-2">
                 {toRelease.map((request) => (
@@ -159,7 +175,14 @@ export default async function MoneyRequestsPage({
                       <p className="mt-1 text-sm text-on-surface-variant">{request.purpose}</p>
                       <p className="mt-1 text-xs text-outline">Approved {day(request.decidedAt)}</p>
                     </div>
-                    <ReleaseForm paymentRequestId={request.id} />
+                    {accountsOffice ? (
+                      <p className="flex items-center gap-2 rounded-lg bg-amber-main/10 px-3 py-2 text-sm font-medium text-amber-main">
+                        <Icon name="schedule" className="text-[18px]" />
+                        Waiting for the Accounts Office to pay
+                      </p>
+                    ) : (
+                      <ReleaseForm paymentRequestId={request.id} />
+                    )}
                   </li>
                 ))}
               </ul>
@@ -176,6 +199,19 @@ export default async function MoneyRequestsPage({
                         {request.agentName ?? `Agent #${request.agentId}`} · {formatKes(request.amount)}
                       </p>
                       <p className="truncate text-xs text-on-surface-variant">{request.purpose}</p>
+                      {request.status === "RELEASED" ? (
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-3 text-xs text-on-surface-variant">
+                          <span>
+                            {paymentSummary(request)} · {day(request.paidOn ?? request.releasedAt)}
+                            {request.releasedByName ? ` · by ${request.releasedByName}` : ""}
+                          </span>
+                          {request.hasEvidence ? (
+                            <a href={evidenceHref(request.id)} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">
+                              Proof
+                            </a>
+                          ) : null}
+                        </p>
+                      ) : null}
                     </div>
                     <MoneyStatusChip status={request.status} awaitingRelease />
                   </li>

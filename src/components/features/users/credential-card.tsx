@@ -155,7 +155,7 @@ export function CredentialCard({
   where: string;
   account: { id: number; username: string; email?: string | null; active: boolean } | null;
   branchId?: number;
-  role?: Extract<Role, "BRANCH_MANAGER" | "BACK_OFFICE">;
+  role?: Extract<Role, "BRANCH_MANAGER" | "BACK_OFFICE" | "FINANCE_OFFICER">;
   agentId?: number;
   signInPath?: string;
   /** Anything else about this login, shown below its credentials. */

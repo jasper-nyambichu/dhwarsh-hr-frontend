@@ -11,6 +11,7 @@ import { Icon } from "@/components/ui/icon";
 import { ROLES } from "@/config/roles";
 import { getAgents } from "@/lib/api/agent";
 import { getBranches } from "@/lib/api/branch";
+import { getOrganisationBranding } from "@/lib/api/organisation";
 import { getUsers } from "@/lib/api/user";
 import type { AgentResponse, BranchResponse, UserSummaryResponse } from "@/types";
 
@@ -45,6 +46,7 @@ export default async function SystemUsersPage() {
 
   try {
     [users, branches, agents] = await Promise.all([getUsers(), getBranches(), getAgents()]);
+    // Read separately: never throws, and only says whether the Accounts Office is used here.
   } catch (error) {
     if (error instanceof ApiError && error.isUnauthorized) redirect("/login");
 
@@ -58,11 +60,15 @@ export default async function SystemUsersPage() {
     );
   }
 
+  const { accountsOffice } = await getOrganisationBranding();
   const current = users.filter((user) => ROLES.includes(user.role));
+  const accountsLogins = current.filter((user) => user.role === "FINANCE_OFFICER");
   const branchLogins = current.filter((user) => (user.role === "BRANCH_MANAGER" || user.role === "BACK_OFFICE") && user.branchId !== null);
   const agentLogins = current.filter((user) => user.role === "AGENT" && user.agentId !== null);
   const needsBranch = current.filter((user) => user.role === "BACK_OFFICE" && user.branchId === null);
-  const others = current.filter((user) => !branchLogins.includes(user) && !agentLogins.includes(user) && !needsBranch.includes(user));
+  const others = current.filter(
+    (user) => !branchLogins.includes(user) && !agentLogins.includes(user) && !needsBranch.includes(user) && !accountsLogins.includes(user),
+  );
   const branchOptions = branches.map((branch) => ({ id: branch.id, name: branch.name }));
 
   return (
@@ -89,6 +95,15 @@ export default async function SystemUsersPage() {
             description="A login for each agent to manage their own portal."
             status={`${agentLogins.length} of ${agents.length} logins set`}
           />
+          {accountsOffice ? (
+            <SectionCard
+              href="/admin/users/accounts"
+              icon="account_balance_wallet"
+              title="Accounts Office"
+              description="Logins for the Accounts Office, who pay the agent invoices."
+              status={`${accountsLogins.length} login(s) set`}
+            />
+          ) : null}
         </div>
 
         {needsBranch.length > 0 ? (

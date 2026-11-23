@@ -104,6 +104,15 @@ export function rejectPaymentRequest(id: number, reason: string): Promise<Paymen
 }
 
 /** Accounts Office: `reference` is how the money was sent (bank reference, M-Pesa code of the transfer...). */
+/** Accounts Office: pay an agent invoice, recording how (method, references, date, note) and the proof file. */
+export function payAgentInvoice(id: number, form: FormData): Promise<PaymentRequestItem> {
+  return api.post<PaymentRequestItem>(`/payment-requests/${id}/pay`, form);
+}
+
+export function getPaymentRequest(id: number, signal?: AbortSignal): Promise<PaymentRequestItem> {
+  return api.get<PaymentRequestItem>(`/payment-requests/${id}`, { signal });
+}
+
 export function releasePaymentRequest(id: number, reference: string): Promise<PaymentRequestItem> {
   return api.put<PaymentRequestItem>(`/payment-requests/${id}/release`, { reference });
 }

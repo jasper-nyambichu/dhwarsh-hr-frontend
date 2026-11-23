@@ -154,7 +154,13 @@ export async function requestEmployeeAction(
 
   refresh();
   await flashToast("success", "Request sent for approval.");
-  redirect(session.role === "AGENT" ? "/agent/requests?sent=1" : "/branch/approvals?sent=1");
+  redirect(
+    session.role === "AGENT"
+      ? "/agent/requests?sent=1"
+      : session.role === "FINANCE_OFFICER"
+        ? "/accounts/requests?sent=1"
+        : "/branch/approvals?sent=1",
+  );
 }
 
 /** Admin or Branch Manager: put an employee in one of the company-wide departments. */

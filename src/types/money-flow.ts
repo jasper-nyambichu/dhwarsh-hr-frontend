@@ -63,7 +63,17 @@ export type PaymentRequestItem = {
   /** Released money still unpaid. */
   remaining: number;
   paymentCount: number;
+  /** How the Accounts Office paid it; null for payments released before the Accounts Office. */
+  paymentMethod?: PaymentMethod | null;
+  chequeNumber?: string | null;
+  chequeBank?: string | null;
+  chequeDate?: string | null;
+  paidOn?: string | null;
+  paymentNote?: string | null;
+  hasEvidence?: boolean;
 };
+
+export type PaymentMethod = "MPESA" | "CHEQUE" | "MANUAL";
 
 export type PaymentRequestPayload = { amount: number; purpose: string };
 

@@ -4,7 +4,9 @@
  * Mirrors `entity/auth/Role.java` exactly. The `users.role` column is a single
  * VARCHAR(30), so a user holds exactly one role.
  *
- * The business runs on FOUR accounts: Admin, Branch Manager, Agent and Back Office. Admin also holds
+ * The business runs on FOUR accounts: Admin, Branch Manager, Agent and Back Office, plus the Accounts Office
+ * (FINANCE_OFFICER) where the organisation uses it (Settings → company_settings.accounts_office_enabled; on for
+ * Kisiimatt only, so other organisations never see it). Admin also holds
  * everything Super Admin could do (the backend grants that through a role hierarchy). The Back Office
  * works in the desktop application. Any other role in the database belongs to a deactivated account.
  *
@@ -16,6 +18,7 @@ export const ROLES = [
   "BRANCH_MANAGER",
   "AGENT",
   "BACK_OFFICE",
+  "FINANCE_OFFICER",
 ] as const;
 
 export type Role = (typeof ROLES)[number];
@@ -30,6 +33,7 @@ export const ACTIVE_ROLES = [
   "BRANCH_MANAGER",
   "AGENT",
   "BACK_OFFICE",
+  "FINANCE_OFFICER",
 ] as const satisfies readonly Role[];
 
 /**
@@ -49,6 +53,7 @@ export const ROLE_PRINCIPAL: Record<Role, PrincipalType> = {
   BRANCH_MANAGER: "STAFF",
   AGENT: "AGENT",
   BACK_OFFICE: "STAFF",
+  FINANCE_OFFICER: "STAFF",
 };
 
 /** Where to send an unauthenticated principal of each type. */
@@ -73,6 +78,7 @@ export const ROLE_NAMESPACE: Record<Role, string> = {
   BRANCH_MANAGER: "/branch",
   AGENT: "/agent",
   BACK_OFFICE: "/backoffice",
+  FINANCE_OFFICER: "/accounts",
 };
 
 /** Landing route after a successful login. */
@@ -82,6 +88,7 @@ export const ROLE_HOME: Record<Role, string> = {
   BRANCH_MANAGER: "/branch/dashboard",
   AGENT: "/agent/dashboard",
   BACK_OFFICE: "/backoffice/dashboard",
+  FINANCE_OFFICER: "/accounts/dashboard",
 };
 
 /** Each kind of account's own login page. */
@@ -91,6 +98,7 @@ export const ROLE_LOGIN: Record<Role, string> = {
   BRANCH_MANAGER: "/branch/login",
   AGENT: "/agent/login",
   BACK_OFFICE: "/login",
+  FINANCE_OFFICER: "/login",
 };
 
 export const ROLE_LABEL: Record<Role, string> = {
@@ -99,6 +107,7 @@ export const ROLE_LABEL: Record<Role, string> = {
   BRANCH_MANAGER: "Branch Manager",
   AGENT: "Agent",
   BACK_OFFICE: "Back Office",
+  FINANCE_OFFICER: "Accounts Office",
 };
 
 /**
@@ -132,6 +141,7 @@ export const PERMISSIONS = [
   "agent:read", "agent:read:self", "agent:write",
   "agentadvance:read", "agentadvance:read:self", "agentadvance:request", "agentadvance:approve",
   "paymentrequest:read", "paymentrequest:request", "paymentrequest:approve", "paymentrequest:release",
+  "paymentrequest:pay",
   "employeepayment:record",
   "agentsummary:read", "agentsummary:read:self",
   "invoice:read", "invoice:read:self",
@@ -145,6 +155,19 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
+  /**
+   * Accounts Office: pays the agent invoices the Admin's payroll runs produce (M-Pesa, cheque or manual, with
+   * proof), sees every branch's employees and adds employees through the same request form (an Admin approves).
+   */
+  FINANCE_OFFICER: [
+    "branch:read", "department:read",
+    "employee:request",
+    "agent:read",
+    "agentadvance:read",
+    "paymentrequest:read", "paymentrequest:pay",
+    "agentsummary:read", "invoice:read",
+    "notification:read:self",
+  ],
   /**
    * Admin — the top role. Everything Super Admin could do (company, settings, users, history
    * log, branches, departments, devices) plus day-to-day running: adding employees directly,

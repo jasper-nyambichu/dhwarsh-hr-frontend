@@ -34,4 +34,12 @@ export const NOTIFICATION_TYPE = {
   EMPLOYEE_REQUEST_APPROVED: "EMPLOYEE_REQUEST_APPROVED",
   EMPLOYEE_REQUEST_REJECTED: "EMPLOYEE_REQUEST_REJECTED",
   BRANCH_CHANGED: "BRANCH_CHANGED",
+  /** Accounts Office: a payroll run produced an agent invoice to pay (reference: the payment request). */
+  AGENT_INVOICE_TO_PAY: "AGENT_INVOICE_TO_PAY",
+  /** Admin: the Accounts Office paid an agent (reference: the payment request). */
+  AGENT_PAYMENT_PAID: "AGENT_PAYMENT_PAID",
+  /** Agent: their invoice is ready (reference: the payment). */
+  AGENT_INVOICE_READY: "AGENT_INVOICE_READY",
+  /** Agent: money paid / released to them (reference: the payment request). */
+  PAYMENT_REQUEST_RELEASED: "PAYMENT_REQUEST_RELEASED",
 } as const;

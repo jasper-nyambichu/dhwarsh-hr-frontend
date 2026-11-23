@@ -12,6 +12,7 @@ import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { getAgentEmployees, getMyEmployeePayments, getMyPaymentRequests } from "@/lib/api/agent-money";
+import { evidenceHref, paymentSummary } from "@/components/features/accounts/payment-proof";
 import { formatDate } from "@/lib/format";
 import { formatKes } from "@/lib/money-format";
 
@@ -123,8 +124,21 @@ export default async function AgentPaymentsPage() {
                         <p className="mt-1 text-xs text-on-surface-variant">
                           Paid {formatKes(request.paidTotal)} of {formatKes(request.amount)} · {request.paymentCount} payment
                           {request.paymentCount === 1 ? "" : "s"} · {formatKes(request.remaining)} left
-                          {request.releaseReference ? ` · reference ${request.releaseReference}` : ""}
+                          {!request.paymentMethod && request.releaseReference ? ` · reference ${request.releaseReference}` : ""}
                         </p>
+                        {request.paymentMethod ? (
+                          <p className="mt-1 flex flex-wrap items-center gap-x-3 text-xs text-on-surface-variant">
+                            <span>
+                              Paid to you by {paymentSummary(request)}
+                              {request.paidOn ? ` on ${formatDate(request.paidOn)}` : ""}
+                            </span>
+                            {request.hasEvidence ? (
+                              <a href={evidenceHref(request.id)} target="_blank" rel="noopener noreferrer" className="font-semibold text-primary hover:underline">
+                                Proof of payment
+                              </a>
+                            ) : null}
+                          </p>
+                        ) : null}
                       </div>
                     ) : null}
 

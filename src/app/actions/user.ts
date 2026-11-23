@@ -7,7 +7,7 @@ import { toActionError } from "@/app/lib/api-error";
 import { requirePermission } from "@/app/lib/dal";
 import { credentialsSchema } from "@/app/lib/definitions";
 import { flashToast } from "@/app/lib/flash";
-import { assignUserBranch, changeCredentials, createAgentLogin, createBranchLogin, deleteUser, getSavedLogin, linkUserEmployee, type SavedLogin } from "@/lib/api/user";
+import { assignUserBranch, changeCredentials, createAccountsLogin, createAgentLogin, createBranchLogin, deleteUser, getSavedLogin, linkUserEmployee, type SavedLogin } from "@/lib/api/user";
 import type { ActionState } from "@/types";
 
 /** Returned so the Admin can share them. `password` is empty when it was left unchanged. */
@@ -48,6 +48,8 @@ export async function saveCredentialsAction(
       await createAgentLogin(agentId, credentials);
     } else if (branchId && (role === "BRANCH_MANAGER" || role === "BACK_OFFICE")) {
       await createBranchLogin(branchId, role, credentials);
+    } else if (role === "FINANCE_OFFICER") {
+      await createAccountsLogin(credentials);
     } else {
       return { status: "error", message: "Unknown account." };
     }

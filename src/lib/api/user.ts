@@ -40,6 +40,11 @@ export function createBranchLogin(branchId: number, role: Role, credentials: Cre
 }
 
 /** The Admin sets an agent's login. Refused if the agent already has one. */
+/** An Accounts Office login (only where the organisation uses the Accounts Office). */
+export function createAccountsLogin(credentials: Credentials): Promise<UserSummaryResponse> {
+  return api.post<UserSummaryResponse>("/users/accounts-office/login", credentials);
+}
+
 export function createAgentLogin(agentId: number, credentials: Credentials): Promise<UserSummaryResponse> {
   return api.post<UserSummaryResponse>(`/users/agents/${agentId}/login`, credentials);
 }

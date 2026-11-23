@@ -7,6 +7,10 @@ import { AgentPaymentDetailView } from "@/components/features/settings/agent-pay
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
+import { PaymentProof } from "@/components/features/accounts/payment-proof";
+import { BentoCard } from "@/components/shared/bento-card";
+import { getMyPaymentRequests } from "@/lib/api/agent-money";
+import { getOrganisationBranding } from "@/lib/api/organisation";
 import { getAgentPaymentDetail } from "@/lib/api/settlement";
 import { formatDateRange } from "@/lib/format";
 
@@ -29,6 +33,9 @@ export default async function AgentInvoiceDocumentPage({ params }: { params: Pro
     if (error instanceof ApiError && (error.status === 404 || error.status === 403)) notFound();
     return <DataUnavailable title="Invoice" subject="This invoice" reason={error instanceof ApiError ? error.message : undefined} />;
   }
+
+  const [requests, branding] = await Promise.all([getMyPaymentRequests().catch(() => []), getOrganisationBranding()]);
+  const payment = detail.paymentRequestId ? requests.find((request) => request.id === detail.paymentRequestId) ?? null : null;
 
   return (
     <>
@@ -67,6 +74,13 @@ export default async function AgentInvoiceDocumentPage({ params }: { params: Pro
           </div>
         }
       />
+      {payment ? (
+        <div className="mb-gutter">
+          <BentoCard title="Payment to you" subtitle={`Payment #${payment.id}`}>
+            <PaymentProof request={payment} payer={branding.accountsOffice ? "the Accounts Office" : "the Administrator"} />
+          </BentoCard>
+        </div>
+      ) : null}
       <AgentPaymentDetailView detail={detail} />
     </>
   );

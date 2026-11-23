@@ -10,6 +10,9 @@ import { ConfirmDeleteButton } from "@/components/shared/confirm-delete-button";
 import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { PageHeader } from "@/components/shared/page-header";
 import { Icon } from "@/components/ui/icon";
+import { PaymentProof } from "@/components/features/accounts/payment-proof";
+import { getPaymentRequest } from "@/lib/api/agent-money";
+import { getOrganisationBranding } from "@/lib/api/organisation";
 import { getAgentPaymentDetail } from "@/lib/api/settlement";
 import { formatDateRange } from "@/lib/format";
 
@@ -30,6 +33,12 @@ export default async function AdminAgentPaymentPage({ params }: { params: Promis
     if (error instanceof ApiError && error.status === 404) notFound();
     return <DataUnavailable title="Agent payment" subject="This payment" reason={error instanceof ApiError ? error.message : undefined} />;
   }
+
+  const [payment, branding] = await Promise.all([
+    detail.paymentRequestId ? getPaymentRequest(detail.paymentRequestId).catch(() => null) : Promise.resolve(null),
+    getOrganisationBranding(),
+  ]);
+  const paid = payment?.status === "RELEASED";
 
   return (
     <>
@@ -70,9 +79,17 @@ export default async function AdminAgentPaymentPage({ params }: { params: Promis
           </div>
         }
       />
+      {payment ? (
+        <div className="mb-gutter">
+          <BentoCard title="Payment to the agent" subtitle={`Payment #${payment.id}`}>
+            <PaymentProof request={payment} payer={branding.accountsOffice ? "the Accounts Office" : "the Administrator"} />
+          </BentoCard>
+        </div>
+      ) : null}
+
       <AgentPaymentDetailView detail={detail} />
 
-      <div className="mt-gutter max-w-xl">
+      {paid ? null : <div className="mt-gutter max-w-xl">
         <BentoCard
           title="Undo this payment"
           subtitle="For a payment run by mistake or as a test. It is removed as if it had never been run: the loans, damages and advances it took are given back (advances stay approved, just owed again), and its money request, payslips and the agent's invoice disappear. Not possible once the agent has recorded paying employees from it."
@@ -86,7 +103,7 @@ export default async function AdminAgentPaymentPage({ params }: { params: Promis
             confirmText="Loans, damages and advances it took are given back, and its money request, payslips and invoice are removed. The period can then be run again."
           />
         </BentoCard>
-      </div>
+      </div>}
     </>
   );
 }

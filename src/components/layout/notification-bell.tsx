@@ -251,6 +251,22 @@ const TYPE_STYLE: Record<string, { icon: string; chip: string }> = {
     icon: "move_up",
     chip: "bg-blue-soft text-primary-container",
   },
+  [NOTIFICATION_TYPE.AGENT_INVOICE_TO_PAY]: {
+    icon: "request_quote",
+    chip: "bg-amber-main/15 text-amber-main",
+  },
+  [NOTIFICATION_TYPE.AGENT_PAYMENT_PAID]: {
+    icon: "paid",
+    chip: "bg-tertiary-container/20 text-tertiary",
+  },
+  [NOTIFICATION_TYPE.AGENT_INVOICE_READY]: {
+    icon: "description",
+    chip: "bg-blue-soft text-primary-container",
+  },
+  [NOTIFICATION_TYPE.PAYMENT_REQUEST_RELEASED]: {
+    icon: "paid",
+    chip: "bg-tertiary-container/20 text-tertiary",
+  },
 };
 
 const DEFAULT_STYLE = {
@@ -274,6 +290,14 @@ function hrefFor(item: NotificationResponse, pathname: string): string | null {
       return pathname.startsWith("/agent") ? "/agent/requests" : null;
     case NOTIFICATION_TYPE.BRANCH_CHANGED:
       return pathname.startsWith("/branch") ? "/branch/dashboard" : null;
+    case NOTIFICATION_TYPE.AGENT_INVOICE_TO_PAY:
+      return pathname.startsWith("/accounts") ? "/accounts/payments" : null;
+    case NOTIFICATION_TYPE.AGENT_PAYMENT_PAID:
+      return pathname.startsWith("/admin") ? "/admin/money-requests?tab=payments" : null;
+    case NOTIFICATION_TYPE.AGENT_INVOICE_READY:
+      return pathname.startsWith("/agent") && item.referenceId ? `/agent/invoices/${item.referenceId}` : null;
+    case NOTIFICATION_TYPE.PAYMENT_REQUEST_RELEASED:
+      return pathname.startsWith("/agent") ? "/agent/payments" : null;
     default:
       return null;
   }

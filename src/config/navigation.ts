@@ -76,6 +76,17 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Profile", href: "/agent/profile", icon: "account_circle" },
   ],
 
+  // Pays the agent invoices from each payroll run, with the mode of payment and proof (where the organisation uses it).
+  FINANCE_OFFICER: [
+    { title: "Dashboard", href: "/accounts/dashboard", icon: "dashboard" },
+    { title: "Payments", href: "/accounts/payments", icon: "payments" },
+    { title: "Invoices", href: "/accounts/invoices", icon: "description" },
+    { title: "Employees", href: "/accounts/employees", icon: "group" },
+    { title: "Requests", href: "/accounts/requests", icon: "pending_actions" },
+    { title: "Advances", href: "/accounts/advances", icon: "account_balance_wallet" },
+    { title: "Profile", href: "/accounts/profile", icon: "account_circle" },
+  ],
+
   // Runs the clock-in/out application and biometric devices; records the days agents are paid on.
   BACK_OFFICE: [
     { title: "Dashboard", href: "/backoffice/dashboard", icon: "dashboard" },
