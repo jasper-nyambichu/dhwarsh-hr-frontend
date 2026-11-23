@@ -14,7 +14,6 @@ import { loadAccountsPayments } from "@/lib/accounts";
 import { getAdvances } from "@/lib/api/agent-money";
 import { getBranches } from "@/lib/api/branch";
 import { getBranchDirectory } from "@/lib/api/employee";
-import { getMyStaffRequests } from "@/lib/api/staff";
 import { formatDate, formatDateRange, formatNumber } from "@/lib/format";
 import { formatKes } from "@/lib/money-format";
 
@@ -26,7 +25,7 @@ import { formatKes } from "@/lib/money-format";
 
 const QUICK_ACCESS_GROUPS: readonly { title: string; hrefs: readonly string[] }[] = [
   { title: "Money", hrefs: ["/accounts/payments", "/accounts/invoices", "/accounts/advances"] },
-  { title: "People", hrefs: ["/accounts/employees/new", "/accounts/employees", "/accounts/requests"] },
+  { title: "People", hrefs: ["/accounts/employees/new", "/accounts/employees"] },
 ];
 
 const CARD_LINK =
@@ -43,10 +42,9 @@ export default async function AccountsDashboardPage() {
     return <DataUnavailable title="Dashboard" subject="The dashboard" reason={error instanceof ApiError ? error.message : undefined} />;
   }
 
-  const [lists, advancesResult, requestsResult] = await Promise.all([
+  const [lists, advancesResult] = await Promise.all([
     Promise.allSettled(branches.map((branch) => getBranchDirectory(branch.id))),
     getAdvances().catch(() => null),
-    getMyStaffRequests().catch(() => null),
   ]);
 
   const headcount = branches.map((branch, index) => {
@@ -63,19 +61,17 @@ export default async function AccountsDashboardPage() {
   const owedAdvances = (advancesResult ?? [])
     .filter((advance) => advance.status === "OUTSTANDING" || advance.status === "PARTIALLY_RECOVERED")
     .reduce((sum, advance) => sum + advance.outstandingBalance, 0);
-  const pendingRequests = (requestsResult ?? []).filter((request) => request.status === "PENDING").length;
 
   const hints: Record<string, Pick<QuickAccessItem, "hint" | "attention">> = {
     "/accounts/payments": { hint: `${formatNumber(payments.toPay.length)} to pay · ${formatKes(toPayTotal)}`, attention: payments.toPay.length },
     "/accounts/invoices": { hint: "Every agent invoice, to view or print" },
     "/accounts/advances": { hint: advancesResult ? `${formatKes(owedAdvances)} still owed` : "Advances given to agents" },
     "/accounts/employees": { hint: `${formatNumber(totalEmployees)} employees in ${formatNumber(branches.length)} branches` },
-    "/accounts/requests": { hint: requestsResult ? `${formatNumber(pendingRequests)} waiting for the Admin` : "Employees you submitted" },
     "/accounts/profile": { hint: "Your login and password" },
   };
 
   const quickAccess: QuickAccessItem[] = [
-    { href: "/accounts/employees/new", title: "Add Employee", icon: "person_add", hint: "Submit a new employee for approval" },
+    { href: "/accounts/employees/new", title: "Add Employee", icon: "person_add", hint: "Register a new employee" },
     ...navigationFor(session.role)
       .filter((item) => item.href !== "/accounts/dashboard")
       .map((item) => ({ href: item.href, title: item.title, icon: item.icon, ...(hints[item.href] ?? { hint: `Open ${item.title}` }) })),

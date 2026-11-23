@@ -42,7 +42,11 @@ export default async function AccountsBranchEmployeesPage({ params }: { params: 
           </span>
         }
       />
-      <BranchEmployeesTable employees={data.employees} emptyDescription="No employees in this branch yet." />
+      <BranchEmployeesTable
+        employees={data.employees}
+        employeeHref={(employeeId) => `/accounts/employees/${employeeId}`}
+        emptyDescription="No employees in this branch yet."
+      />
     </>
   );
 }

@@ -86,12 +86,17 @@ function readEmployee(formData: FormData): Parsed {
   };
 }
 
-/** Admin: save changes to an employee's details. The branch is changed from the Branch card instead. */
+/** Admin or Accounts Office: the employee's page in the portal of whoever saved it. */
+function employeePage(role: string, id: number): string {
+  return role === "FINANCE_OFFICER" ? `/accounts/employees/${id}` : `/admin/employees/${id}`;
+}
+
+/** Admin or Accounts Office: save changes to an employee's details. The branch is changed from the Branch card instead. */
 export async function updateEmployeeAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requirePermission("employee:write");
+  const session = await requirePermission("employee:maintain");
 
   const id = Number(formData.get("employeeId"));
   if (!Number.isInteger(id) || id <= 0) return { status: "error", message: "Unknown employee." };
@@ -107,15 +112,15 @@ export async function updateEmployeeAction(
 
   refresh();
   await flashToast("success", "Employee details saved.");
-  redirect(`/admin/employees/${id}`);
+  redirect(employeePage(session.role, id));
 }
 
-/** Admin: add an employee straight away — no approval step. */
+/** Admin or Accounts Office: add an employee straight away — no approval step. */
 export async function addEmployeeAction(
   _previous: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
-  await requirePermission("employee:write");
+  const session = await requirePermission("employee:maintain");
 
   const parsed = readEmployee(formData);
   if (!parsed.ok) return parsed.state;
@@ -129,7 +134,7 @@ export async function addEmployeeAction(
 
   refresh();
   await flashToast("success", "Employee added.");
-  redirect(`/admin/employees/${employeeId}`);
+  redirect(employeePage(session.role, employeeId));
 }
 
 /**
@@ -158,7 +163,7 @@ export async function requestEmployeeAction(
     session.role === "AGENT"
       ? "/agent/requests?sent=1"
       : session.role === "FINANCE_OFFICER"
-        ? "/accounts/requests?sent=1"
+        ? "/accounts/employees"
         : "/branch/approvals?sent=1",
   );
 }

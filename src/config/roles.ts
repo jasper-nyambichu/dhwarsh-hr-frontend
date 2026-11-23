@@ -126,6 +126,7 @@ export const PERMISSIONS = [
   "department:read", "department:write",
   "employee:read", "employee:read:branch", "employee:read:self", "employee:write",
   "employee:request", "employee:export",
+  "employee:maintain",
   "payslip:read", "payslip:read:branch", "payslip:read:self",
   "offday:read", "offday:read:branch", "offday:manage", "offday:grant",
   "employee:document:read", "employee:document:write",
@@ -157,11 +158,11 @@ export type Permission = (typeof PERMISSIONS)[number];
 export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
   /**
    * Accounts Office: pays the agent invoices the Admin's payroll runs produce (M-Pesa, cheque or manual, with
-   * proof), sees every branch's employees and adds employees through the same request form (an Admin approves).
+   * proof), sees every branch's employees, and adds and edits employees directly (no approval step).
    */
   FINANCE_OFFICER: [
     "branch:read", "department:read",
-    "employee:request",
+    "employee:read", "employee:maintain",
     "agent:read",
     "agentadvance:read",
     "paymentrequest:read", "paymentrequest:pay",
@@ -177,7 +178,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "company:read", "company:write", "company:settings",
     "branch:read", "branch:write",
     "department:read", "department:write",
-    "employee:read", "employee:write", "employee:document:read", "employee:document:write",
+    "employee:read", "employee:write", "employee:maintain", "employee:document:read", "employee:document:write",
     "attendance:read", "attendance:write",
     "biometric:read", "biometric:enroll", "biometric:device:manage",
     "dayswork:read", "agentpayment:run", "damage:read", "damage:cancel",
@@ -198,7 +199,7 @@ export const ROLE_PERMISSIONS: Record<Role, readonly Permission[]> = {
     "company:read", "company:write", "company:settings",
     "branch:read", "branch:write",
     "department:read", "department:write",
-    "employee:read", "employee:write", "employee:document:read", "employee:document:write",
+    "employee:read", "employee:write", "employee:maintain", "employee:document:read", "employee:document:write",
     "attendance:read", "attendance:write",
     "biometric:read", "biometric:enroll", "biometric:device:manage",
     "dayswork:read", "agentpayment:run", "damage:read", "damage:cancel",

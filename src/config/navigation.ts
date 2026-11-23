@@ -82,7 +82,6 @@ export const ROLE_NAVIGATION: Record<Role, readonly NavItem[]> = {
     { title: "Payments", href: "/accounts/payments", icon: "payments" },
     { title: "Invoices", href: "/accounts/invoices", icon: "description" },
     { title: "Employees", href: "/accounts/employees", icon: "group" },
-    { title: "Requests", href: "/accounts/requests", icon: "pending_actions" },
     { title: "Advances", href: "/accounts/advances", icon: "account_balance_wallet" },
     { title: "Profile", href: "/accounts/profile", icon: "account_circle" },
   ],
