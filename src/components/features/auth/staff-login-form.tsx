@@ -47,19 +47,22 @@ export function StaffLoginForm({
   useActionToast(state);
 
   return (
-    <form action={formAction} className="flex flex-col gap-4" style={{ "--accent": accent } as CSSProperties}>
+    <form action={formAction} className="space-y-4" style={{ "--accent": accent } as CSSProperties}>
       <input type="hidden" name="next" value={next} />
 
       {/* Top-level failure (bad credentials, server unreachable). */}
       {error && !fieldErrors ? (
-        <div role="alert" className="flex items-start gap-2 rounded-lg border border-error/30 bg-error-container/40 px-3 py-2">
-          <Icon name="error" className="mt-px text-[16px] text-error" />
-          <p className="font-body-md text-body-md text-on-error-container">{error.message}</p>
+        <div role="alert" className="mb-1 flex items-start gap-2.5 rounded-xl border border-red-200/80 bg-red-50 p-3.5 text-xs text-red-700">
+          <Icon name="error" className="mt-0.5 shrink-0 text-[18px] text-red-500" />
+          <div className="leading-relaxed">
+            <strong className="block font-semibold text-red-800">Sign-in failed</strong>
+            {error.message}
+          </div>
         </div>
       ) : null}
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold text-[#14213d]" htmlFor="username">
+        <label className={LABEL} htmlFor="username">
           Username
         </label>
         <Field icon="person" invalid={Boolean(fieldErrors?.username)}>
@@ -76,11 +79,11 @@ export function StaffLoginForm({
             className={INPUT}
           />
         </Field>
-        {fieldErrors?.username ? <p className="mt-1 text-xs text-error">{fieldErrors.username[0]}</p> : null}
+        <FieldError message={fieldErrors?.username?.[0]} />
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold text-[#14213d]" htmlFor="password">
+        <label className={LABEL} htmlFor="password">
           Password
         </label>
         <Field icon="lock" invalid={Boolean(fieldErrors?.password)}>
@@ -98,64 +101,81 @@ export function StaffLoginForm({
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? "Hide password" : "Show password"}
-            className="mr-1.5 flex size-9 shrink-0 items-center justify-center rounded-md text-slate-500 transition-colors hover:text-[var(--accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md text-slate-400 transition-colors hover:text-slate-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)]/40"
           >
             <Icon name={showPassword ? "visibility_off" : "visibility"} className="text-[20px]" />
           </button>
         </Field>
-        {fieldErrors?.password ? <p className="mt-1 text-xs text-error">{fieldErrors.password[0]}</p> : null}
+        <FieldError message={fieldErrors?.password?.[0]} />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <label className="group flex cursor-pointer items-center gap-2">
-          <input type="checkbox" name="remember" className="size-4 cursor-pointer rounded border-slate-400 accent-[var(--accent)]" />
-          <span className="text-sm text-on-surface-variant transition-colors group-hover:text-on-surface">Remember me</span>
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 pt-0.5 text-xs">
+        <label className="flex cursor-pointer select-none items-center gap-2 text-[#475569] hover:text-slate-900">
+          <input type="checkbox" name="remember" className="size-4 cursor-pointer rounded border-slate-300 accent-[var(--accent)]" />
+          <span className="font-medium">Remember me</span>
         </label>
-        <Link href={forgotHref} className="text-sm font-medium text-[var(--accent)] hover:underline">
-          Forgot password?
+        <Link
+          href={forgotHref}
+          className="rounded font-semibold text-[var(--accent)] hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-1"
+        >
+          Forgot Password?
         </Link>
       </div>
 
-      <button
-        type="submit"
-        disabled={pending}
-        className={cn(
-          "mt-2 flex h-12 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-4 disabled:cursor-not-allowed disabled:opacity-70",
-          buttonClass,
-        )}
-      >
-        {pending ? (
-          <>
-            <Icon name="autorenew" className="spin-slow text-[18px]" />
-            Signing in…
-          </>
-        ) : (
-          <>
-            <Icon name="login" className="text-[18px]" />
-            {submitLabel}
-          </>
-        )}
-      </button>
+      <div className="pt-2">
+        <button
+          type="submit"
+          disabled={pending}
+          className={cn(
+            "flex h-12 w-full items-center justify-center gap-2 rounded-lg text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:shadow focus:outline-none focus-visible:ring-4 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-70",
+            buttonClass,
+          )}
+        >
+          {pending ? (
+            <>
+              <Icon name="progress_activity" className="animate-spin text-[20px]" />
+              Signing in…
+            </>
+          ) : (
+            <>
+              <Icon name="login" className="text-[20px]" />
+              {submitLabel}
+            </>
+          )}
+        </button>
+      </div>
     </form>
   );
 }
 
+const LABEL = "mb-1.5 block text-xs font-semibold tracking-wide text-slate-700";
+
 const INPUT =
-  "h-full min-w-0 flex-1 border-0 bg-transparent pr-3 font-body-md text-base text-on-surface placeholder:text-slate-400 focus:outline-none focus:ring-0 sm:text-sm";
+  "h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-base text-slate-900 placeholder:text-[#94A3B8] focus:outline-none focus:ring-0 sm:text-sm";
 
 /** A field from the design: a plain bordered box with an icon before the text. */
 function Field({ icon, invalid, children }: { icon: string; invalid: boolean; children: ReactNode }) {
   return (
     <div
       className={cn(
-        "flex h-12 items-center rounded-lg border bg-white transition-shadow focus-within:ring-4",
+        "flex h-12 w-full items-center rounded-lg border bg-white px-3.5 transition-all duration-200 focus-within:ring-4",
         invalid
-          ? "border-error focus-within:ring-error/15"
-          : "border-slate-300 focus-within:border-[var(--accent)] focus-within:ring-[var(--accent)]/15",
+          ? "border-red-500 bg-red-50/20 focus-within:ring-red-500/15"
+          : "border-[#CBD5E1] focus-within:border-[var(--accent)] focus-within:ring-[var(--accent)]/15",
       )}
     >
-      <Icon name={icon} className="ml-3.5 mr-2.5 shrink-0 text-[20px] leading-none text-slate-500" />
+      <Icon name={icon} className="mr-2.5 shrink-0 text-[20px] text-slate-400" />
       {children}
     </div>
+  );
+}
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p className="mt-1 flex items-center gap-1 text-xs text-red-600">
+      <Icon name="error" className="text-[14px]" />
+      {message}
+    </p>
   );
 }

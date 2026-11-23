@@ -16,7 +16,7 @@ export default async function Page() {
     <LoginLayout
       portal="admin"
       branding={branding}
-      tagline="Employees, attendance, off days and agent payments in one place."
+      tagline="Centralized attendance, smart leave governance, and verified agent payment operations."
       subtitle="Sign in to the admin portal."
     >
       {/* useSearchParams needs a Suspense boundary during prerender. */}
