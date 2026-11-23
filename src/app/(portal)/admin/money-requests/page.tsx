@@ -67,7 +67,15 @@ export default async function MoneyRequestsPage({
 
   // Only advances an agent asked for need a decision; any others are already approved.
   const pendingAdvances = advances.filter((advance) => advance.status === "PENDING");
-  const decidedAdvances = advances.filter((advance) => advance.requestedByAgent && advance.status !== "PENDING").slice(0, 8);
+  // Every advance already decided, whether the agent asked for it or the Administrator recorded it, newest first,
+  // so an advance given stays on record here (it used to show only the latest 8 an agent asked for).
+  const decidedAdvances = advances
+    .filter((advance) => advance.status !== "PENDING")
+    .sort((a, b) => b.advanceDate.localeCompare(a.advanceDate) || b.id - a.id);
+  const advancesOwed = decidedAdvances
+    .filter((advance) => advance.status === "OUTSTANDING" || advance.status === "PARTIALLY_RECOVERED")
+    .reduce((sum, advance) => sum + advance.outstandingBalance, 0);
+  const advancesGiven = decidedAdvances.filter((advance) => advance.status !== "REJECTED").length;
 
   const pendingLoans = loans.filter((loan) => loan.status === "PENDING");
   const decidedLoans = loans.filter((loan) => loan.status !== "PENDING").slice(0, 8);
@@ -200,11 +208,16 @@ export default async function MoneyRequestsPage({
             )}
           </BentoCard>
 
-          {decidedAdvances.length > 0 ? (
-            <BentoCard title="Recently decided" subtitle="Latest 8 requested by agents">
-              <AdvanceList advances={decidedAdvances} />
-            </BentoCard>
-          ) : null}
+          <BentoCard
+            title="All advances given"
+            subtitle={`${advancesGiven} advance(s) given · ${formatKes(advancesOwed)} still owed by agents`}
+          >
+            {decidedAdvances.length === 0 ? (
+              <EmptyState symbol="payments" title="No advances yet" description="Advances given to agents will be listed here." />
+            ) : (
+              <AdvanceList advances={decidedAdvances} showAgent />
+            )}
+          </BentoCard>
         </div>
       ) : null}
 

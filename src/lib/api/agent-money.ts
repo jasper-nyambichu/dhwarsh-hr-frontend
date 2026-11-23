@@ -63,6 +63,11 @@ export function getAdvances(signal?: AbortSignal): Promise<AdvanceItem[]> {
   return api.get<AdvanceItem[]>("/agent-advances", { signal });
 }
 
+/** Every advance of one agent (Admin, Payroll and the agent themself). */
+export function getAgentAdvances(agentId: number, signal?: AbortSignal): Promise<AdvanceItem[]> {
+  return api.get<AdvanceItem[]>(`/agent-advances/by-agent/${agentId}`, { signal });
+}
+
 export function approveAdvance(id: number): Promise<AdvanceItem> {
   return api.put<AdvanceItem>(`/agent-advances/${id}/approve`);
 }

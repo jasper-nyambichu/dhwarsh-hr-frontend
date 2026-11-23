@@ -10,7 +10,10 @@ import { DataUnavailable } from "@/components/shared/data-unavailable";
 import { EmptyState } from "@/components/shared/empty-state";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { Icon } from "@/components/ui/icon";
+import { AdvanceList } from "@/components/features/money/money-lists";
 import { getAgent, getAgentStaff } from "@/lib/api/agent";
+import { getAgentAdvances } from "@/lib/api/agent-money";
+import { formatKes } from "@/lib/money-format";
 import {
   formatDate,
   formatMoney,
@@ -18,6 +21,7 @@ import {
   initials,
 } from "@/lib/format";
 import type { AgentResponse, ChargeType, EmployeeSummaryResponse } from "@/types";
+import type { AdvanceItem } from "@/types/money-flow";
 
 /**
  * Agent detail: contract terms and the staff that agent has deployed.
@@ -32,11 +36,9 @@ import type { AgentResponse, ChargeType, EmployeeSummaryResponse } from "@/types
  * `PUT /agents/{id}` accepts ADMIN, `PUT /agents/{id}/deactivate` is
  * SUPER_ADMIN only.
  *
- * Two cards the placeholder carried are gone rather than stubbed: **outstanding
- * advances** (there is no agent-advance read on this endpoint and no
- * `/agent-advances` client module yet) and **invoice history** (no invoice
- * endpoint, and the placeholder linked into `/manager/*`, a namespace that does
- * not exist in this app).
+ * "Advances given" lists every advance of this agent from
+ * `GET /agent-advances/by-agent/{id}` (asked, approved, taken back, still owed).
+ * Invoice history is not stubbed: payments are under Pay Rates.
  */
 
 const CHARGE_TYPE_LABEL: Record<ChargeType, string> = {
@@ -107,6 +109,14 @@ export default async function AgentDetailPage({
       />
     );
   }
+
+  // Advances are a separate read: if it fails, the rest of the page still shows.
+  const advances: AdvanceItem[] | null = await getAgentAdvances(agentId)
+    .then((list) => [...list].sort((a, b) => b.advanceDate.localeCompare(a.advanceDate) || b.id - a.id))
+    .catch(() => null);
+  const advancesOwed = (advances ?? [])
+    .filter((advance) => advance.status === "OUTSTANDING" || advance.status === "PARTIALLY_RECOVERED")
+    .reduce((sum, advance) => sum + advance.outstandingBalance, 0);
 
   const canEdit = viewer.role === "SUPER_ADMIN" || viewer.role === "ADMIN";
   const canDeactivate = canEdit;
@@ -210,6 +220,23 @@ export default async function AgentDetailPage({
               </div>
             )}
           </BentoCard>
+
+          {advances !== null ? (
+            <BentoCard
+              title="Advances given"
+              subtitle={
+                advances.length === 0
+                  ? "No advances given to this agent"
+                  : `${advances.length} advance(s) · ${formatKes(advancesOwed)} still owed`
+              }
+            >
+              {advances.length === 0 ? (
+                <EmptyState symbol="payments" title="No advances" description="Advances given to this agent will be listed here." />
+              ) : (
+                <AdvanceList advances={advances} />
+              )}
+            </BentoCard>
+          ) : null}
 
           <BentoCard
             title="Contract Terms"

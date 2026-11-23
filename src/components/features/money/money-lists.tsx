@@ -94,12 +94,16 @@ function recovered(advance: AdvanceItem): number {
  * Advances, as cards on phones and a table from tablet width up: the date each was asked for, the date it was
  * approved, and what has been taken back from payments (with a minus) and is still owed.
  */
-export function AdvanceList({ advances }: { advances: AdvanceItem[] }) {
+/** Advances, newest first as given. `showAgent` adds whose advance it is (for lists covering every agent). */
+export function AdvanceList({ advances, showAgent = false }: { advances: AdvanceItem[]; showAgent?: boolean }) {
   return (
     <>
       <ul className="flex flex-col gap-3 md:hidden">
         {advances.map((advance) => (
           <li key={advance.id} className="rounded-lg border border-outline-variant/50 p-3">
+            {showAgent ? (
+              <p className="mb-1 truncate text-xs font-semibold text-on-surface">{advance.agentName ?? `Agent #${advance.agentId}`}</p>
+            ) : null}
             <div className="flex items-start justify-between gap-3">
               <p className="text-lg font-bold tabular-nums text-on-surface">{formatKes(advance.amount)}</p>
               <MoneyStatusChip status={advance.status} />
@@ -128,7 +132,8 @@ export function AdvanceList({ advances }: { advances: AdvanceItem[] }) {
         <table className="data-table w-full min-w-[860px] border-collapse text-left">
           <thead>
             <tr>
-              <th className={`${TH} pl-2`}>Asked</th>
+              {showAgent ? <th className={`${TH} pl-2`}>Agent</th> : null}
+              <th className={showAgent ? TH : `${TH} pl-2`}>Asked</th>
               <th className={TH}>Approved</th>
               <th className={TH}>Purpose</th>
               <th className={`${TH} text-right`}>Amount</th>
@@ -140,7 +145,10 @@ export function AdvanceList({ advances }: { advances: AdvanceItem[] }) {
           <tbody className="font-body-md text-body-md text-on-surface">
             {advances.map((advance) => (
               <tr key={advance.id} className="border-b border-outline-variant/20 align-top last:border-0">
-                <td className="py-3 pl-2 text-on-surface-variant">{when(advance.advanceDate)}</td>
+                {showAgent ? (
+                  <td className="py-3 pl-2 font-semibold text-on-surface">{advance.agentName ?? `Agent #${advance.agentId}`}</td>
+                ) : null}
+                <td className={showAgent ? "py-3 text-on-surface-variant" : "py-3 pl-2 text-on-surface-variant"}>{when(advance.advanceDate)}</td>
                 <td className="py-3 text-on-surface-variant">{approvedOn(advance) ? when(approvedOn(advance)!) : "—"}</td>
                 <td className="py-3">{advance.purpose ?? "—"}</td>
                 <td className="py-3 text-right font-semibold tabular-nums">{formatKes(advance.amount)}</td>
